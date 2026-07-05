@@ -1,0 +1,32 @@
+# Auto-detect text files and normalise line endings to LF in the repo
+# (Windows users: Git will convert to CRLF on checkout, LF on commit)
+* text=auto
+
+# Shell scripts must stay LF (even on Windows)
+*.sh text eol=lf
+
+# Batch files are typically CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# PowerShell scripts (cross-platform, LF preferred)
+*.ps1 text eol=lf
+
+# Python files
+*.py text diff=python
+
+# Markdown / docs
+*.md text
+*.rst text
+
+# YAML / JSON / TOML
+*.yml text
+*.yaml text
+*.json text
+*.toml text
+
+# CSV data (large, but should be text)
+*.csv text
+
+# Lockfiles are binary (don't touch)
+*.lock binary

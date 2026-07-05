@@ -22,7 +22,6 @@ param(
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $LogFile = Join-Path $ProjectRoot "auto_commit.log"
 $GitExe = "git"
-$MaxCommitsPerRun = 5   # safety limit to avoid runaway loops
 
 # ── Logging helpers ─────────────────────────────────────
 $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -103,9 +102,14 @@ if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 1) {
 }
 Write-Log "Committed: $commitMessage"
 
-# ── 7. Push to GitHub ─────────────────────────────────
-Write-Log "Pushing to GitHub (origin master)..."
-& $GitExe push origin master 2>&1 | ForEach-Object { Write-Log "  git push: $_" }
+# ── 7. Detect current branch & push ─────────────────
+$branch = & $GitExe rev-parse --abbrev-ref HEAD 2>&1
+if ($LASTEXITCODE -ne 0 -or -not $branch) {
+    $branch = "master"
+}
+$branch = $branch.Trim()
+Write-Log "Pushing to GitHub (origin/$branch)..."
+& $GitExe push origin $branch 2>&1 | ForEach-Object { Write-Log "  git push: $_" }
 if ($LASTEXITCODE -ne 0) {
     Write-Log "ERROR: Git push failed with code $LASTEXITCODE"
     Write-Log "  Check: is your remote configured? Any merge conflicts?"
