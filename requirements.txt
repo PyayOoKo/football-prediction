@@ -1,0 +1,41 @@
+# ── Core data science ───────────────────────────────────
+numpy>=1.26.0
+pandas>=2.2.0
+scipy>=1.12.0
+
+# ── Machine learning ────────────────────────────────────
+scikit-learn>=1.4.0
+xgboost>=2.0.0
+lightgbm>=4.3.0
+
+# ── Deep learning (optional) ────────────────────────────
+torch>=2.2.0
+
+# ── Visualisation ───────────────────────────────────────
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# ── Development & notebooks ─────────────────────────────
+jupyter>=1.0.0
+notebook>=7.0.0
+ipykernel>=6.29.0
+
+# ── Utilities ───────────────────────────────────────────
+python-dotenv>=1.0.0
+pyyaml>=6.0.1
+pydantic>=2.5.0
+tqdm>=4.66.0
+
+# ── Testing & linting ───────────────────────────────────
+pytest>=8.0.0
+pytest-cov>=4.1.0
+black>=24.0.0
+ruff>=0.3.0
+mypy>=1.8.0
+
+# ── API / HTTP (for data fetching) ──────────────────────
+requests>=2.31.0
+httpx>=0.27.0
+
+# ── Database (optional) ─────────────────────────────────
+sqlalchemy>=2.0.0
