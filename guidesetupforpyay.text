@@ -1,0 +1,466 @@
+================================================================================
+  FOOTBALL PREDICTION PROJECT — COMPLETE SETUP & RUN GUIDE
+================================================================================
+  For Pyay Oo Ko
+================================================================================
+
+████████████████████████████████████████████████████████████████████████████████
+  1.  FIRST TIME SETUP
+████████████████████████████████████████████████████████████████████████████████
+
+  A. Install Python (if not already installed)
+     ──────────────────────────────────────────────────────────────────────
+     Download from: https://www.python.org/downloads/
+     Make sure to check "Add Python to PATH" during installation.
+     Required: Python 3.12 or newer.
+
+  B. Create a virtual environment (RECOMMENDED — prevents package conflicts)
+     ──────────────────────────────────────────────────────────────────────
+     Virtual environments keep this project's packages isolated from other
+     Python projects on your system. Open a terminal in the project folder
+     and run:
+
+         python -m venv .venv
+         .venv\Scripts\activate
+
+     Your terminal prompt will show (.venv) at the start when active.
+
+  C. Install project dependencies
+     ──────────────────────────────────────────────────────────────────────
+     With the virtual environment activated, run:
+
+         pip install -r requirements.txt
+
+     This installs: numpy, pandas, scikit-learn, xgboost, lightgbm, torch
+     (optional), matplotlib, seaborn, python-dotenv, requests, pytest,
+     mypy, black, ruff, and other utilities.
+
+     ⚠ Remember to activate the virtual environment every time you open
+        a new terminal to work on this project:
+
+            .venv\Scripts\activate
+
+  D. Collect the World Cup data
+     ──────────────────────────────────────────────────────────────────────
+     Download all historical World Cup matches (2002-2026):
+
+         python collect_all_worldcups.py
+
+     This creates: data/raw/worldcup_all.csv  (488 matches across 7 tournaments)
+
+  E. (Optional) Get a live odds API key
+     ──────────────────────────────────────────────────────────────────────
+     For live odds (value bets), sign up at: https://the-odds-api.com/
+     It's free. Create a file called .env in the project folder with:
+
+         THE_ODDS_API_KEY=your_api_key_here
+
+     ⚠ The .env file is auto-loaded by config.py — no manual setup needed.
+     Without this, value bets will use fallback/hardcoded odds.
+
+  F. (Optional) Collect player data from Transfermarkt
+     ──────────────────────────────────────────────────────────────────────
+     For richer player-based features (age, squad value, injuries):
+
+         python collect_player_data.py
+
+     This creates: data/external/players.csv  (1,200+ player records)
+
+
+████████████████████████████████████████████████████████████████████████████████
+  2.  QUICK START — RUN EVERYTHING (after setup)
+████████████████████████████████████████████████████████████████████████████████
+
+  If you just want all the latest predictions in one go, run these in order:
+
+  Step 1 — Refresh data & train model:
+  ──────────────────────────────────────────────────────────────────────
+         python refresh_worldcup.py --skip-lineups
+
+     Downloads latest data, retrains the XGBoost model, and generates
+     predictions for all upcoming knockout matches.
+     Output: reports/predictions_worldcup/worldcup_predictions.csv
+
+  Step 2 — Simulate the full bracket & predict champion:
+  ──────────────────────────────────────────────────────────────────────
+         python bracket_simulator.py --monte-carlo 10000
+
+     Runs 10,000 Monte Carlo simulations of the knockout bracket.
+     Already-played matches are automatically loaded as actual results.
+     Output: reports/predictions_worldcup/bracket_prediction.csv
+             reports/predictions_worldcup/monte_carlo_probs.csv
+
+  Step 3 — Find value bets with live odds & calibration:
+  ──────────────────────────────────────────────────────────────────────
+         python today_value_bets_live.py --calibrate platt
+
+     Uses live odds from The Odds API (or fallback) to find bets with
+     positive expected value. Includes Platt calibration for improved
+     probability accuracy.
+     Output: reports/value_bets/latest.csv
+             reports/value_bets/value_bets_YYYYMMDD_HHMM.csv
+
+  Step 4 — View in dashboard:
+  ──────────────────────────────────────────────────────────────────────
+         python run_dashboard.py
+
+     Opens the Streamlit dashboard at http://localhost:8501
+
+
+████████████████████████████████████████████████████████████████████████████████
+  3.  INDIVIDUAL SCRIPTS — DETAILED USAGE
+████████████████████████████████████████████████████████████████████████████████
+
+  A. Train model & predict World Cup matches
+  ──────────────────────────────────────────────────────────────────────
+         python train_worldcup.py
+
+     Trains XGBoost (default) on 488 historical World Cup matches and
+     predicts upcoming knockout matches with swap-averaged probabilities.
+     Also outputs Poisson goal predictions (expected scoreline, O/U 2.5).
+
+     Options:
+       --model lr          Use Logistic Regression instead of XGBoost
+       --model rf          Use Random Forest instead of XGBoost
+       --skip-train        Load existing saved model (skip tuning + training)
+       --cv-folds N        Number of CV folds for tuning (default: 3)
+
+     Key feature flags (set in train_worldcup.py or overridden via config):
+       - config.dixon_coles.enabled = True  (Dixon-Coles goals model)
+       - config.player_info.enabled = True  (squad age/value/injuries)
+       - config.elo.adjustments = {"Morocco": 50}  (manual Elo penalty)
+
+     Output: reports/predictions_worldcup/worldcup_predictions.csv
+             models/worldcup_xgboost.joblib
+
+  B. Quick predict (standalone, no training)
+  ──────────────────────────────────────────────────────────────────────
+         python predict_worldcup.py
+
+     A lightweight script that loads existing data, builds features,
+     trains a fresh XGBoost, and outputs swap-averaged predictions.
+     Useful as a quick one-shot without the full train_worldcup pipeline.
+
+     Output: reports/predictions_worldcup/worldcup_predictions.csv
+
+  C. Simulate knockout bracket
+  ──────────────────────────────────────────────────────────────────────
+         python bracket_simulator.py
+
+     Simulates the full knockout bracket using model predictions.
+     Already-completed matches are auto-detected from the data CSV and
+     used as locked-in actual results (not re-simulated).
+
+     Options:
+       --monte-carlo N     Run N Monte Carlo simulations for champion
+                           probabilities (e.g., --monte-carlo 10000)
+       --show-detail       Show additional per-round details
+
+     Output: reports/predictions_worldcup/bracket_prediction.csv
+             reports/predictions_worldcup/monte_carlo_probs.csv
+
+  D. Find value bets (live odds + calibration)
+  ──────────────────────────────────────────────────────────────────────
+         python today_value_bets_live.py
+
+     This is the PRIMARY value bets script. Fetches LIVE odds from The
+     Odds API (or fallback) and finds bets where the model's probability
+     exceeds the market-implied probability.
+
+     Options:
+       --calibrate platt     Platt scaling calibration (recommended, default)
+       --calibrate isotonic  Isotonic regression calibration
+       --calibrate none      Skip calibration
+       --dixon-coles         Enable Dixon-Coles features (slower but may
+                             improve accuracy for sparse international data)
+       --days N              Look ahead N days for upcoming matches (default: 7)
+       --sport KEY           Sport key for The Odds API (default: soccer_fifa_world_cup)
+       --bankroll N          Set bankroll amount (default: 1000)
+       --kelly N             Kelly fraction (default: 0.25)
+       --force-hardcoded     Skip API, use hardcoded fallback odds
+       --live-only           Fail if API is unavailable
+       --no-save             Don't save results to CSV
+       --quiet               Minimal output (for scheduled runs)
+       --log-file PATH       Append output to a log file
+
+     Output: reports/value_bets/latest.csv
+             reports/value_bets/value_bets_YYYYMMDD_HHMM.csv
+
+  E. Find value bets (World Cup script, hardcoded odds)
+  ──────────────────────────────────────────────────────────────────────
+         python scripts/today_value_bets.py
+
+     A simpler version that uses hardcoded odds for specific matches.
+     Useful as a fallback when the API is down.
+
+  F. Refresh data (full automated pipeline)
+  ──────────────────────────────────────────────────────────────────────
+         python refresh_worldcup.py
+
+     Four-stage pipeline:
+       Step 1 — Download latest match results from openfootball
+       Step 2 — Resolve knockout bracket placeholders (W89 → actual team)
+       Step 3 — Collect player data from Transfermarkt
+       Step 4 — Train model & generate predictions
+
+     Options:
+       --skip-train        Refresh data only, skip training
+       --skip-lineups      Skip lineup collection (recommended — slow)
+       --force-players     Re-download player data from Transfermarkt
+       --force-lineups     Re-scrape all lineups
+       --dry-run           Preview changes without saving
+       --log-file PATH     Log to file (default: none)
+       --quiet             Minimal output (for scheduled runs)
+
+  G. Full combined pipeline (ensemble models + calibration + backtest)
+  ──────────────────────────────────────────────────────────────────────
+         python run_combined_pipeline.py
+
+     The most comprehensive pipeline. Trains an ensemble of LR + RF +
+     XGBoost + Poisson, optimises weights, calibrates with Platt/Isotonic
+     scaling, evaluates on test set, and runs a Kelly-criterion value
+     betting backtest.
+
+     Options:
+       --data-path PATH    Custom data CSV path
+       --calibration platt | isotonic  (default: platt)
+       --skip-backtest     Skip the backtest step
+       --quiet             Minimal output
+
+     Output: reports/combined_pipeline/pipeline_report_*.txt
+             reports/combined_pipeline/calibration_curve.png
+             reports/combined_pipeline/feature_importance.png
+             reports/combined_pipeline/backtest_charts/
+
+  H. Launch the dashboard
+  ──────────────────────────────────────────────────────────────────────
+         python run_dashboard.py
+
+     Opens at: http://localhost:8501
+     Dashboard pages:
+       🏠 Home:      Overview metrics, recent matches, model info
+       🔮 Predict:   Head-to-head match predictions (pick any two teams)
+       💰 Value Bets: Live value bets (cached from today_value_bets_live.py)
+                     + manual odds entry tool
+       📊 Backtest:  Historical performance metrics & charts
+       🏆 World Cup: Full knockout bracket tree, probability bars,
+                     Poisson scoreline distributions, champion probs
+
+     The dashboard now auto-loads the latest value bets from
+     reports/value_bets/latest.csv (generated by today_value_bets_live.py).
+
+
+████████████████████████████████████████████████████████████████████████████████
+  4.  UTILITY SCRIPTS (scripts/ directory)
+████████████████████████████████████████████████████████████████████████████████
+
+  Script                          Description
+  ──────────────────────────────────────────────────────────────────────────
+  scripts/today_value_bets.py     Value bets with hardcoded odds (legacy)
+  scripts/quick_train_eval.py     Fast train + evaluate (for quick iteration)
+  scripts/run_training.py         Full training pipeline runner
+  scripts/tune_ensemble.py        Grid-search ensemble weights
+  scripts/evaluate_existing.py    Evaluate saved model on test set
+  scripts/backtest_high_conf_away.py  Backtest high-confidence away bets
+  scripts/verify_ids.py           Verify Transfermarkt team IDs
+  scripts/debug_lineups.py        Debug lineup scraping
+  scripts/auto_commit.ps1         PowerShell auto-commit script
+
+  Batch files:
+  setup_auto_commit.bat           Install hourly GitHub auto-commit task
+  setup_scheduler.bat             Install World Cup refresh scheduler
+  setup_value_bets_scheduler.bat  Install daily value bets scheduler
+
+
+████████████████████████████████████████████████████████████████████████████████
+  5.  OUTPUT FILES — WHAT'S WHERE
+████████████████████████████████████████████████████████████████████████████████
+
+  Data files:
+    data/raw/worldcup_all.csv          Combined World Cup data (488 matches)
+    data/raw/league_all.csv            Top 5 European league data
+    data/external/players.csv          Player data from Transfermarkt
+    data/external/lineups.csv          Lineup data from Transfermarkt
+
+  World Cup predictions:
+    reports/predictions_worldcup/worldcup_predictions.csv  Match probabilities
+    reports/predictions_worldcup/bracket_prediction.csv    Bracket simulation
+    reports/predictions_worldcup/monte_carlo_probs.csv     Champion probs
+
+  Value bets:
+    reports/value_bets/latest.csv                Latest bets (for dashboard)
+    reports/value_bets/value_bets_YYYYMMDD_HHMM.csv  Timestamped reports
+    reports/value_bets/latest_meta.csv           Metadata for dashboard
+
+  Combined pipeline:
+    reports/combined_pipeline/pipeline_report_*.txt  Full metrics report
+    reports/combined_pipeline/calibration_curve.png  Calibration chart
+    reports/combined_pipeline/feature_importance.png Feature importance
+    reports/combined_pipeline/backtest_charts/       Backtest charts
+
+  Models:
+    models/worldcup_xgboost.joblib             Trained XGBoost model
+    models/xgboost_model.joblib                General pipeline model
+
+  Other reports:
+    reports/predictions/             General pipeline predictions
+    reports/backtest/                Backtest reports & charts
+    reports/worldcup_2022_test/      2022 World Cup test evaluation
+
+
+████████████████████████████████████████████████████████████████████████████████
+  6.  UNDERSTANDING THE PREDICTIONS
+████████████████████████████████████████████████████████████████████████████████
+
+  How swap-and-average works:
+  ──────────────────────────────────────────────────────────────────────
+  World Cup knockout matches are at neutral venues, so "home" and "away"
+  are meaningless. The model predicts each matchup twice:
+    1. Team A as "home", Team B as "away"
+    2. Team B as "home", Team A as "away"
+  The final probabilities are the average of both runs, removing any
+  home/away bias from the model.
+
+  What the probabilities mean:
+  ──────────────────────────────────────────────────────────────────────
+  - home_win_prob:  Probability the first-listed team wins
+  - draw_prob:      Probability of a draw (extra time/penalties)
+  - away_win_prob:  Probability the second-listed team wins
+  - confidence:     Max of the three probabilities (how sure the model is)
+
+  What calibration does:
+  ──────────────────────────────────────────────────────────────────────
+  Raw XGBoost probabilities can be overconfident (predicting 80% when
+  actual accuracy is 65%). Platt scaling (sigmoid) or isotonic regression
+  adjust the probabilities to match real-world frequencies.
+
+  Model performance:
+  ──────────────────────────────────────────────────────────────────────
+  Current test accuracy: ~65% (vs ~45% naive baseline — always predict Home)
+  Features: 140+ columns including Elo ratings, player data (age/value/
+    injuries), Poisson expected goals, rolling form (5/10/20 matches),
+    head-to-head stats, Dixon-Coles joint attack/defence parameters
+
+  Top features typically include:
+  - Elo ratings (with xG-margin K-factor)
+  - Squad market value (from Transfermarkt)
+  - Expected goals (Poisson lambda)
+  - Injured players count
+  - Rolling form over recent matches
+
+
+████████████████████████████████████████████████████████████████████████████████
+  7.  CONFIGURATION BASICS
+████████████████████████████████████████████████████████████████████████████████
+
+  All settings are centralised in config.py under typed dataclasses:
+
+    from config import config
+
+    # Model training
+    config.train.model_type = "xgboost"
+    config.train.n_estimators = 300
+    config.train.learning_rate = 0.05
+
+    # Features
+    config.features.include_h2h = True
+    config.features.rolling_windows = (5, 10, 20)
+
+    # Live odds
+    config.odds_api.regions = "us,uk,eu"
+
+    # Kelly betting
+    config.value_betting.kelly_fraction = 0.25
+    config.value_betting.bankroll = 1000.0
+
+    # Dixon-Coles (for sparse international data)
+    config.dixon_coles.enabled = True
+    config.dixon_coles.decay_halflife_days = 1460.0
+
+
+████████████████████████████████████████████████████████████████████████████████
+  8.  SPEED & PERFORMANCE TIPS
+████████████████████████████████████████████████████████████████████████████████
+
+  - First full run (train_worldcup.py): ~45-60 seconds
+    - Hyper-parameter tuning: ~16s (20 params x 3 CV folds)
+    - Feature engineering: ~10-15s (Elo, Poisson, Dixon-Coles, player data)
+    - Model training: ~5s
+  - Subsequent runs with --skip-train: ~20s
+  - Dixon-Coles enabled adds ~5-10s on World Cup data (488 matches)
+  - Player data adds ~3-5s for Transfermarkt feature loading
+  - For faster iteration:
+        python train_worldcup.py --skip-train          # Use saved model
+        python predict_worldcup.py                     # Lightweight alternative
+
+
+████████████████████████████████████████████████████████████████████████████████
+  9.  QUICK REFERENCE — COMMON COMMANDS
+████████████████████████████████████████████████████████████████████████████████
+
+  Task                                        Command
+  ──────────────────────────────────────────────────────────────────────────
+  Predict tomorrow's matches                  python today_value_bets_live.py --days 1
+  Predict this week's matches                 python today_value_bets_live.py
+  Train + predict all World Cup matches       python train_worldcup.py
+  Full data refresh                           python refresh_worldcup.py --skip-lineups
+  Simulate bracket                             python bracket_simulator.py --monte-carlo 10000
+  Launch dashboard                             python run_dashboard.py
+  Full ensemble pipeline                       python run_combined_pipeline.py
+  Collect player data                          python collect_player_data.py
+  Download World Cup data                      python collect_all_worldcups.py
+  Run tests                                    pytest
+  Check test coverage                          pytest --cov=src
+
+
+████████████████████████████████████████████████████████████████████████████████
+  10. TROUBLESHOOTING
+████████████████████████████████████████████████████████████████████████████████
+
+  "No module named pandas"
+  ──────────────────────────────────────────────────────────────────────
+  Your terminal is not using the right Python / virtual environment.
+
+      # First, activate the virtual environment:
+      .venv\Scripts\activate
+
+      # Then install packages:
+      pip install -r requirements.txt
+
+  If you still get the error, check which Python you're using:
+
+      where python        # Windows — make sure it points to .venv\Scripts\python
+
+  The top result should be inside your project's .venv folder.
+
+  "File not found: data/raw/worldcup_all.csv"
+  ──────────────────────────────────────────────────────────────────────
+  Run: python collect_all_worldcups.py
+
+  "THE_ODDS_API_KEY not set"
+  ──────────────────────────────────────────────────────────────────────
+  The .env file is auto-loaded from the project root. Create one with:
+      THE_ODDS_API_KEY=your_key
+
+  "No upcoming matches in the selected window"
+  ──────────────────────────────────────────────────────────────────────
+  The data may be outdated. Run: python refresh_worldcup.py --skip-lineups
+  Or use --days to extend the lookahead window.
+
+  "Streamlit not found"
+  ──────────────────────────────────────────────────────────────────────
+  Run: pip install streamlit
+
+  "git is not recognized"
+  ──────────────────────────────────────────────────────────────────────
+  Install Git from: https://git-scm.com/downloads/win
+  Or use GitHub Desktop instead.
+
+  The dashboard says "No value bets found"
+  ──────────────────────────────────────────────────────────────────────
+  Run python today_value_bets_live.py first to generate the cached
+  value bets that the dashboard reads from reports/value_bets/latest.csv.
+
+================================================================================
+  END OF GUIDE
+================================================================================

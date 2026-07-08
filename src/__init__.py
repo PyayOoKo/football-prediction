@@ -10,9 +10,11 @@ from __future__ import annotations
 
 from src import (
     backtesting,
+    calibration,
     confidence_scoring,
     data_collection,
     data_loader,
+    dixon_coles,
     elo,
     ensemble,
     evaluate,
@@ -31,8 +33,10 @@ from src import (
 
 __all__ = [
     "backtesting",
+    "calibration",
     "confidence_scoring",
     "data_collection",
+    "dixon_coles",
     "data_loader",
     "elo",
     "ensemble",

@@ -3,6 +3,10 @@ Project-wide configuration.
 
 Centralises all paths, hyper-parameters, data sources,
 and model settings in one place for easy experimentation.
+
+Automatically loads ``.env`` file from the project root so
+environment variables like ``THE_ODDS_API_KEY`` are always
+available without manual setup.
 """
 
 from __future__ import annotations
@@ -11,6 +15,12 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
+
+from dotenv import load_dotenv
+
+# Auto-load .env from project root — called once at import time
+# so env vars are available project-wide without manual setup.
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
 
 # ── Data collection ─────────────────────────────────────
@@ -118,6 +128,7 @@ class FeatureConfig:
 
     # Rolling window sizes (number of matches)
     form_window: int = 5
+    rolling_windows: tuple[int, ...] = (5, 10, 20)
     rolling_avg_window: int = 10
 
     # Whether to include head-to-head features
@@ -129,6 +140,15 @@ class FeatureConfig:
 
     # Encoding strategy for categorical columns
     categorical_encoding: Literal["label", "onehot", "target"] = "label"
+
+    # Time decay halflife for rolling features (None = equal weight)
+    # Set to a positive integer (e.g. 5 or 10) to give recent matches
+    # exponentially more weight than older ones.
+    time_decay_halflife: int | None = None
+
+    # Whether to reset rolling features per season boundary
+    # (avoids pre-season including stats from previous seasons)
+    reset_per_season: bool = False
 
 
 # ── Training ────────────────────────────────────────────
@@ -214,7 +234,7 @@ class OddsAPIConfig:
     """
 
     api_key_env: str = "THE_ODDS_API_KEY"
-    regions: str = "uk,ie,eu"
+    regions: str = "us,uk,eu"
     markets: str = "h2h"
     cache_ttl: int = 3600
     request_timeout: int = 15
@@ -283,7 +303,7 @@ class PlayerInfoConfig:
         Log a warning when no player data is provided (default True).
     """
 
-    enabled: bool = True
+    enabled: bool = False
     default_age: float = 25.0
     placeholder_value: float = 0.0
     warn_missing: bool = True
@@ -501,6 +521,49 @@ class EvalConfig:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
 
+# ── Dixon-Coles Model ─────────────────────────────────
+@dataclass
+class DixonColesConfig:
+    """Settings for the Dixon-Coles MLE model.
+
+    Attributes
+    ----------
+    enabled : bool
+        Whether to compute Dixon-Coles features (default False).
+        **Disabled by default** — the MLE optimisation is extremely slow
+        on large datasets (~1,800 refits over 17k rows at refit_every=10).
+        Enable only for small datasets or when DC-specific features are
+        critical (e.g. international tournaments with sparse H2H data).
+    refit_every : int
+        How often to refit the MLE model when adding features (default 500).
+        Higher = faster but less responsive to recent form.
+        500 means ~34 refits over 17k rows instead of ~1,794 at refit_every=10.
+    decay_halflife_days : float
+        Recency decay halflife in days. A match this many days ago gets 50%
+        weight. Default 1460 (~4 years). Set to 0 to disable.
+    use_importance : bool
+        Apply tournament importance weighting (default True).
+    rho_fixed : float | None
+        Fix the tau-correction parameter (default None = estimate via MLE).
+        Set to 0.0 for standard independent Poisson.
+    regress_prior : bool
+        Apply L2 prior on attack/defence parameters (default True).
+    prior_strength : float
+        Strength of the L2 prior (default 0.01).
+    fit_intercept_only : bool
+        Only estimate home advantage and rho (default False).
+    """
+
+    enabled: bool = False
+    refit_every: int = 500
+    decay_halflife_days: float = 1460.0
+    use_importance: bool = True
+    rho_fixed: float | None = None
+    regress_prior: bool = True
+    prior_strength: float = 0.01
+    fit_intercept_only: bool = False
+
+
 # ── Convenience singleton ───────────────────────────────
 @dataclass
 class Config:
@@ -519,6 +582,7 @@ class Config:
     player_info: PlayerInfoConfig = field(default_factory=PlayerInfoConfig)
     xg: XgConfig = field(default_factory=XgConfig)
     poisson: PoissonConfig = field(default_factory=PoissonConfig)
+    dixon_coles: DixonColesConfig = field(default_factory=DixonColesConfig)
     elo: EloConfig = field(default_factory=EloConfig)
     ensemble: EnsembleConfig = field(default_factory=EnsembleConfig)
     hyper_tune: HyperTuneConfig = field(default_factory=HyperTuneConfig)

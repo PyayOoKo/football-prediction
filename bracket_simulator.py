@@ -44,21 +44,50 @@ def load_predictions() -> pd.DataFrame:
 # The 2026 World Cup knockout bracket follows a fixed path.
 # R16 matches are paired into QF groups.
 
-R16_MATCHUPS = [
-    # Top half (left side of bracket)
-    ("R16-1", "Canada", "Morocco"),       # QF-A
-    ("R16-2", "Paraguay", "France"),       # QF-A
-    ("R16-3", "Brazil", "Norway"),         # QF-B
-    ("R16-4", "Mexico", "England"),        # QF-B
-    # Bottom half (right side of bracket)
-    ("R16-5", "Portugal", "Spain"),        # QF-C
-    ("R16-6", "USA", "Belgium"),           # QF-C
-    ("R16-7", "Argentina", "Egypt"),       # QF-D
-    ("R16-8", "Switzerland", "Colombia"),  # QF-D
+# ── Bracket structure ──────────────────────────────────
+# Built dynamically from the 2026 match data to handle already-completed rounds.
+
+def _load_actual_results() -> dict:
+    """Load completed 2026 knockout results from the data file."""
+    if not DATA_CSV.exists():
+        return {}
+    df = pd.read_csv(DATA_CSV, low_memory=False, parse_dates=['date'])
+    wc26 = df[(df['season'] == 2026) & df['result'].notna()].copy()
+    # Map R16 matchups: the data already has "Round of 16" in round col
+    results = {}
+    for _, r in wc26.iterrows():
+        rnd = str(r.get('round', '')).strip()
+        if 'Round of 16' in rnd:
+            h, a, res = r['home_team'], r['away_team'], r['result']
+            winner = h if res == 'H' else a if res == 'A' else None
+            results[(h, a)] = winner
+    return results
+
+ACTUAL_R16 = _load_actual_results()
+
+# Build R16 matchups: skip already-decided ones; those with unknown results stay
+# Group by the fixed bracket path
+_R16_ORDER = [
+    ("Canada", "Morocco"), ("Paraguay", "France"),
+    ("Brazil", "Norway"),  ("Mexico", "England"),
+    ("Portugal", "Spain"), ("USA", "Belgium"),
+    ("Argentina", "Egypt"), ("Switzerland", "Colombia"),
 ]
 
-# QF: R16-1 vs R16-2  → QF-1,  R16-3 vs R16-4  → QF-2,
-#      R16-5 vs R16-6  → QF-3,  R16-7 vs R16-8  → QF-4
+R16_MATCHUPS = []
+r16_idx = 1
+R16_WINNERS = {}
+for h, a in _R16_ORDER:
+    key = (h, a)
+    rid = f"R16-{r16_idx}"
+    if key in ACTUAL_R16:
+        R16_WINNERS[rid] = ACTUAL_R16[key]
+        # Still register the matchup so the bracket shows the result
+        R16_MATCHUPS.append((rid, h, a))
+    else:
+        R16_MATCHUPS.append((rid, h, a))
+    r16_idx += 1
+
 QF_WINNER_PAIRS = [
     ("QF-1", "R16-1", "R16-2"),
     ("QF-2", "R16-3", "R16-4"),
@@ -67,8 +96,8 @@ QF_WINNER_PAIRS = [
 ]
 
 SF_PAIRS = [
-    ("SF-1", "QF-1", "QF-2"),   # Winners of QF-1 and QF-2
-    ("SF-2", "QF-3", "QF-4"),   # Winners of QF-3 and QF-4
+    ("SF-1", "QF-1", "QF-2"),
+    ("SF-2", "QF-3", "QF-4"),
 ]
 
 FINAL_MATCHUP = ("Final", "SF-1", "SF-2")
@@ -112,9 +141,20 @@ def simulate_bracket(
     # ── Round of 16 ──
     r16_results = {}
     for r16_id, h, a in R16_MATCHUPS:
+        # Use actual result if already played
+        if r16_id in R16_WINNERS:
+            winner = R16_WINNERS[r16_id]
+            hw, dr, aw = (1.0, 0.0, 0.0) if winner == h else (0.0, 0.0, 1.0)
+            r16_results[r16_id] = {
+                "home": h, "away": a, "winner": winner,
+                "home_win": hw, "draw": dr, "away_win": aw,
+                "confidence": 1.0,
+            }
+            continue
+
         hw, dr, aw = match_probs.get((h, a), (1/3, 1/3, 1/3))
         probs = np.array([aw, dr, hw])
-        probs = probs / probs.sum()  # guaranteed sum=1
+        probs = probs / probs.sum()
 
         if use_mc:
             winner_idx = rng.choice(3, p=probs)
@@ -125,8 +165,6 @@ def simulate_bracket(
             winner = h
             loser = a
         elif winner_idx == 1:
-            winner = "Draw (penalties)"
-            # For deterministic: pick home team on draws
             winner = h if hw >= aw else a
         else:
             winner = a
@@ -169,6 +207,7 @@ def simulate_bracket(
             hw, dr, aw = hw / total, dr / total, aw / total
 
         probs = np.array([aw, dr, hw])
+        probs = probs / probs.sum()  # float-precision guard
         if use_mc:
             winner_idx = rng.choice(3, p=probs)
         else:
@@ -213,6 +252,7 @@ def simulate_bracket(
             hw, dr, aw = hw / total, dr / total, aw / total
 
         probs = np.array([aw, dr, hw])
+        probs = probs / probs.sum()  # float-precision guard
         if use_mc:
             winner_idx = rng.choice(3, p=probs)
         else:
@@ -290,37 +330,37 @@ def print_bracket(results: dict, show_detail: bool = False) -> None:
     """Pretty-print the full knockout bracket."""
     print()
     print("=" * 72)
-    print("  🏆 WORLD CUP 2026 — FULL KNOCKOUT BRACKET")
+    print("  WORLD CUP 2026 — FULL KNOCKOUT BRACKET")
     print("=" * 72)
 
     # R16
-    print(f"\n  {'─' * 30} ROUND OF 16 {'─' * 30}")
+    print(f"\n  {'-' * 28} ROUND OF 16 {'-' * 28}")
     r16 = results["rounds"]["Round of 16"]
     for r16_id, data in r16.items():
-        winner_icon = "🏠" if data["winner"] == data["home"] else "✈️"
-        print(f"  {data['home']:<20} vs {data['away']:<20} → {winner_icon} {data['winner']:<20} ({data['confidence']:.0%})")
+        winner_mark = "[H]" if data["winner"] == data["home"] else "[A]"
+        print(f"  {data['home']:<20} vs {data['away']:<20} -> {winner_mark} {data['winner']:<20} ({data['confidence']:.0%})")
 
     # QF
-    print(f"\n  {'─' * 28} QUARTER-FINALS {'─' * 28}")
+    print(f"\n  {'-' * 26} QUARTER-FINALS {'-' * 26}")
     qf = results["rounds"]["Quarter-Finals"]
     for qf_id, data in qf.items():
-        winner_icon = "🏠" if data["winner"] == data["home"] else "✈️"
-        print(f"  {data['home']:<20} vs {data['away']:<20} → {winner_icon} {data['winner']:<20} ({data['confidence']:.0%})")
+        winner_mark = "[H]" if data["winner"] == data["home"] else "[A]"
+        print(f"  {data['home']:<20} vs {data['away']:<20} -> {winner_mark} {data['winner']:<20} ({data['confidence']:.0%})")
 
     # SF
-    print(f"\n  {'─' * 30} SEMI-FINALS {'─' * 30}")
+    print(f"\n  {'-' * 28} SEMI-FINALS {'-' * 28}")
     sf = results["rounds"]["Semi-Finals"]
     for sf_id, data in sf.items():
-        winner_icon = "🏠" if data["winner"] == data["home"] else "✈️"
-        print(f"  {data['home']:<20} vs {data['away']:<20} → {winner_icon} {data['winner']:<20} ({data['confidence']:.0%})")
+        winner_mark = "[H]" if data["winner"] == data["home"] else "[A]"
+        print(f"  {data['home']:<20} vs {data['away']:<20} -> {winner_mark} {data['winner']:<20} ({data['confidence']:.0%})")
 
     # Final
-    print(f"\n  {'─' * 32} FINAL {'─' * 32}")
+    print(f"\n  {'-' * 30} FINAL {'-' * 30}")
     final = results["rounds"]["Final"]["Final"]
-    print(f"  {final['home']:<20} vs {final['away']:<20} → 🏆 {final['winner']:<20} ({final['confidence']:.0%})")
+    print(f"  {final['home']:<20} vs {final['away']:<20} -> CHAMPION: {final['winner']:<20} ({final['confidence']:.0%})")
 
     print(f"\n{'=' * 72}")
-    print(f"  🏆 CHAMPION: {results['champion']}")
+    print(f"  CHAMPION: {results['champion']}")
     print(f"{'=' * 72}")
     print()
 
@@ -409,11 +449,11 @@ def main() -> int:
         ])
         mc_df.to_csv(mc_path, index=False)
 
-        print(f"\n  {'─' * 40}")
+        print(f"\n  {'-' * 40}")
         print(f"  CHAMPION PROBABILITIES ({args.monte_carlo:,} simulations)")
-        print(f"  {'─' * 40}")
+        print(f"  {'-' * 40}")
         for _, row in mc_df.iterrows():
-            bar = "█" * max(1, int(row["champion_prob"] / 2))
+            bar = "#" * max(1, int(row["champion_prob"] / 2))
             print(f"  {row['team']:<20} {row['champion_prob']:>5.1f}% {bar}")
         print(f"  Saved to {mc_path}")
 

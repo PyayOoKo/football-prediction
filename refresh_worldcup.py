@@ -13,6 +13,7 @@ Usage:
     python refresh_worldcup.py --dry-run                # Preview without saving
     python refresh_worldcup.py --log-file refresh.log   # Log to file
     python refresh_worldcup.py --quiet                  # Minimal output (for cron)
+    python refresh_worldcup.py --force-players          # Re-scrape player data
 """
 
 from __future__ import annotations
@@ -348,7 +349,7 @@ def run_training(dry_run: bool = False) -> bool:
     Returns True on success, False on failure.
     """
     logger.info("-" * 50)
-    logger.info("STEP 3: Train & Predict")
+    logger.info("STEP 4: Train & Predict")
     logger.info("-" * 50)
 
     train_script = PROJECT_ROOT / "train_worldcup.py"
@@ -392,6 +393,104 @@ def run_training(dry_run: bool = False) -> bool:
         return False
     except Exception as e:
         logger.error("  Training failed: %s", e)
+        return False
+
+
+# ═══════════════════════════════════════════════════════════
+#  Step 3a: Player data helpers
+# ═══════════════════════════════════════════════════════════
+
+
+def _run_player_collector(dry_run: bool) -> bool:
+    """Run the collect_player_data.py script.
+
+    Returns True on success, False on failure.
+    """
+    collector = PROJECT_ROOT / "collect_player_data.py"
+    if not collector.exists():
+        logger.warning("  collect_player_data.py not found at %s — skipping", collector)
+        return False
+
+    python_exe = _get_python_exe()
+    cmd = [python_exe, "-u", str(collector)]
+    logger.info("  Running: %s", " ".join(cmd))
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=600,  # scraping 60+ teams can take a while
+            cwd=str(PROJECT_ROOT),
+        )
+
+        for line in result.stdout.splitlines():
+            logger.info("  %s", line)
+        if result.stderr:
+            for line in result.stderr.splitlines():
+                logger.warning("  [stderr] %s", line)
+
+        if result.returncode != 0:
+            logger.error("  Player data collection failed with exit code %d", result.returncode)
+            return False
+
+        logger.info("  Player data collection completed successfully")
+        return True
+
+    except subprocess.TimeoutExpired:
+        logger.error("  Player data collection timed out (10 min limit)")
+        return False
+    except Exception as e:
+        logger.error("  Player data collection failed: %s", e)
+        return False
+
+
+def _run_lineup_collector(dry_run: bool, force: bool = False) -> bool:
+    """Run the collect_lineups.py script.
+
+    Returns True on success, False on failure.
+    """
+    collector = PROJECT_ROOT / "collect_lineups.py"
+    if not collector.exists():
+        logger.warning("  collect_lineups.py not found at %s — skipping", collector)
+        return False
+
+    python_exe = _get_python_exe()
+    cmd = [python_exe, "-u", str(collector)]
+    if force:
+        cmd.append("--force")
+    if dry_run:
+        cmd.append("--dry-run")
+
+    logger.info("  Running: %s", " ".join(cmd))
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=1200,  # 20 min — scraping lineups takes time
+            cwd=str(PROJECT_ROOT),
+        )
+
+        for line in result.stdout.splitlines():
+            logger.info("  %s", line)
+        if result.stderr:
+            for line in result.stderr.splitlines():
+                logger.warning("  [stderr] %s", line)
+
+        if result.returncode != 0:
+            logger.error("  Lineup collection failed with exit code %d", result.returncode)
+            return False
+
+        logger.info("  Lineup collection completed successfully")
+        return True
+
+    except subprocess.TimeoutExpired:
+        logger.error("  Lineup collection timed out (20 min limit)")
+        return False
+    except Exception as e:
+        logger.error("  Lineup collection failed: %s", e)
         return False
 
 
@@ -446,6 +545,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--skip-train", action="store_true",
         help="Only refresh data, skip training & prediction",
     )
+    parser.add_argument(
+        "--force-players", action="store_true",
+        help="Re-scrape player data even if players.csv exists",
+    )
+    parser.add_argument(
+        "--force-lineups", action="store_true",
+        help="Re-scrape all lineups even if already cached",
+    )
+    parser.add_argument(
+        "--skip-lineups", action="store_true",
+        help="Skip lineup collection",
+    )
+    return parser.parse_args(argv)
     return parser.parse_args(argv)
 
 
@@ -490,7 +602,33 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("Data collection failed. Aborting.")
         return 1
 
-    # Step 3: Train & Predict
+    # Step 3: Collect player data from Transfermarkt
+    logger.info("-" * 50)
+    logger.info("STEP 3: Collect player data (Transfermarkt)")
+    logger.info("-" * 50)
+
+    if not args.dry_run:
+        player_csv = PROJECT_ROOT / "data" / "external" / "players.csv"
+        if not player_csv.exists() or args.force_players:
+            _run_player_collector(args.dry_run)
+        else:
+            logger.info("  Player data exists at %s — skipping (use --force-players to refresh)", player_csv)
+    else:
+        logger.info("  [DRY RUN] Would run: python collect_player_data.py")
+
+    # Step 3b: Collect lineup data from Transfermarkt
+    logger.info("-" * 50)
+    logger.info("STEP 3b: Collect lineup data (Transfermarkt)")
+    logger.info("-" * 50)
+
+    if not args.skip_lineups and not args.dry_run:
+        _run_lineup_collector(args.dry_run, force=args.force_lineups)
+    elif args.dry_run:
+        logger.info("  [DRY RUN] Would run: python collect_lineups.py")
+    else:
+        logger.info("  Lineup collection skipped (--skip-lineups)")
+
+    # Step 4: Train & Predict
     if not args.skip_train:
         success = run_training(dry_run=args.dry_run)
         if not success and not args.dry_run:

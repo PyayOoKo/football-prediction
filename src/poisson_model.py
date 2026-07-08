@@ -554,28 +554,31 @@ class PoissonModel:
         total_home_goals = 0.0
         total_away_goals = 0.0
         total_matches = 0
+        n = len(df)
 
-        for _idx, row in df.iterrows():
-            home = row[home_team_col]
-            away = row[away_team_col]
-            hg = float(row.get(home_goals_col, 0) or 0)
-            ag = float(row.get(away_goals_col, 0) or 0)
+        # Pre-extract column arrays for fast access
+        home_arr = df[home_team_col].values
+        away_arr = df[away_team_col].values
+        hg_arr = df[home_goals_col].values.astype(float)
+        ag_arr = df[away_goals_col].values.astype(float)
 
-            # ── Compute current league averages ──────────────
+        for idx in range(n):
+            home = home_arr[idx]
+            away = away_arr[idx]
+            hg = hg_arr[idx] if not pd.isna(hg_arr[idx]) else 0.0
+            ag = ag_arr[idx] if not pd.isna(ag_arr[idx]) else 0.0
+
             μ_home = total_home_goals / total_matches if total_matches > 0 else 0.0
             μ_away = total_away_goals / total_matches if total_matches > 0 else 0.0
             μ_overall = (μ_home + μ_away) / 2.0 if total_matches > 0 else 0.0
 
-            # ── Compute current team strengths ───────────────
             def _strength(team: str, stat_type: str) -> float:
-                """Helper: compute attack (1) or defense (2) strength for a team."""
                 if μ_overall == 0.0 or team not in team_stats:
-                    return 1.0  # No data yet → league average
-                s = team_stats[team]
-                matches = s[2]
-                if matches == 0:
                     return 1.0
-                avg = s[0 if stat_type == "attack" else 1] / matches
+                s = team_stats[team]
+                if s[2] == 0:
+                    return 1.0
+                avg = s[0 if stat_type == "attack" else 1] / s[2]
                 return avg / μ_overall
 
             α_home = _strength(home, "attack")
@@ -593,16 +596,17 @@ class PoissonModel:
             away_attack_str.append(α_away)
             away_defense_str.append(β_away)
 
-            # ── Update aggregates (for next match) ───────────
-            for team_key, scored, conceded in [
+            for team_key, scored, conceded in (
                 (home, hg, ag),
                 (away, ag, hg),
-            ]:
-                if team_key not in team_stats:
-                    team_stats[team_key] = [0.0, 0.0, 0.0]
-                team_stats[team_key][0] += scored
-                team_stats[team_key][1] += conceded
-                team_stats[team_key][2] += 1.0
+            ):
+                s = team_stats.get(team_key)
+                if s is None:
+                    team_stats[team_key] = [scored, conceded, 1.0]
+                else:
+                    s[0] += scored
+                    s[1] += conceded
+                    s[2] += 1.0
 
             total_home_goals += hg
             total_away_goals += ag

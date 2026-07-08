@@ -13,6 +13,8 @@ from src.app.utils import (
     get_available_odds_cols,
     get_available_teams,
     load_clean_data,
+    load_latest_value_bets,
+    load_value_bets_meta,
     load_model,
 )
 from src.feature_engineering import build_features
@@ -58,6 +60,154 @@ st.markdown(
     "Enter bookmaker odds and see which outcomes the model believes offer positive "
     "expected value."
 )
+
+
+# ═══════════════════════════════════════════════════════════
+#  Today's Live Value Bets (cached from today_value_bets_live.py)
+# ═══════════════════════════════════════════════════════════
+
+value_bets_df = load_latest_value_bets()
+meta_df = load_value_bets_meta()
+
+if value_bets_df is not None and len(value_bets_df) > 0:
+    st.markdown("## 🎯 Today's Live Value Bets")
+
+    # Summary metrics row
+    val = value_bets_df[value_bets_df.get("positive_ev", value_bets_df["ev"] > 0)]
+    n_val = len(val)
+    avg_ev = val["ev"].mean() if n_val > 0 else 0.0
+    best_row = val.iloc[0] if n_val > 0 else None
+
+    cal_method = "?"
+    odds_src = "?"
+    n_matches = "?"
+    if meta_df is not None and len(meta_df) > 0:
+        cal_method = str(meta_df["calibration_method"].iloc[0]) if "calibration_method" in meta_df.columns else "?"
+        odds_src = str(meta_df["odds_source"].iloc[0]) if "odds_source" in meta_df.columns else "?"
+        n_matches = str(len(meta_df))
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-value" style="color:#4caf50;">{n_val}</div>'
+            f'<div class="metric-label">Value Bets Found</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with col2:
+        ev_color = "#4caf50" if avg_ev > 0 else "#f44336"
+        st.markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-value" style="color:{ev_color};">{avg_ev:+.0%}</div>'
+            f'<div class="metric-label">Avg Expected Value</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with col3:
+        st.markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-value">{n_matches}</div>'
+            f'<div class="metric-label">Matches Analyzed</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with col4:
+        st.markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-value" style="font-size:1rem;">{odds_src}</div>'
+            f'<div class="metric-label">Odds Source</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    # Best bet highlight
+    if best_row is not None:
+        match = best_row.get("match", "")
+        outcome = best_row.get("outcome_label", "")
+        odds_val = best_row.get("decimal_odds", 0.0)
+        ev_val = best_row.get("ev", 0.0)
+        stake = best_row.get("kelly_stake", 0.0)
+        prob = best_row.get("model_prob", 0.0)
+
+        st.markdown(
+            f'<div class="value-card value-positive">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center">'
+            f'<div><strong>⭐ BEST BET</strong><br>'
+            f'<span style="font-size:1.2rem">{match}</span></div>'
+            f'<div style="text-align:right">'
+            f'<span style="font-size:1.5rem;font-weight:700;color:#4caf50">{outcome}</span>'
+            f'</div></div>'
+            f'<div style="display:flex;gap:2rem;margin-top:0.75rem">'
+            f'<div>Odds: <strong>{odds_val:.2f}</strong></div>'
+            f'<div>Model Prob: <strong>{prob:.1%}</strong></div>'
+            f'<div>EV: <strong style="color:#4caf50">{ev_val:+.0%}</strong></div>'
+            f'<div>Stake: <strong>${stake:.2f}</strong></div>'
+            f'</div></div>',
+            unsafe_allow_html=True,
+        )
+
+    # Full value bets table
+    st.markdown("### All Value Bet Opportunities")
+    display_cols = [c for c in [
+        "match", "outcome_label", "decimal_odds", "model_prob",
+        "fair_prob", "prob_edge", "ev", "kelly_stake", "odds_source",
+    ] if c in val.columns]
+
+    if len(display_cols) > 0:
+        display_df = val[display_cols].copy()
+        # Rename for readability
+        rename_map = {
+            "match": "Match",
+            "outcome_label": "Outcome",
+            "decimal_odds": "Odds",
+            "model_prob": "Model Prob",
+            "fair_prob": "Fair Prob",
+            "prob_edge": "Edge",
+            "ev": "Expected Value",
+            "kelly_stake": "Kelly Stake",
+            "odds_source": "Source",
+        }
+        display_df = display_df.rename(columns={k: v for k, v in rename_map.items() if k in display_df.columns})
+
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Expected Value": st.column_config.NumberColumn(format="+.0%"),
+                "Model Prob": st.column_config.NumberColumn(format=".0%"),
+                "Fair Prob": st.column_config.NumberColumn(format=".0%"),
+                "Edge": st.column_config.NumberColumn(format="+.0%"),
+                "Kelly Stake": st.column_config.NumberColumn(format="$%.2f"),
+                "Odds": st.column_config.NumberColumn(format=".2f"),
+            },
+        )
+
+    # Calibration info
+    st.markdown(
+        f'<div style="text-align:right;font-size:0.75rem;color:#555">'
+        f'Calibration: {cal_method.upper()} | '
+        f'Kelly: 25% | '
+        f'Run: {pd.Timestamp.now().strftime("%d %b %Y %H:%M")}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("---")
+    st.markdown("### ✏️ Manual Value Bet Tool")
+    st.markdown(
+        "Or enter odds manually below for any matchup."
+    )
+
+elif value_bets_df is not None and len(value_bets_df) == 0:
+    st.info("📭 No value bets found in the latest run. Try running `python today_value_bets_live.py` from the terminal.")
+else:
+    st.info(
+        "📭 No cached value bets found. Run `python today_value_bets_live.py` from the terminal "
+        "to generate live value bets with Dixon-Coles features, live odds, and Platt calibration."
+    )
+    st.markdown("---")
 
 # ── Load data ──────────────────────────────────────────
 model = st.session_state.get("model")

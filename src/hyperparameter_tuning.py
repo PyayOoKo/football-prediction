@@ -49,13 +49,14 @@ from src.time_series_cv import create_time_series_folds
 logger = logging.getLogger(__name__)
 
 # ── Model type identifiers ──────────────────────────────
-ModelType = Literal["logistic_regression", "random_forest", "xgboost"]
+ModelType = Literal["logistic_regression", "random_forest", "xgboost", "lightgbm"]
 
 # ── Default model tuning list ───────────────────────────
 _DEFAULT_MODEL_TYPES: tuple[ModelType, ...] = (
     "logistic_regression",
     "random_forest",
     "xgboost",
+    "lightgbm",
 )
 
 
@@ -128,6 +129,22 @@ def _xgb_param_dist() -> dict[str, list[Any]]:
     }
 
 
+def _lgbm_param_dist() -> dict[str, list[Any]]:
+    """LightGBM parameter grid → use RandomizedSearchCV."""
+    return {
+        "n_estimators": [100, 200, 300, 500, 800],
+        "max_depth": [3, 4, 5, 6, 8, 10, -1],
+        "learning_rate": [0.005, 0.01, 0.03, 0.05, 0.1, 0.15],
+        "subsample": [0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+        "colsample_bytree": [0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+        "reg_lambda": [0.001, 0.01, 0.1, 1.0, 5.0, 10.0],
+        "reg_alpha": [0.0, 0.001, 0.01, 0.1, 1.0],
+        "num_leaves": [15, 31, 63, 127, 255],
+        "min_child_samples": [5, 10, 20, 50, 100],
+        "min_child_weight": [1e-3, 1e-2, 0.1, 1.0, 10.0],
+    }
+
+
 # ═══════════════════════════════════════════════════════════
 #  Model factories
 # ═══════════════════════════════════════════════════════════
@@ -183,6 +200,26 @@ def _build_baseline(model_type: str) -> Any:
             n_jobs=-1,
         )
 
+    if model_type == "lightgbm":
+        import lightgbm as lgb
+
+        return lgb.LGBMClassifier(
+            objective="multiclass",
+            metric="multi_logloss",
+            n_estimators=cfg.n_estimators,
+            max_depth=cfg.max_depth,
+            learning_rate=cfg.learning_rate,
+            subsample=cfg.subsample,
+            colsample_bytree=cfg.colsample_bytree,
+            reg_lambda=cfg.reg_lambda,
+            reg_alpha=cfg.reg_alpha,
+            num_leaves=31,
+            min_child_samples=cfg.min_samples_leaf,
+            random_state=cfg.seed,
+            n_jobs=-1,
+            verbose=-1,
+        )
+
     raise ValueError(f"Unknown model_type: {model_type}")
 
 
@@ -221,6 +258,18 @@ def _build_with_params(model_type: str, params: dict[str, Any]) -> Any:
             eval_metric="mlogloss",
             random_state=cfg.seed,
             n_jobs=-1,
+            **params,
+        )
+
+    if model_type == "lightgbm":
+        import lightgbm as lgb
+
+        return lgb.LGBMClassifier(
+            objective="multiclass",
+            metric="multi_logloss",
+            random_state=cfg.seed,
+            n_jobs=-1,
+            verbose=-1,
             **params,
         )
 
@@ -340,6 +389,44 @@ def _optimise_xgb(
         verbose=1 if verbose else 0,
     )
     # XGBoost handles NaN natively — no imputation
+    searcher.fit(X_train, y_train)
+    return searcher.best_params_, -searcher.best_score_
+
+
+def _optimise_lgbm(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    cv: int,
+    n_iter: int,
+    verbose: bool,
+) -> tuple[dict[str, Any], float]:
+    """RandomizedSearchCV for LightGBM (NaN-native, categorical support).
+
+    Uses ``TimeSeriesSplit`` (expanding window) to prevent future
+    information from leaking into training folds.
+    """
+    logger.info(
+        "  RandomizedSearchCV (LightGBM) — %d-fold time-series CV, %d iters",
+        cv, n_iter,
+    )
+    ts_cv = create_time_series_folds(n_splits=cv)
+    import lightgbm as lgb
+
+    base = lgb.LGBMClassifier(
+        objective="multiclass",
+        metric="multi_logloss",
+        random_state=config.train.seed,
+        n_jobs=-1,
+        verbose=-1,
+    )
+    searcher = RandomizedSearchCV(
+        base, _lgbm_param_dist(),
+        n_iter=n_iter, cv=ts_cv,
+        scoring="neg_log_loss",
+        n_jobs=-1, random_state=config.train.seed,
+        verbose=1 if verbose else 0,
+    )
+    # LightGBM handles NaN natively — no imputation
     searcher.fit(X_train, y_train)
     return searcher.best_params_, -searcher.best_score_
 
@@ -502,6 +589,10 @@ class HyperTuner:
             )
         elif model_type == "xgboost":
             best_params, cv_loss = _optimise_xgb(
+                X_train, y_train, cfg.cv_folds, cfg.n_iter_random, cfg.verbose,
+            )
+        elif model_type == "lightgbm":
+            best_params, cv_loss = _optimise_lgbm(
                 X_train, y_train, cfg.cv_folds, cfg.n_iter_random, cfg.verbose,
             )
         else:

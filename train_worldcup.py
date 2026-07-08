@@ -27,21 +27,26 @@ from config import config
 
 # ── Configure for World Cup data ─────────────────────────
 # Disable features that don't apply to international tournament data
-config.features.include_h2h = False
+config.features.include_h2h = True
 config.features.include_league_position = False
 config.odds.compute_consensus = False
 config.odds.warn_missing = False
-config.player_info.enabled = False
+config.player_info.enabled = True
 config.xg.warn_missing = False
 # xG data is now available from StatsBomb for 2018 & 2022 World Cups
+# Player data loaded from data/external/players.csv (collect_player_data.py)
 config.xg.compute_xpts = True
 config.elo.regress_to_mean = True
 # Neutral venue — small home advantage for Elo training signal
 # Host nations (Russia 2018, Qatar 2022) had real home advantage
 # Swap-and-average at prediction time neutralises this bias
-config.elo.home_advantage = 50  # neutral venue base (host gets +50 in Elo)  # neutral venue base (host gets +50 in Elo)
+config.elo.home_advantage = 50  # neutral venue base (host gets +50 in Elo)  # neutral venue base (host gets +50 in Elo)  # neutral venue base (host gets +50 in Elo)  # neutral venue base (host gets +50 in Elo)
 # Manual Elo penalty — user expressed skepticism about Morocco's recent form
 config.elo.adjustments = {"Morocco": 50}
+
+# Enable Dixon-Coles features (small WC dataset = fast MLE)
+config.dixon_coles.enabled = True
+config.dixon_coles.refit_every = 100  # more responsive for WC data
 
 # Improved configuration for 658-match dataset with xAG + enhanced Elo
 config.train.n_estimators = 300  # more data can support more trees
@@ -138,19 +143,24 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"  [*] Completed: {len(df_completed)} matches")
     print(f"  [*] Upcoming:  {len(df_upcoming)} matches")
+    _t_load = time.time()
+    print(f"  [TIME] Load data: {_t_load - t0:.1f}s")
 
     # ── 2. Build features on completed data ──────────────
+    _t_feat = time.time()
     print(f"\n  Building features ...")
     from src.feature_engineering import build_features
 
     X, y = build_features(df_completed, is_training=True)
     print(f"  [*] Feature matrix: {X.shape[0]} rows x {X.shape[1]} features")
+    print(f"  [TIME] Build features (train): {time.time() - _t_feat:.1f}s")
 
     if X.shape[0] < 10:
         print(f"  [X] Too few matches with valid features ({X.shape[0]}). Can't train.")
         return 1
 
     # ── 3. Split chronologically ─────────────────────────
+    _t_split = time.time()
     from src.feature_engineering import train_val_test_split
 
     print(f"\n  Splitting chronologically (70/15/15) ...")
@@ -158,9 +168,11 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  [*] Train: {len(splits['X_train'])}  |  "
           f"Val: {len(splits['X_val'])}  |  "
           f"Test: {len(splits['X_test'])}")
+    print(f"  [TIME] Split: {time.time() - _t_split:.1f}s")
 
     # ── 4. Hyper-parameter tuning (lightweight for small data) ──
     if not args.skip_train and config.train.model_type == "xgboost":
+        _t_tune = time.time()
         from src.train import tune_hyperparameters
 
         print(f"\n  Tuning hyper-parameters ({args.cv_folds}-fold time-series CV) ...")
@@ -170,6 +182,7 @@ def main(argv: list[str] | None = None) -> int:
                 n_folds=args.cv_folds, n_iter=20, verbose=False,
             )
             print(f"  [*] Best params: {best_params}")
+            print(f"  [TIME] Hyper-parameter tuning: {time.time() - _t_tune:.1f}s")
             for key, val in best_params.items():
                 if hasattr(config.train, key):
                     setattr(config.train, key, val)
@@ -178,11 +191,14 @@ def main(argv: list[str] | None = None) -> int:
 
     # ── 5. Train final model ─────────────────────────────
     if args.skip_train:
+        _t_load_model = time.time()
         print(f"\n  Loading existing model ...")
         from src.train import load_model
         model = load_model(MODEL_SAVE_NAME)
         print(f"  [*] Model loaded")
+        print(f"  [TIME] Load model: {time.time() - _t_load_model:.1f}s")
     else:
+        _t_train = time.time()
         from src.train import train_model
 
         print(f"\n  Training {config.train.model_type} ...")
@@ -199,13 +215,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  [*] Val log-loss:   {val_loss:.4f}")
         if val_acc is not None:
             print(f"  [*] Val accuracy:   {val_acc:.4f} ({val_acc*100:.1f}%)")
+        print(f"  [TIME] Train model: {time.time() - _t_train:.1f}s")
 
         # Save
+        _t_save = time.time()
         from src.train import save_model
         save_model(model, MODEL_SAVE_NAME)
         print(f"  [*] Model saved: models/{MODEL_SAVE_NAME}")
+        print(f"  [TIME] Save model: {time.time() - _t_save:.1f}s")
 
     # ── 6. Evaluate on test set ──────────────────────────
+    _t_eval = time.time()
     from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
     X_test = splits["X_test"]
@@ -238,9 +258,7 @@ def main(argv: list[str] | None = None) -> int:
         y_test, y_pred,
         target_names=["Away Win", "Draw", "Home Win"],
         digits=3,
-    ))
-
-    # Feature importance
+    ))            # Feature importance
     print(f"\n{'FEATURE IMPORTANCE':-^72}")
     if hasattr(model, "feature_importances_"):
         importances = model.feature_importances_
@@ -249,8 +267,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"    {'-' * 56}")
         for rank, idx in enumerate(indices, 1):
             print(f"    {rank:<6} {X.columns[idx]:<38} {importances[idx]:>12.4f}")
+    print(f"  [TIME] Evaluate: {time.time() - _t_eval:.1f}s")
 
     # ── 7. Predict upcoming matches ─────────────────────
+    _t_predict = time.time()
     print(f"\n{'=' * 72}")
     print(f"  PREDICTING UPCOMING MATCHES")
     print(f"{'=' * 72}")
@@ -281,8 +301,10 @@ def main(argv: list[str] | None = None) -> int:
         # differs between original and swapped calls. We use _pred_id to
         # track and re-align rows after prediction.
 
-        # Create swapped copy with matching _pred_id
-        df_predictable["_pred_id"] = np.arange(len(df_predictable))
+        # Create swapped copy with _pred_id tracking
+        n_pred = len(df_predictable)
+        df_predictable["_pred_id"] = np.arange(n_pred)
+        df_predictable["_swap_group"] = 0  # 0 = original order
         df_swapped = df_predictable.copy()
         df_swapped["home_team"] = df_predictable["away_team"].values
         df_swapped["away_team"] = df_predictable["home_team"].values
@@ -290,22 +312,29 @@ def main(argv: list[str] | None = None) -> int:
         df_swapped["away_goals"] = np.nan
         df_swapped["result"] = np.nan
         df_swapped["target"] = -1
+        df_swapped["_swap_group"] = 1  # 1 = swapped order
 
-        # Predict with original home/away order
-        df_orig_combined = pd.concat([df_completed, df_predictable], ignore_index=True)
-        X_orig, _ = build_features(df_orig_combined, is_training=True)
-        X_orig_pred = X_orig.iloc[len(df_completed):].copy()
-        pred_order_orig = X_orig_pred.pop("_pred_id").values  # extract & remove from features
+        # Build features ONCE on completed + both orderings
+        _t_feat_pred = time.time()
+        df_combined = pd.concat([df_completed, df_predictable, df_swapped], ignore_index=True)
+        X_all, _ = build_features(df_combined, is_training=True)
+        print(f"  [TIME] Build features (predict, combined orig+swapped): {time.time() - _t_feat_pred:.1f}s")
 
-        # Predict with swapped home/away order
-        df_swp_combined = pd.concat([df_completed, df_swapped], ignore_index=True)
-        X_swp, _ = build_features(df_swp_combined, is_training=True)
-        X_swp_pred = X_swp.iloc[len(df_completed):].copy()
-        pred_order_swp = X_swp_pred.pop("_pred_id").values  # extract & remove from features
+        # Split back into original and swapped order
+        pred_start = len(df_completed)
+        X_pred_all = X_all.iloc[pred_start:].copy()
+        swap_group = X_pred_all.pop("_swap_group").values
+
+        orig_mask = swap_group == 0
+        X_orig_pred = X_pred_all[orig_mask].copy()
+        X_swp_pred = X_pred_all[~orig_mask].copy()
+        pred_order_orig = X_orig_pred.pop("_pred_id").values
+        pred_order_swp = X_swp_pred.pop("_pred_id").values
 
         if len(X_orig_pred) == 0:
             print(f"\n  [W] No feature rows generated for predictable matches.")
         else:
+            _t_pred_model = time.time()
             probs_orig = model.predict_proba(X_orig_pred)  # [away, draw, home]
             probs_swp = model.predict_proba(X_swp_pred)    # [away, draw, home]
 
@@ -319,6 +348,8 @@ def main(argv: list[str] | None = None) -> int:
             avg_home = (probs_orig[:, 2] + probs_swp[:, 0]) / 2  # P(original home team wins)
             avg_draw = (probs_orig[:, 1] + probs_swp[:, 1]) / 2  # P(draw)
             avg_away = (probs_orig[:, 0] + probs_swp[:, 2]) / 2  # P(original away team wins)
+
+            print(f"  [TIME] Model predict (swap-average + combine): {time.time() - _t_pred_model:.1f}s")
 
             probs = np.column_stack([avg_away, avg_draw, avg_home])
             preds = np.argmax(probs, axis=1)
@@ -370,6 +401,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\n  [*] Predictions saved to {out_path}")
 
             # ── Poisson goal predictions (from historical goal rates) ──
+            _t_poisson = time.time()
             # Use the PoissonModel directly on completed data, then predict
             # each upcoming match to avoid NaN propagation from upcoming rows.
             from src.poisson_model import PoissonModel
@@ -389,6 +421,7 @@ def main(argv: list[str] | None = None) -> int:
 
             output["expected_home_goals"] = exp_home_goals
             output["expected_away_goals"] = exp_away_goals
+            print(f"  [TIME] Poisson goal predictions: {time.time() - _t_poisson:.1f}s")
 
             # Most likely scoreline
             def _score_str(h: float, a: float) -> str:
@@ -439,6 +472,7 @@ def main(argv: list[str] | None = None) -> int:
             away = a if is_placeholder_team(a) else a
             print(f"    {str(r['date'])[:10]} | {home:<22} vs {away:<22} | {r['round']}")
         print(f"  -> Re-run once opponents are known and data is updated")
+    print(f"  [TIME] Predict step total: {time.time() - _t_predict:.1f}s")
 
     # ── Summary ──────────────────────────────────────────
     elapsed = time.time() - t0

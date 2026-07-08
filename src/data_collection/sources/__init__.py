@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from src.data_collection.sources import worldcup
+from src.data_collection.sources import worldcup, transfermarkt
 
-__all__ = ["worldcup"]
+__all__ = ["worldcup", "transfermarkt"]

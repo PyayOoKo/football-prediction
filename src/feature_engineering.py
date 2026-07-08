@@ -72,6 +72,7 @@ from sklearn.model_selection import train_test_split
 from config import config
 from src.elo import add_elo_features
 from src.poisson_model import PoissonModel
+from src.dixon_coles import DixonColesModel, TOURNAMENT_IMPORTANCE as DC_TOURNAMENT_IMPORTANCE
 from src.xg_features import add_xg_features
 from src.player_info import add_player_features
 from src.odds_processing import add_odds_features, add_consensus_features
@@ -174,10 +175,31 @@ def build_features(
 
     # 0c. Player information features (injuries, squad, rotation — optional)
     if config.player_info.enabled:
+        # Load player data from CSV if it exists
+        _players_csv = config.paths.external / "players.csv"
+        if _players_csv.exists():
+            _players_df = pd.read_csv(_players_csv)
+            logger.info("Loaded %d player records from %s", len(_players_df), _players_csv)
+        else:
+            _players_df = None
+            logger.warning(
+                "Player info enabled but %s not found — using placeholders. "
+                "Run: python collect_player_data.py",
+                _players_csv,
+            )
+
+        # Load lineup data from CSV if it exists
+        _lineups_csv = config.paths.external / "lineups.csv"
+        if _lineups_csv.exists():
+            _lineups_df = pd.read_csv(_lineups_csv)
+            logger.info("Loaded %d lineup records from %s", len(_lineups_df), _lineups_csv)
+        else:
+            _lineups_df = None
+
         df = add_player_features(
             df,
-            players_df=None,   # Provide a players_df for real data
-            lineups_df=None,   # Provide a lineups_df for rotation index
+            players_df=_players_df,
+            lineups_df=_lineups_df,
             home_team_col="home_team",
             away_team_col="away_team",
             date_col="date",
@@ -204,8 +226,23 @@ def build_features(
     )
     df = _poisson_model.add_poisson_features(df)
 
-    # 1. Rolling team features (form, goals, win rate, GD, rest days)
-    df = _add_rolling_features(df, config.features.form_window)
+    # 0d. Dixon-Coles features (MLE with tau correction, recency, tournament importance)
+    if config.dixon_coles.enabled:
+        _dc_model = DixonColesModel(
+            decay_halflife_days=config.dixon_coles.decay_halflife_days,
+            use_importance=config.dixon_coles.use_importance,
+            rho_fixed=config.dixon_coles.rho_fixed,
+            regress_prior=config.dixon_coles.regress_prior,
+            prior_strength=config.dixon_coles.prior_strength,
+        )
+        df = _dc_model.add_features(df, refit_every=config.dixon_coles.refit_every)
+
+    # 0e. Competition importance as an explicit feature column
+    df = _add_competition_importance(df)
+
+    # 1. Rolling team features (form, goals, win rate, GD, rest days) — multiple windows
+    windows = config.features.rolling_windows
+    df = _add_rolling_features(df, window=config.features.form_window, extra_windows=windows)
 
     # 2. Head-to-head stats
     if config.features.include_h2h:
@@ -215,8 +252,14 @@ def build_features(
     if config.features.include_league_position:
         df = _add_league_position_features(df)
 
-    # 4. Categorical encoding
+        # 4. Categorical encoding
     df = _encode_categoricals(df)
+
+    # 4b. Attack/defence strength ratios (rolling-window version)
+    # Computed from the rolling goals averages that already exist.
+    # Unlike PoissonModel's expanding-window strengths, these use
+    # fixed rolling windows (last N matches) for more responsive form.
+    df = _add_attack_defence_ratios(df)
 
     # 5. Separate features & target
     cols_to_drop = _get_target_columns(df)
@@ -255,11 +298,19 @@ def build_features(
 # ═══════════════════════════════════════════════════════════
 
 
-def _add_rolling_features(df: pd.DataFrame, window: int) -> pd.DataFrame:
+def _add_rolling_features(df: pd.DataFrame, window: int, extra_windows: tuple[int, ...] = ()) -> pd.DataFrame:
     """Append rolling-average features for each team's recent performance.
 
     **Leakage note:** All features are computed with ``.shift(1)`` so the
     current match outcome is never included.
+
+    Parameters
+    ----------
+    window : int
+        Primary rolling window size (used as the configurable N).
+    extra_windows : tuple[int, ...]
+        Additional window sizes to compute (e.g. (5, 10, 20)).
+        The primary window is always included.
 
     Features generated (*_home and *_away variants):
         - ``form_last5`` — points from last 5 matches (W=3, D=1, L=0)
@@ -275,9 +326,10 @@ def _add_rolling_features(df: pd.DataFrame, window: int) -> pd.DataFrame:
         - ``days_since_last_match`` — rest days since team's previous match
         - ``matches_this_season`` — total matches played so far this season
     """
-    logger.debug("Adding rolling features with window=%d", window)
+    windows = tuple(set([w for w in extra_windows if w != window] + [window]))
+    logger.debug("Adding rolling features with windows=%s", windows)
     team_stats = _compute_team_stats(df)
-    df = _merge_team_stats(df, team_stats, window)
+    df = _merge_team_stats(df, team_stats, windows)
     return df
 
 
@@ -292,34 +344,32 @@ def _compute_team_stats(df: pd.DataFrame) -> pd.DataFrame:
     team, date, season, league
     goals_scored, goals_conceded, is_home, points, match_id
     """
+    has_season = "season" in df.columns
+    has_league = "league" in df.columns
     records: list[dict[str, Any]] = []
+    append = records.append
 
-    for idx, row in df.iterrows():
-        # ── Home team ──
-        records.append({
-            "team": row["home_team"],
-            "date": row["date"],
-            "season": row.get("season", None),
-            "league": row.get("league", None),
-            "opponent": row["away_team"],
-            "goals_scored": row.get("home_goals", np.nan),
-            "goals_conceded": row.get("away_goals", np.nan),
-            "is_home": 1,
-            "points": _match_points(row.get("result"), is_home=True),
-            "match_id": idx,
+    for row in df.itertuples(index=True):
+        idx = row.Index
+        home = row.home_team
+        away = row.away_team
+        hg = getattr(row, "home_goals", np.nan)
+        ag = getattr(row, "away_goals", np.nan)
+        result = getattr(row, "result", None)
+        season = getattr(row, "season", None) if has_season else None
+        league = getattr(row, "league", None) if has_league else None
+
+        append({
+            "team": home, "date": row.date, "season": season,
+            "league": league, "opponent": away,
+            "goals_scored": hg, "goals_conceded": ag,
+            "is_home": 1, "points": _match_points(result, True), "match_id": idx,
         })
-        # ── Away team ──
-        records.append({
-            "team": row["away_team"],
-            "date": row["date"],
-            "season": row.get("season", None),
-            "league": row.get("league", None),
-            "opponent": row["home_team"],
-            "goals_scored": row.get("away_goals", np.nan),
-            "goals_conceded": row.get("home_goals", np.nan),
-            "is_home": 0,
-            "points": _match_points(row.get("result"), is_home=False),
-            "match_id": idx,
+        append({
+            "team": away, "date": row.date, "season": season,
+            "league": league, "opponent": home,
+            "goals_scored": ag, "goals_conceded": hg,
+            "is_home": 0, "points": _match_points(result, False), "match_id": idx,
         })
 
     team_df = pd.DataFrame(records)
@@ -355,41 +405,60 @@ def _match_points(result: Any, is_home: bool) -> int:
 def _merge_team_stats(
     df: pd.DataFrame,
     team_stats: pd.DataFrame,
-    window: int,
+    windows: int | tuple[int, ...],
 ) -> pd.DataFrame:
     """Compute rolling stats per team and merge home/away variants onto *df*.
 
     This is the core leakage-free computation.  For each team, we compute
     expanding + rolling windows on historical data, then **shift by 1**
     so the current match is excluded.
+
+    Parameters
+    ----------
+    windows : int | tuple[int, ...]
+        Single window (legacy) or tuple of windows. Each window size
+        produces separate rolling averages (e.g. 5, 10, 20).
     """
+    if isinstance(windows, int):
+        windows = (5, windows)  # legacy: 5-form + N-form
+    windows = tuple(sorted(set(windows)))
+    n_windows = len(windows)
+
     # ── Compute per-team rolling aggregates ─────────────
     team_stats.sort_values(["team", "date"], inplace=True)
 
     def _rolling_team_features(grp: pd.DataFrame) -> pd.DataFrame:
         grp = grp.sort_values("date").copy()
-        for col, agg_func, w in [
-            ("points", "mean", 5),
-            ("points", "mean", window),
-            ("goals_scored", "mean", 5),
-            ("goals_scored", "mean", window),
-            ("goals_conceded", "mean", 5),
-            ("goals_conceded", "mean", window),
-        ]:
-            name = _rolling_col_name(col, agg_func, w)
-            if w is None:
-                grp[name] = grp[col].expanding().agg(agg_func).shift(1)
-                continue
-            grp[name] = (
-                grp[col].rolling(w, min_periods=1).agg(agg_func).shift(1)
-            )
 
-        # Goal difference (rolling average)
+        halflife = getattr(config.features, "time_decay_halflife", None)
+        use_ewm = halflife is not None and halflife > 0
+
+        # Rolling features for ALL window sizes
+        for col, agg_func in [("points", "mean"),
+                               ("goals_scored", "mean"),
+                               ("goals_conceded", "mean")]:
+            for w in windows:
+                name = _rolling_col_name(col, agg_func, w)
+                if use_ewm:
+                    grp[name] = (
+                        grp[col].ewm(halflife=halflife, min_periods=1)
+                        .mean().shift(1)
+                    )
+                else:
+                    grp[name] = (
+                        grp[col].rolling(w, min_periods=1).agg(agg_func).shift(1)
+                    )
+
+        # Goal difference (rolling average for each window)
         grp["gd"] = grp["goals_scored"] - grp["goals_conceded"]
-        grp["goal_diff_avg5"] = grp["gd"].rolling(5, min_periods=1).mean().shift(1)
-        grp["goal_diff_avgN"] = grp["gd"].rolling(window, min_periods=1).mean().shift(1)
+        for w in windows:
+            name = f"goal_diff_avg{w}"
+            if use_ewm:
+                grp[name] = grp["gd"].ewm(halflife=w, min_periods=1).mean().shift(1)
+            else:
+                grp[name] = grp["gd"].rolling(w, min_periods=1).mean().shift(1)
 
-        # Win rates
+        # Win rates (expanding — all available history, no window)
         grp["win_rate_home"] = (
             (grp["is_home"] == 1) & (grp["points"] == 3)
         ).expanding().mean().shift(1)
@@ -402,9 +471,17 @@ def _merge_team_stats(
 
         # Matches played this season
         if "season" in grp.columns:
-            grp["matches_this_season"] = (
-                grp.groupby("season").cumcount() + 1
-            ).shift(1)
+            if config.features.reset_per_season:
+                # Reset rolling count per season
+                season_start = grp.groupby("season").cumcount() == 0
+                # For per-season, we still need to track matches within season
+                grp["matches_this_season"] = (
+                    grp.groupby("season").cumcount() + 1
+                ).shift(1)
+            else:
+                grp["matches_this_season"] = (
+                    grp.groupby("season").cumcount() + 1
+                ).shift(1)
 
         # Days since last match
         grp["days_since_last_match"] = (
@@ -426,7 +503,7 @@ def _merge_team_stats(
         c for c in team_stats.columns
         if c not in ["match_id", "team", "date", "season", "league",
                       "opponent", "goals_scored", "goals_conceded",
-                      "is_home", "points"]
+                      "is_home", "points", "gd"]
     ]
 
     # ── Build home feature columns ──────────────────────
@@ -449,7 +526,8 @@ def _merge_team_stats(
     df = pd.concat([df, home_raw, away_raw], axis=1)
 
     n_features = len([c for c in df.columns if c.startswith(("h_", "a_"))])
-    logger.debug("Added %d rolling feature columns (%d per team)", n_features, n_features // 2)
+    logger.debug("Added %d rolling feature columns across %d windows %s",
+                 n_features, n_windows, windows)
     return df
 
 
@@ -480,7 +558,7 @@ def _add_h2h_features(df: pd.DataFrame, window: int) -> pd.DataFrame:
         - ``h2h_matches_played`` — number of H2H matches in window
     """
     logger.debug("Adding H2H features with window=%d", window)
-    h2h = _compute_h2h_stats(df, window)
+    h2h = _compute_h2h_stats(df)
 
     # Merge onto the original DataFrame
     df = df.merge(
@@ -495,7 +573,7 @@ def _add_h2h_features(df: pd.DataFrame, window: int) -> pd.DataFrame:
     return df
 
 
-def _compute_h2h_stats(df: pd.DataFrame, window: int) -> pd.DataFrame:
+def _compute_h2h_stats(df: pd.DataFrame) -> pd.DataFrame:
     """Compute head-to-head rolling stats for every (home_team, away_team) pair.
 
     Returns a DataFrame indexed identically to *df*.
@@ -503,41 +581,25 @@ def _compute_h2h_stats(df: pd.DataFrame, window: int) -> pd.DataFrame:
     df_sorted = df.sort_values("date").copy()
     records: dict[int, dict[str, Any]] = {}
 
-    # Group by team-pair (direction matters: Arsenal vs Chelsea ≠ Chelsea vs Arsenal
-    # for home/away stats, but we also want symmetric totals)
+    # Group by team-pair (direction matters)
     pair_groups = df_sorted.groupby(["home_team", "away_team"], sort=False)
 
     for (home, away), group in pair_groups:
         group = group.sort_values("date")
-        # Expand stats incrementally, then shift by 1
-        home_points = (
-            group["result"]
-            .map(lambda r: 3 if r == "H" else (1 if r == "D" else 0))
-            .expanding()
-            .mean()
-            .shift(1)
-        )
-        away_points = (
-            group["result"]
-            .map(lambda r: 3 if r == "A" else (1 if r == "D" else 0))
-            .expanding()
-            .mean()
-            .shift(1)
-        )
-        home_goals = group["home_goals"].expanding().mean().shift(1)
-        away_goals = group["away_goals"].expanding().mean().shift(1)
-        total_goals = (
-            (group["home_goals"] + group["away_goals"])
-            .expanding()
-            .mean()
-            .shift(1)
-        )
-        home_win = (
-            (group["result"] == "H").expanding().mean().shift(1)
-        )
-        n_played = (
-            (group["result"].expanding().count()).shift(1)
-        )
+        res = group["result"]
+        hg = group["home_goals"]
+        ag = group["away_goals"]
+
+        h_pts = res.map(lambda r: 3 if r == "H" else (1 if r == "D" else 0))
+        a_pts = res.map(lambda r: 3 if r == "A" else (1 if r == "D" else 0))
+
+        home_points = h_pts.expanding().mean().shift(1)
+        away_points = a_pts.expanding().mean().shift(1)
+        home_goals = hg.expanding().mean().shift(1)
+        away_goals = ag.expanding().mean().shift(1)
+        total_goals = (hg + ag).expanding().mean().shift(1)
+        home_win = (res == "H").expanding().mean().shift(1)
+        n_played = res.expanding().count().shift(1)
 
         for i, idx in enumerate(group.index):
             records[idx] = {
@@ -626,11 +688,8 @@ def _compute_league_positions(df: pd.DataFrame) -> pd.DataFrame:
       ``away_matches_played_league`` (away team's stats)
     """
     df_sorted = df.sort_values(["date", "home_team"]).copy()
-
     records: dict[int, dict[str, Any]] = {}
 
-    # We need to process chronologically and maintain a running points table
-    # Group by season + league (if available)
     group_keys = []
     if "season" in df_sorted.columns:
         group_keys.append("season")
@@ -640,35 +699,32 @@ def _compute_league_positions(df: pd.DataFrame) -> pd.DataFrame:
     if group_keys:
         groups = df_sorted.groupby(group_keys, sort=False)
     else:
-        # Treat everything as one group
         groups = [("", df_sorted)]
 
     for _, group in groups:
         group = group.sort_values("date")
-        # Running points tally per team
         team_points: dict[str, float] = {}
         team_gd: dict[str, float] = {}
         team_matches: dict[str, int] = {}
+        _get_pts = team_points.get
+        _get_gd = team_gd.get
+        _get_m = team_matches.get
 
-        for idx, row in group.iterrows():
-            home = row["home_team"]
-            away = row["away_team"]
+        for row in group.itertuples(index=True):
+            idx = row.Index
+            home = row.home_team
+            away = row.away_team
 
-            # Record current position for both teams (as it stands *before* this match)
-            # Points from previous matches
-            home_pts = team_points.get(home, 0)
-            away_pts = team_points.get(away, 0)
-            home_m = team_matches.get(home, 0)
-            away_m = team_matches.get(away, 0)
+            home_pts = _get_pts(home, 0)
+            away_pts = _get_pts(away, 0)
+            home_m = _get_m(home, 0)
+            away_m = _get_m(away, 0)
 
-            # Build a temporary ranking from current points
             all_teams = set(team_points.keys()) | {home, away}
-            standings = [
-                (t, team_points.get(t, 0), team_gd.get(t, 0))
-                for t in all_teams
-            ]
-            # Sort by points desc, then GD desc, then alphabetically
-            standings.sort(key=lambda x: (-x[1], -x[2], x[0]))
+            standings = sorted(
+                ((t, _get_pts(t, 0), _get_gd(t, 0)) for t in all_teams),
+                key=lambda x: (-x[1], -x[2], x[0]),
+            )
             position_map = {t: i + 1 for i, (t, _, _) in enumerate(standings)}
 
             records[idx] = {
@@ -680,23 +736,29 @@ def _compute_league_positions(df: pd.DataFrame) -> pd.DataFrame:
                 "away_matches_played_league": away_m,
             }
 
-            # Update points after this match (for the *next* match)
-            home_goals = row.get("home_goals", 0) or 0
-            away_goals = row.get("away_goals", 0) or 0
-            if row.get("result") == "H":
-                team_points[home] = team_points.get(home, 0) + 3
-                team_points[away] = team_points.get(away, 0) + 0
-            elif row.get("result") == "A":
-                team_points[home] = team_points.get(home, 0) + 0
-                team_points[away] = team_points.get(away, 0) + 3
-            elif row.get("result") == "D":
-                team_points[home] = team_points.get(home, 0) + 1
-                team_points[away] = team_points.get(away, 0) + 1
+            result = getattr(row, "result", None)
+            hg_val = getattr(row, "home_goals", np.nan)
+            hg = int(hg_val) if pd.notna(hg_val) else 0
+            ag_val = getattr(row, "away_goals", np.nan)
+            ag = int(ag_val) if pd.notna(ag_val) else 0
 
-            team_gd[home] = team_gd.get(home, 0) + (home_goals - away_goals)
-            team_gd[away] = team_gd.get(away, 0) + (away_goals - home_goals)
-            team_matches[home] = team_matches.get(home, 0) + 1
-            team_matches[away] = team_matches.get(away, 0) + 1
+            if result == "H":
+                team_points[home] = _get_pts(home, 0) + 3
+                team_points[away] = _get_pts(away, 0)
+            elif result == "A":
+                team_points[home] = _get_pts(home, 0)
+                team_points[away] = _get_pts(away, 0) + 3
+            elif result == "D":
+                team_points[home] = _get_pts(home, 0) + 1
+                team_points[away] = _get_pts(away, 0) + 1
+            else:
+                team_points[home] = _get_pts(home, 0)
+                team_points[away] = _get_pts(away, 0)
+
+            team_gd[home] = _get_gd(home, 0) + (hg - ag)
+            team_gd[away] = _get_gd(away, 0) + (ag - hg)
+            team_matches[home] = _get_m(home, 0) + 1
+            team_matches[away] = _get_m(away, 0) + 1
 
     result = pd.DataFrame.from_dict(records, orient="index")
     result.index.name = None
@@ -815,6 +877,117 @@ def _get_target_columns(df: pd.DataFrame) -> list[str]:
     # Also drop any match_id auxiliary columns
     drop_cols.extend([c for c in df.columns if c.endswith("_match_id")])
     return drop_cols
+
+
+# ═══════════════════════════════════════════════════════════
+#  0e.  Competition importance feature
+# ═══════════════════════════════════════════════════════════
+
+
+def _add_competition_importance(df: pd.DataFrame) -> pd.DataFrame:
+    """Add a numeric competition importance feature column.
+
+    Reuses the tournament importance map from ``src.dixon_coles``
+    to avoid duplication.  Maps the ``league`` column to an importance
+    weight (0.4–2.5):
+    - World Cup                 → 2.5
+    - Continental championships → 2.0
+    - Qualifiers                → 1.2–1.5
+    - Club competitions         → 1.0
+    - Friendlies                → 0.4–0.6
+
+    The Dixon-Coles model uses these weights internally for recency
+    weighting, but exposing them as an explicit feature helps tree-based
+    models learn competition-specific patterns directly.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of **df** with an added ``competition_importance`` column.
+    """
+    if "league" not in df.columns:
+        df["competition_importance"] = 1.0
+        return df
+
+    def _importance(league_name: str) -> float:
+        if not isinstance(league_name, str):
+            return 1.0
+        name_lower = league_name.lower().strip()
+        for pattern, weight in DC_TOURNAMENT_IMPORTANCE.items():
+            if pattern in name_lower:
+                return weight
+        return 1.0
+
+    df["competition_importance"] = df["league"].apply(_importance)
+    logger.debug(
+        "Added competition_importance — range [%.1f, %.1f]",
+        df["competition_importance"].min(),
+        df["competition_importance"].max(),
+    )
+    return df
+
+
+# ═══════════════════════════════════════════════════════════
+#  4a.  Attack / Defence strength ratios (rolling-window)
+# ═══════════════════════════════════════════════════════════
+
+
+def _add_attack_defence_ratios(df: pd.DataFrame) -> pd.DataFrame:
+    """Add rolling-window attack/defence strength ratio features.
+
+    For each rolling window already computed in ``_add_rolling_features``
+    (e.g. 5, 10, 20), generates:
+
+    - ``h_attack_ratioN``  = home_goals_scored_avgN / league_avg_goals
+    - ``h_defence_ratioN`` = home_goals_conceded_avgN / league_avg_goals
+    - ``a_attack_ratioN``  = away_goals_scored_avgN / league_avg_goals
+    - ``a_defence_ratioN`` = away_goals_conceded_avgN / league_avg_goals
+
+    A ratio > 1.0 means the team scores/concedes more than the
+    tournament average (strong attack / weak defence).
+    A ratio < 1.0 means the opposite.
+
+    This differs from PoissonModel's expanding-window strengths in
+    that it uses fixed-size rolling windows (most recent N matches),
+    making it more responsive to recent form changes.
+
+    **Leakage note:** relies on the (already shifted) rolling averages
+    from ``_add_rolling_features``, so no additional leakage risk.
+    """
+    # Compute league-average goals per match from completed matches only
+    completed = df[df["result"].notna()] if "result" in df.columns else df
+    if len(completed) == 0:
+        return df
+
+    avg_home = float(completed["home_goals"].mean())
+    avg_away = float(completed["away_goals"].mean())
+
+    # Guard against division by zero (no goals ever scored)
+    league_avg = (avg_home + avg_away) / 2.0
+    if league_avg <= 0:
+        league_avg = 1.0
+
+    # Check which rolling windows are available
+    windows = getattr(config.features, "rolling_windows", (5, 10, 20))
+
+    for w in windows:
+        h_scored_col = f"h_goals_scored_avg{w}"
+        h_conceded_col = f"h_goals_conceded_avg{w}"
+        a_scored_col = f"a_goals_scored_avg{w}"
+        a_conceded_col = f"a_goals_conceded_avg{w}"
+
+        if h_scored_col in df.columns:
+            df[f"h_attack_ratio{w}"] = df[h_scored_col] / league_avg
+        if h_conceded_col in df.columns:
+            df[f"h_defence_ratio{w}"] = df[h_conceded_col] / league_avg
+        if a_scored_col in df.columns:
+            df[f"a_attack_ratio{w}"] = df[a_scored_col] / league_avg
+        if a_conceded_col in df.columns:
+            df[f"a_defence_ratio{w}"] = df[a_conceded_col] / league_avg
+
+    n_new = len([c for c in df.columns if c.endswith("_ratio5") or c.endswith("_ratio10") or c.endswith("_ratio20")])
+    logger.debug("Added %d attack/defence ratio features (league_avg=%.3f)", n_new, league_avg)
+    return df
 
 
 # ═══════════════════════════════════════════════════════════

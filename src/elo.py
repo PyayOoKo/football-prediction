@@ -407,57 +407,54 @@ class EloSystem:
         home_elo_list: list[float] = []
         away_elo_list: list[float] = []
         elo_diff_list: list[float] = []
+        _append_elo = home_elo_list.append
+        _append_away = away_elo_list.append
+        _append_diff = elo_diff_list.append
 
         has_season = season_col is not None and season_col in df.columns
         has_xg = home_xg_col is not None and home_xg_col in df.columns
         has_hosts = host_nations is not None
 
-        for _idx, row in df.iterrows():
-            home = row[home_col]
-            away = row[away_col]
-            result = row.get(result_col)
+        # Pre-extract columns for fast itertuples access
+        _check_season = self.check_season_change
+        _get_rating = self.get_rating
+        _update = self.update_ratings
 
-            # Check for season change (pre-rating regression)
+        for row in df.itertuples(index=False):
+            home = getattr(row, home_col)
+            away = getattr(row, away_col)
+            result = getattr(row, result_col, None)
+
             if has_season:
-                self.check_season_change(str(row[season_col]))
+                _check_season(str(getattr(row, season_col)))
 
-            # Get pre-match ratings (always available, even without a result)
-            R_home = self.get_rating(home)
-            R_away = self.get_rating(away)
+            R_home = _get_rating(home)
+            R_away = _get_rating(away)
             elo_diff = R_home - R_away
 
-            # If we have a result, update ratings for future matches
-            if pd.notna(result) and result in ("H", "D", "A"):
-                home_g = row.get(home_goals_col)
-                away_g = row.get(away_goals_col)
+            if result is not None and result in ("H", "D", "A"):
+                home_g = getattr(row, home_goals_col, None)
+                away_g = getattr(row, away_goals_col, None)
+                home_xg = float(getattr(row, home_xg_col, 0) or 0) if has_xg else None
+                away_xg = float(getattr(row, away_xg_col, 0) or 0) if has_xg else None
 
-                # Get xG data if available (for xG-margin K-factor adjustment)
-                home_xg = float(row.get(home_xg_col, 0) or 0) if has_xg else None
-                away_xg = float(row.get(away_xg_col, 0) or 0) if has_xg else None
-
-                # Check if home team is the host nation
                 is_host = False
                 if has_hosts and has_season:
-                    season_int = int(row[season_col]) if pd.notna(row.get(season_col)) else 0
+                    season_val = getattr(row, season_col, None)
+                    season_int = int(season_val) if season_val is not None else 0
                     host_team = host_nations.get(season_int)
                     if host_team and home == host_team:
                         is_host = True
 
-                # Record pre-match ratings and update
-                R_home, R_away, _ = self.update_ratings(
-                    home,
-                    away,
-                    str(result),
-                    home_goals=home_g,
-                    away_goals=away_g,
-                    home_xg=home_xg,
-                    away_xg=away_xg,
-                    is_host=is_host,
+                R_home, R_away, _ = _update(
+                    home, away, str(result),
+                    home_goals=home_g, away_goals=away_g,
+                    home_xg=home_xg, away_xg=away_xg, is_host=is_host,
                 )
 
-            home_elo_list.append(R_home)
-            away_elo_list.append(R_away)
-            elo_diff_list.append(elo_diff)
+            _append_elo(R_home)
+            _append_away(R_away)
+            _append_diff(elo_diff)
 
         df["Home_Elo"] = home_elo_list
         df["Away_Elo"] = away_elo_list

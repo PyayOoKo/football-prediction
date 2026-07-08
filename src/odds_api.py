@@ -31,9 +31,10 @@ import json
 import logging
 import os
 import time
-from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
+
+
+from dataclasses import dataclass, field
 from typing import Any
 
 import requests
@@ -48,7 +49,7 @@ API_BASE_URL = "https://api.the-odds-api.com/v4"
 DEFAULT_CACHE_TTL = 3600
 """Default cache TTL in seconds (1 hour)."""
 
-DEFAULT_REGIONS = "uk,ie,eu"
+DEFAULT_REGIONS = "us,uk,eu"
 """Default bookmaker regions: UK, Ireland, and European."""
 
 CACHE_DIR = Path("data") / "external"

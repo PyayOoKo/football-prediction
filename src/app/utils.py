@@ -127,6 +127,34 @@ def get_latest_matches(df: pd.DataFrame, n: int = 20) -> pd.DataFrame:
     return subset.head(n)
 
 
+# ── Value bets cache loading ──────────────────────────
+
+@st.cache_data(ttl=300, show_spinner="Loading latest value bets...")
+def load_latest_value_bets() -> pd.DataFrame | None:
+    """Load the latest value bets report saved by today_value_bets_live.py."""
+    path = config.paths.data.parent / "reports" / "value_bets" / "latest.csv"
+    if not path.exists():
+        return None
+    try:
+        df = pd.read_csv(path)
+        return df
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=300)
+def load_value_bets_meta() -> pd.DataFrame | None:
+    """Load prediction metadata from latest value bets run."""
+    path = config.paths.data.parent / "reports" / "value_bets" / "latest_meta.csv"
+    if not path.exists():
+        return None
+    try:
+        df = pd.read_csv(path)
+        return df
+    except Exception:
+        return None
+
+
 def get_matchup_stats(
     df: pd.DataFrame, home_team: str, away_team: str,
 ) -> dict[str, Any]:

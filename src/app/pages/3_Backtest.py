@@ -101,6 +101,16 @@ if st.button("▶️ RUN FULL BACKTEST", type="primary", use_container_width=Tru
         # Split chronologically
         splits = train_val_test_split(X, y)
 
+        # Align test features to only what the model was trained on
+        # (build_features may produce columns the model hasn't seen)
+        model_features = model.get_booster().feature_names
+        X_test_aligned = splits["X_test"].copy()
+        for col in model_features:
+            if col not in X_test_aligned.columns:
+                X_test_aligned[col] = 0.0
+        X_test_aligned = X_test_aligned[model_features]
+        splits["X_test"] = X_test_aligned
+
         # Use the saved model as-is — it was trained chronologically in
         # train_xgboost.py and never saw test data, so predictions are valid.
 

@@ -161,6 +161,34 @@ def tune_hyperparameters(
             random_state=config.train.seed,
             verbose=1 if verbose else 0,
         )
+    elif model_type == "lightgbm":
+        import lightgbm as lgb
+        param_dist = {
+            "n_estimators": [100, 200, 300, 500],
+            "max_depth": [3, 4, 5, 6, 8, -1],
+            "learning_rate": [0.01, 0.03, 0.05, 0.1, 0.15],
+            "subsample": [0.6, 0.7, 0.8, 0.9, 1.0],
+            "colsample_bytree": [0.6, 0.7, 0.8, 0.9, 1.0],
+            "reg_lambda": [0.01, 0.1, 1.0, 5.0, 10.0],
+            "reg_alpha": [0.0, 0.01, 0.1, 1.0],
+            "num_leaves": [15, 31, 63, 127],
+            "min_child_samples": [5, 10, 20, 50],
+        }
+        base_model = lgb.LGBMClassifier(
+            objective="multiclass",
+            metric="multi_logloss",
+            random_state=config.train.seed,
+            n_jobs=-1,
+            verbose=-1,
+        )
+        cv = create_time_series_folds(n_splits=n_folds or config.train.cv_folds)
+        searcher = RandomizedSearchCV(
+            base_model, param_dist, n_iter=n_iter,
+            cv=cv,
+            scoring="neg_log_loss", n_jobs=-1,
+            random_state=config.train.seed,
+            verbose=1 if verbose else 0,
+        )
     elif model_type == "random_forest":
         param_dist = {
             "n_estimators": [100, 200, 300, 500],
@@ -295,6 +323,25 @@ def _build_model() -> Any:
             n_jobs=-1,
         )
 
+    if cfg.model_type == "lightgbm":
+        import lightgbm as lgb
+        return lgb.LGBMClassifier(
+            objective="multiclass",
+            metric="multi_logloss",
+            n_estimators=cfg.n_estimators,
+            max_depth=cfg.max_depth,
+            learning_rate=cfg.learning_rate,
+            subsample=cfg.subsample,
+            colsample_bytree=cfg.colsample_bytree,
+            reg_lambda=cfg.reg_lambda,
+            reg_alpha=cfg.reg_alpha,
+            num_leaves=31,
+            min_child_samples=cfg.min_samples_leaf,
+            random_state=cfg.seed,
+            n_jobs=-1,
+            verbose=-1,
+        )
+
     raise NotImplementedError(f"_build_model for '{cfg.model_type}' is not yet implemented.")
 
 
@@ -329,24 +376,37 @@ def _train_gbdt(
 ) -> tuple[Any, dict[str, list[float]]]:
     """Train XGBoost / LightGBM with early stopping.
 
-    XGBoost handles NaN natively — no imputation needed.
+    XGBoost/LightGBM handle NaN natively — no imputation needed.
     """
     eval_set = [(X_train, y_train)]
     if X_val is not None and y_val is not None:
         eval_set.append((X_val, y_val))
 
-    # XGBoost 3.x moved eval_metric / early_stopping_rounds from fit() to constructor
-    model.set_params(eval_metric="mlogloss", early_stopping_rounds=10)
-
-    model.fit(
-        X_train, y_train,
-        eval_set=eval_set,
-        verbose=False,
-    )
+    # Different parameter names for XGBoost vs LightGBM
+    is_lgbm = config.train.model_type == "lightgbm"
+    if is_lgbm:
+        model.set_params(
+            metric="multi_logloss",
+            early_stopping_round=10,
+        )
+        model.fit(
+            X_train, y_train,
+            eval_set=eval_set,
+            verbose=False,
+        )
+    else:
+        model.set_params(eval_metric="mlogloss", early_stopping_rounds=10)
+        model.fit(
+            X_train, y_train,
+            eval_set=eval_set,
+            verbose=False,
+        )
 
     # Use best_iteration if available (from early stopping)
-    if hasattr(model, "best_iteration") and model.best_iteration is not None:
-        best_n = model.best_iteration + 1
+    # XGBoost uses ``best_iteration`` (no underscore); LightGBM uses ``best_iteration_``
+    best_attr = "best_iteration_" if is_lgbm else "best_iteration"
+    if hasattr(model, best_attr) and getattr(model, best_attr) is not None:
+        best_n = getattr(model, best_attr) + 1
         max_n = model.get_params().get("n_estimators", "?")
         logger.info("Early stopped at iteration %d / %s", best_n, max_n)
 
@@ -366,5 +426,186 @@ def _train_neural_net(
     X_val: pd.DataFrame | None,
     y_val: pd.Series | None,
 ) -> tuple[Any, dict[str, list[float]]]:
-    """Train a feed-forward neural network (PyTorch)."""
-    raise NotImplementedError("_train_neural_net is not yet implemented.")
+    """Train a feed-forward neural network (PyTorch).
+
+    Architecture: ``input → 128 → ReLU → Dropout → 64 → ReLU → Dropout → 32 → ReLU → 3 (softmax)``
+    Uses AdamW optimizer, reduces learning rate on plateau, early stopping.
+    Returns a sklearn-compatible wrapper.
+    """
+    try:
+        import torch
+        import torch.nn as nn
+        import torch.optim as optim
+        from torch.utils.data import DataLoader, TensorDataset
+    except ImportError:
+        raise ImportError(
+            "PyTorch is required for neural network training. "
+            "Install it with: pip install torch"
+        )
+
+    cfg = config.train
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    n_features = X_train.shape[1]
+    n_classes = len(y_train.unique())
+
+    # Prepare data (fill NaN with 0 for neural net)
+    X_train_clean = X_train.fillna(0).copy()
+    X_val_clean = X_val.fillna(0).copy() if X_val is not None else None
+
+    def _to_tensor(X, y=None):
+        X_t = torch.tensor(
+            X.values if hasattr(X, "values") else X,
+            dtype=torch.float32, device=device,
+        )
+        if y is None:
+            return X_t
+        y_t = torch.tensor(
+            y.values if hasattr(y, "values") else y,
+            dtype=torch.long, device=device,
+        )
+        return X_t, y_t
+
+    # Build network (define inline for config access)
+    hidden = cfg.hidden_layers or (128, 64, 32)
+    layers_list = []
+    prev = n_features
+    for h in hidden:
+        layers_list.append(nn.Linear(prev, h))
+        layers_list.append(nn.ReLU())
+        if cfg.dropout > 0:
+            layers_list.append(nn.Dropout(cfg.dropout))
+        prev = h
+    layers_list.append(nn.Linear(prev, n_classes))
+    net = nn.Sequential(*layers_list).to(device)
+
+    X_train_t, y_train_t = _to_tensor(X_train_clean, y_train)
+    train_loader = DataLoader(
+        TensorDataset(X_train_t, y_train_t),
+        batch_size=cfg.batch_size, shuffle=True,
+    )
+
+    val_loader = None
+    if X_val_clean is not None and y_val is not None:
+        X_val_t, y_val_t = _to_tensor(X_val_clean, y_val)
+        val_loader = DataLoader(
+            TensorDataset(X_val_t, y_val_t),
+            batch_size=cfg.batch_size, shuffle=False,
+        )
+
+    # Loss & optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.AdamW(net.parameters(), lr=cfg.learning_rate or 0.001)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", factor=0.5, patience=5, min_lr=1e-6,
+    )
+
+    # Training loop
+    history: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
+    best_val_loss = float("inf")
+    patience_counter = 0
+    early_stop = cfg.early_stopping_patience or 10
+    max_epochs = cfg.epochs or 100
+
+    net.train()
+    for epoch in range(max_epochs):
+        epoch_loss = 0.0
+        n_batches = 0
+        for X_batch, y_batch in train_loader:
+            optimizer.zero_grad()
+            outputs = net(X_batch)
+            loss = criterion(outputs, y_batch)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=1.0)
+            optimizer.step()
+            epoch_loss += loss.item()
+            n_batches += 1
+
+        avg_train_loss = epoch_loss / n_batches
+        history["train_loss"].append(avg_train_loss)
+
+        if val_loader is not None:
+            net.eval()
+            val_loss = 0.0
+            n_val = 0
+            with torch.no_grad():
+                for X_batch, y_batch in val_loader:
+                    loss = criterion(net(X_batch), y_batch)
+                    val_loss += loss.item()
+                    n_val += 1
+            avg_val_loss = val_loss / n_val if n_val > 0 else float("inf")
+            history["val_loss"].append(avg_val_loss)
+            scheduler.step(avg_val_loss)
+
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                patience_counter = 0
+            else:
+                patience_counter += 1
+                if patience_counter >= early_stop:
+                    logger.info(
+                        "Early stopping at epoch %d (val_loss=%.4f)",
+                        epoch + 1, avg_val_loss,
+                    )
+                    break
+            net.train()
+
+        if (epoch + 1) % 20 == 0:
+            lr = optimizer.param_groups[0]["lr"]
+            logger.debug(
+                "Epoch %d/%d — train_loss=%.4f  val_loss=%.4f  lr=%.6f",
+                epoch + 1, max_epochs, avg_train_loss,
+                history["val_loss"][-1] if history["val_loss"] else float("nan"),
+                lr,
+            )
+
+    if val_loader is not None:
+        net.eval()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for X_batch, y_batch in val_loader:
+                _, predicted = torch.max(net(X_batch), 1)
+                total += y_batch.size(0)
+                correct += (predicted == y_batch).sum().item()
+        history["val_accuracy"] = [correct / total]
+
+    logger.info(
+        "Neural net trained — %d epochs, final val_loss=%.4f",
+        len(history["train_loss"]),
+        history["val_loss"][-1] if history["val_loss"] else float("nan"),
+    )
+
+    wrapped = TorchWrapper(net, device)
+    return wrapped, history
+
+
+class TorchWrapper:
+    """Wraps a PyTorch model with sklearn's predict/predict_proba interface.
+
+    Handles NaN in input by filling with zeros (like sklearn's pipelines).
+    """
+    def __init__(self, net: Any, device: Any):
+        self.net = net
+        self.device = device
+        self.net.eval()
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        X_clean = X.fillna(0) if hasattr(X, "fillna") else X
+        X_t = torch.tensor(
+            X_clean.values if hasattr(X_clean, "values") else X_clean,
+            dtype=torch.float32, device=self.device,
+        )
+        with torch.no_grad():
+            outputs = self.net(X_t)
+            return torch.argmax(outputs, dim=1).cpu().numpy()
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        X_clean = X.fillna(0) if hasattr(X, "fillna") else X
+        X_t = torch.tensor(
+            X_clean.values if hasattr(X_clean, "values") else X_clean,
+            dtype=torch.float32, device=self.device,
+        )
+        with torch.no_grad():
+            outputs = self.net(X_t)
+            return torch.softmax(outputs, dim=1).cpu().numpy()
