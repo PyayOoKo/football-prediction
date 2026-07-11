@@ -245,7 +245,6 @@ class EnsembleModel:
 
             if name == "logistic_regression":
                 model = LogisticRegression(
-                    multi_class="multinomial",
                     solver="lbfgs",
                     max_iter=2000,
                     random_state=config.train.seed,

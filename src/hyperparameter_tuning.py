@@ -167,7 +167,6 @@ def _build_baseline(model_type: str) -> Any:
 
     if model_type == "logistic_regression":
         return LogisticRegression(
-            multi_class="multinomial",
             solver="lbfgs",
             max_iter=2000,
             random_state=cfg.seed,
@@ -232,7 +231,6 @@ def _build_with_params(model_type: str, params: dict[str, Any]) -> Any:
 
     if model_type == "logistic_regression":
         return LogisticRegression(
-            multi_class="multinomial",
             max_iter=params.get("max_iter", 2000),
             random_state=cfg.seed,
             class_weight="balanced",
@@ -310,7 +308,6 @@ def _optimise_lr(
     logger.info("  GridSearchCV (Logistic Regression) — %d-fold time-series CV", cv)
     ts_cv = create_time_series_folds(n_splits=cv)
     base = LogisticRegression(
-        multi_class="multinomial",
         random_state=config.train.seed,
         class_weight="balanced",
     )

@@ -125,7 +125,7 @@ def tune_hyperparameters(
             "solver": ["lbfgs", "liblinear"],
         }
         base_model = LogisticRegression(
-            multi_class="multinomial", max_iter=2000,
+            max_iter=2000,
             random_state=config.train.seed, class_weight="balanced",
         )
         # Small grid — use exact search
@@ -289,7 +289,6 @@ def _build_model() -> Any:
 
     if cfg.model_type == "logistic_regression":
         return LogisticRegression(
-            multi_class="multinomial",
             solver="lbfgs",
             max_iter=1000,
             random_state=cfg.seed,
