@@ -1,0 +1,58 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  CODEOWNERS — Automatically requests reviews from the right team
+#  based on which files are modified in a pull request.
+#
+#  Order matters: the last matching pattern takes precedence.
+#  @your-org/team — replace with actual GitHub team names.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Global owners (fallback) ─────────────────────────────────────────────────
+* @your-org/maintainers
+
+# ── ML pipeline core ─────────────────────────────────────────────────────────
+/src/feature_engineering.py    @your-org/ml-team
+/src/ensemble.py               @your-org/ml-team
+/src/train.py                  @your-org/ml-team
+/src/elo.py                    @your-org/ml-team
+/src/poisson_model.py          @your-org/ml-team
+/src/dixon_coles.py            @your-org/ml-team
+/src/evaluate.py               @your-org/ml-team
+/src/hyperparameter_tuning.py  @your-org/ml-team
+/src/value_betting.py          @your-org/ml-team
+/src/backtesting.py            @your-org/ml-team
+/src/calibration.py            @your-org/ml-team
+/src/confidence_scoring.py     @your-org/ml-team
+/src/predict.py                @your-org/ml-team
+
+# ── Feature Store & Experiment Tracking ──────────────────────────────────────
+/src/feature_store/            @your-org/ml-platform-team
+/src/experiment_tracking/      @your-org/ml-platform-team
+
+# ── Database & ETL ───────────────────────────────────────────────────────────
+/src/database/                 @your-org/data-eng-team
+/src/etl/                      @your-org/data-eng-team
+/src/importers/                @your-org/data-eng-team
+/src/data_collection/          @your-org/data-eng-team
+/src/data_loader.py            @your-org/data-eng-team
+/src/preprocessing.py          @your-org/data-eng-team
+
+# ── Data quality & validation ────────────────────────────────────────────────
+/src/validation/               @your-org/data-eng-team
+/src/monitoring/               @your-org/data-eng-team
+/src/data_profiling/           @your-org/data-eng-team
+
+# ── Scheduler & deployment ───────────────────────────────────────────────────
+/src/scheduler/                @your-org/devops-team
+/Dockerfile                    @your-org/devops-team
+/docker-compose.yml            @your-org/devops-team
+/.github/workflows/            @your-org/devops-team
+
+# ── Configuration ────────────────────────────────────────────────────────────
+/config.py                     @your-org/maintainers
+/pyproject.toml                @your-org/maintainers
+/.env.example                  @your-org/maintainers
+
+# ── Documentation ────────────────────────────────────────────────────────────
+/docs/                         @your-org/maintainers
+/README.md                     @your-org/maintainers
+/CONTRIBUTING.md               @your-org/maintainers

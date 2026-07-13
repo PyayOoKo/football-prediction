@@ -1,0 +1,245 @@
+"""
+HTML report generator — professional validation dashboard.
+
+Produces a self-contained HTML file with:
+- Pass/fail summary banner
+- Per-check breakdown tables
+- Violation detail expandable rows
+- Color-coded status badges (green/amber/red)
+"""
+
+from __future__ import annotations
+
+from src.validation.models import CheckResult, ValidationResult
+
+_HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Football Data Validation Report — {source}</title>
+<style>
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+         background: #f5f7fa; color: #1a1a2e; padding: 32px; }}
+  .container {{ max-width: 1100px; margin: 0 auto; }}
+
+  /* Header */
+  .header {{ margin-bottom: 32px; }}
+  .header h1 {{ font-size: 28px; font-weight: 700; color: #1a1a2e; }}
+  .header .meta {{ color: #6b7280; font-size: 14px; margin-top: 4px; }}
+  .header .meta span {{ margin-right: 20px; }}
+
+  /* Summary banner */
+  .banner {{ border-radius: 12px; padding: 24px; margin-bottom: 32px;
+            display: flex; align-items: center; justify-content: space-between; }}
+  .banner.passed {{ background: linear-gradient(135deg, #059669, #10b981);
+                    color: white; }}
+  .banner.failed {{ background: linear-gradient(135deg, #dc2626, #ef4444);
+                    color: white; }}
+  .banner .big-number {{ font-size: 48px; font-weight: 800; line-height: 1; }}
+  .banner .label {{ font-size: 14px; opacity: 0.9; margin-top: 4px; }}
+  .banner-stats {{ display: flex; gap: 32px; }}
+  .banner-stat {{ text-align: center; }}
+  .banner-stat .num {{ font-size: 28px; font-weight: 700; }}
+  .banner-stat .lbl {{ font-size: 12px; opacity: 0.85; text-transform: uppercase; }}
+
+  /* Check cards */
+  .check-card {{ background: white; border-radius: 10px; margin-bottom: 16px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden; }}
+  .check-header {{ padding: 16px 20px; display: flex; align-items: center;
+                  justify-content: space-between; cursor: pointer;
+                  transition: background 0.15s; }}
+  .check-header:hover {{ background: #f9fafb; }}
+  .check-header .left {{ display: flex; align-items: center; gap: 12px; }}
+  .check-header .name {{ font-weight: 600; font-size: 15px; }}
+  .check-header .desc {{ color: #6b7280; font-size: 13px; }}
+  .badge {{ display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 20px; font-size: 12px;
+            font-weight: 600; }}
+  .badge.pass {{ background: #d1fae5; color: #065f46; }}
+  .badge.fail {{ background: #fee2e2; color: #991b1b; }}
+  .badge.warn {{ background: #fef3c7; color: #92400e; }}
+
+  /* Violation table */
+  .violations {{ padding: 0 20px 16px; }}
+  .violations table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
+  .violations th {{ text-align: left; padding: 8px 12px; background: #f9fafb;
+                   color: #6b7280; font-weight: 600; font-size: 11px;
+                   text-transform: uppercase; letter-spacing: 0.5px;
+                   border-bottom: 2px solid #e5e7eb; }}
+  .violations td {{ padding: 8px 12px; border-bottom: 1px solid #f3f4f6;
+                   font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; }}
+  .violations tr:hover td {{ background: #f9fafb; }}
+  .no-violations {{ color: #9ca3af; font-style: italic; padding: 12px 0; }}
+
+  /* Footer */
+  .footer {{ text-align: center; color: #9ca3af; font-size: 12px;
+            margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; }}
+
+  /* Responsive */
+  @media (max-width: 700px) {{
+    .banner {{ flex-direction: column; gap: 16px; }}
+    .banner-stats {{ gap: 16px; }}
+  }}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>⚽ Football Data Validation</h1>
+    <div class="meta">
+      <span>📁 Source: <strong>{source}</strong></span>
+      <span>📅 {timestamp}</span>
+      <span>📊 {total_rows:,} rows</span>
+    </div>
+  </div>
+
+  <!-- Summary banner -->
+  <div class="banner {banner_class}">
+    <div>
+      <div class="big-number">{passed_checks}/{total_checks}</div>
+      <div class="label">Checks Passed</div>
+    </div>
+    <div class="banner-stats">
+      <div class="banner-stat">
+        <div class="num" style="color: {pass_color}">{total_rows:,}</div>
+        <div class="lbl">Rows</div>
+      </div>
+      <div class="banner-stat">
+        <div class="num" style="color: {pass_color}">{total_violations:,}</div>
+        <div class="lbl">Violations</div>
+      </div>
+      <div class="banner-stat">
+        <div class="num" style="color: {pass_color}">{failed_checks}</div>
+        <div class="lbl">Failed Checks</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Check cards -->
+  {check_cards}
+
+  <div class="footer">
+    Generated by Football Data Validation Framework &mdash; {timestamp}
+  </div>
+</div>
+</body>
+</html>
+"""
+
+
+class HTMLReporter:
+    """Renders a ``ValidationResult`` as a self-contained HTML page."""
+
+    @staticmethod
+    def render(result: ValidationResult) -> str:
+        """Generate the full HTML string.
+
+        Parameters
+        ----------
+        result : ValidationResult
+            The validation results to render.
+
+        Returns
+        -------
+        str
+            Complete HTML document.
+        """
+        passed = result.passed
+        banner_class = "passed" if passed else "failed"
+
+        check_cards_html = "\n".join(
+            HTMLReporter._render_check(check) for check in result.checks
+        )
+
+        pass_color = "white" if passed else "#fca5a5"
+
+        return _HTML_TEMPLATE.format(
+            source=result.source_name,
+            timestamp=result.timestamp,
+            total_rows=result.total_rows,
+            passed_checks=result.passed_checks,
+            total_checks=result.total_checks,
+            total_violations=result.total_violations,
+            failed_checks=result.failed_checks,
+            banner_class=banner_class,
+            pass_color=pass_color,
+            check_cards=check_cards_html,
+        )
+
+    @staticmethod
+    def _render_check(check: CheckResult) -> str:
+        """Render a single check card.
+
+        Parameters
+        ----------
+        check : CheckResult
+            The check result to render.
+
+        Returns
+        -------
+        str
+            HTML for the check card.
+        """
+        if check.passed:
+            badge_class = "pass"
+            badge_text = "✅ PASS"
+        elif check.severity.value == "warning":
+            badge_class = "warn"
+            badge_text = "⚠️ WARN"
+        else:
+            badge_class = "fail"
+            badge_text = "❌ FAIL"
+
+        # Violation rows
+        if check.violations:
+            rows_html = ""
+            for v in check.violations:
+                row_idx = v.get("row_index", "")
+                field = v.get("field", "")
+                val = v.get("value", "")
+                msg = v.get("message", "")
+                rows_html += (
+                    f"<tr><td>{row_idx}</td><td>{field}</td>"
+                    f"<td>{_escape(val)}</td><td>{_escape(msg)}</td></tr>"
+                )
+
+            violation_table = (
+                f'<div class="violations">'
+                f'<table><thead><tr>'
+                f'<th>Row</th><th>Field</th><th>Value</th><th>Issue</th>'
+                f'</tr></thead><tbody>{rows_html}</tbody></table></div>'
+            )
+        else:
+            violation_table = (
+                '<div class="violations"><p class="no-violations">'
+                '✓ No violations found</p></div>'
+            )
+
+        return (
+            f'<div class="check-card">'
+            f'<div class="check-header">'
+            f'<div class="left">'
+            f'<span class="badge {badge_class}">{badge_text}</span>'
+            f'<span class="name">{check.check_name}</span>'
+            f'<span class="desc">{check.description}</span>'
+            f'</div>'
+            f'<span style="font-size:13px;color:#6b7280;">'
+            f'{check.violation_count} violations / {check.total_rows} rows'
+            f'</span>'
+            f'</div>'
+            f'{violation_table}'
+            f'</div>'
+        )
+
+
+def _escape(text: str) -> str:
+    """Escape HTML special characters."""
+    return (
+        str(text)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )

@@ -1,0 +1,10 @@
+include README.md
+include LICENSE
+include .env.example
+include pyproject.toml
+
+recursive-include src/ *.py
+recursive-include alembic/ *.py *.mako
+recursive-include data/ .gitkeep
+recursive-include models/ .gitkeep
+recursive-include scripts/ *.py

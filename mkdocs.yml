@@ -1,0 +1,122 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  MkDocs Configuration — Documentation site
+#  Built by docs.yml workflow and deployed to GitHub Pages.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+site_name: Football Prediction
+site_description: AI-powered football match outcome prediction, value betting analysis, and backtested performance tracking
+site_author: Football Prediction Team
+site_url: https://yourusername.github.io/football-prediction
+repo_url: https://github.com/yourusername/football-prediction
+repo_name: football-prediction
+edit_uri: edit/main/docs/
+
+# ── Theme ──────────────────────────────────────────────
+theme:
+  name: material
+  language: en
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+    - scheme: default
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    logo: material/soccer
+    repo: fontawesome/brands/github
+
+# ── Extensions ─────────────────────────────────────────
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - toc:
+      permalink: true
+  - tables
+  - footnotes
+
+# ── Plugins ────────────────────────────────────────────
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: true
+            show_root_heading: true
+            show_category_heading: true
+            docstring_style: numpy
+            members_order: source
+  - include-markdown
+
+# ── Navigation ─────────────────────────────────────────
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Folder Structure: folder_structure.md
+  - User Guide:
+      - Dashboard & Predictions: user_guide.md
+      - CLI Reference: cli.md
+      - API Reference: api.md
+      - Configuration: configuration.md
+  - Development:
+      - Developer Guide: developer_guide.md
+      - Database Schema: database.md
+      - ETL Pipeline: etl.md
+      - Scheduler: scheduler.md
+      - Validation: validation.md
+      - Feature Store: feature_store.md
+      - Experiment Tracking: experiment_tracking.md
+  - Operations:
+      - Deployment Guide: deployment_guide.md
+      - Testing Guide: testing_guide.md
+      - Troubleshooting: troubleshooting.md
+      - FAQ: faq.md
+  - Performance:
+      - Database Performance: database_performance.md
+      - PgBouncer Config: pgbouncer_config.md
+      - Benchmarks: benchmarks/index.md
+      - EXPLAIN ANALYZE Templates: benchmarks/explain_analyze_templates.md
+  - Audit:
+      - Production Readiness: production_readiness_audit.md
+
+# ── Extra ──────────────────────────────────────────────
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yourusername/football-prediction
+  generator: true
+
+copyright: Copyright &copy; 2026 Football Prediction Team
+
+# ── Validation ─────────────────────────────────────────
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn

@@ -1,0 +1,190 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PR Quality Gate — lightweight pre-merge checks
+#  Runs on every PR to main/master. Blocks merge if critical checks fail.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: PR Quality Gate
+
+on:
+  pull_request:
+    branches: [master, main]
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  1.  PR METADATA CHECKS
+  # ══════════════════════════════════════════════════════════════════════════════
+  metadata:
+    name: 📋 PR Metadata
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check PR title (Conventional Commits)
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "PR Title: $TITLE"
+          PATTERN='^(feat|fix|docs|style|refactor|test|chore|perf|ci|revert|build)(\([a-z0-9_,.-]+\))?!?: .{1,100}$'
+          if echo "$TITLE" | grep -qE "$PATTERN"; then
+            echo "✅ PR title follows Conventional Commits."
+          else
+            echo "❌ Title must match: <type>(<scope>): <description>"
+            echo "   Types: feat, fix, docs, style, refactor, test, chore, perf, ci, revert, build"
+            echo "   Example: feat(etl): add checkpoint resume support"
+            exit 1
+          fi
+
+      - name: Check PR description
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ -z "$BODY" ] || [ ${#BODY} -lt 20 ]; then
+            echo "❌ PR description too short (< 20 chars). Add a meaningful description."
+            exit 1
+          fi
+          echo "✅ Description length: ${#BODY} chars."
+
+      - name: Verify semantic labels
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          echo "Labels: $LABELS"
+          if echo "$LABELS" | grep -qE '(bug|enhancement|documentation|dependencies|refactor|tests|release)'; then
+            echo "✅ PR has semantic label."
+          else
+            echo "⚠️  No semantic label. Add one of: bug, enhancement, documentation, refactor, tests"
+          fi
+
+      - name: Check milestone
+        env:
+          MILESTONE: ${{ github.event.pull_request.milestone }}
+        run: |
+          if [ -z "$MILESTONE" ]; then
+            echo "⚠️  No milestone set. Consider assigning a milestone for tracking."
+          else
+            echo "✅ Milestone: $(echo '${{ toJSON(github.event.pull_request.milestone) }}' | python -c 'import sys,json; print(json.load(sys.stdin)[\"title\"])')"
+          fi
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  2.  CHANGELOG CHECK
+  # ══════════════════════════════════════════════════════════════════════════════
+  changelog:
+    name: 📝 Changelog
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check CHANGELOG was updated
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- CHANGELOG.md)
+          if [ -z "$CHANGED" ]; then
+            # Allow exemptions for specific label groups
+            LABELS='${{ toJSON(github.event.pull_request.labels.*.name) }}'
+            if echo "$LABELS" | grep -qE '(dependencies|documentation|tests|chore|ci)'; then
+              echo "⚠️  Changelog not updated (exempted by label: dependencies/docs/chore/ci)."
+            else
+              echo "❌ CHANGELOG.md was not updated. Add your changes to the Unreleased section."
+              exit 1
+            fi
+          else
+            echo "✅ CHANGELOG.md was updated."
+          fi
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  3.  DEPENDENCY DIFF
+  # ══════════════════════════════════════════════════════════════════════════════
+  dependencies:
+    name: 📦 Dependency Check
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect dependency changes
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- requirements.txt pyproject.toml setup.py setup.cfg)
+          if [ -n "$CHANGED" ]; then
+            echo "⚠️  Dependencies changed:"
+            echo "$CHANGED" | while read f; do echo "    - $f"; done
+            echo ""
+            echo "Verify that:"
+            echo "  1. New dependencies are necessary"
+            echo "  2. Version ranges are not too strict"
+            echo "  3. No conflicting transitive dependencies"
+          else
+            echo "✅ No dependency files changed."
+          fi
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  4.  FILE SIZE & MERGE CONFLICT
+  # ══════════════════════════════════════════════════════════════════════════════
+  size:
+    name: 📏 File Size
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check diff size
+        run: |
+          ADDITIONS=$(git diff --numstat origin/${{ github.base_ref }}...HEAD | awk '{sum += $1} END {print sum}')
+          DELETIONS=$(git diff --numstat origin/${{ github.base_ref }}...HEAD | awk '{sum += $2} END {print sum}')
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | wc -l)
+          TOTAL=$((ADDITIONS + DELETIONS))
+          echo "  Additions: $ADDITIONS"
+          echo "  Deletions: $DELETIONS"
+          echo "  Files: $FILES"
+          if [ "$TOTAL" -gt 5000 ]; then
+            echo "❌ PR exceeds 5000 lines ($TOTAL). Consider splitting."
+            exit 1
+          elif [ "$TOTAL" -gt 2000 ]; then
+            echo "⚠️  Large PR ($TOTAL lines). Consider splitting if possible."
+          else
+            echo "✅ PR size looks reasonable."
+          fi
+
+      - name: Check for large files
+        run: |
+          while read file; do
+            if [ -f "$file" ]; then
+              SIZE=$(stat --printf="%s" "$file" 2>/dev/null || echo 0)
+              if [ "$SIZE" -gt 5242880 ]; then
+                echo "❌ $file exceeds 5 MB. Use Git LFS."
+                exit 1
+              fi
+            fi
+          done < <(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+
+  conflict:
+    name: 🔀 Merge Conflict
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check for conflicts
+        uses: mschilde/auto-label-merge-conflicts@v2
+        with:
+          conflict_label_name: "has conflicts"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          detect_merge_changes: true

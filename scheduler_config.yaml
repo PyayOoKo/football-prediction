@@ -1,0 +1,79 @@
+# ═══════════════════════════════════════════════════════════
+#  Football Prediction — Scheduler Configuration
+# ═══════════════════════════════════════════════════════════
+#
+#  Edit this file to customise the pipeline schedule and
+#  behaviour.  Each task can be enabled/disabled independently.
+#
+#  Usage:
+#    python -m src.scheduler.cli run           # Run with config
+#    python -m src.scheduler.cli install ...   # Install scheduler
+# ═══════════════════════════════════════════════════════════
+
+pipeline:
+  name: football_pipeline
+  parallel_groups: false          # Run parallel-group tasks concurrently
+  abort_on_failure: true          # Stop on first task failure
+
+paths:
+  log_dir: logs/scheduler
+  report_dir: reports/scheduler
+  backup_dir: data/backups
+
+retention:
+  backup_days: 7                  # Keep database backups for N days
+  max_log_age_days: 30            # Archive logs older than N days
+
+# ── Task configuration ───────────────────────────────────
+#
+# Order is significant: tasks run in the order listed,
+# respecting dependency constraints.
+
+tasks:
+  - name: download_fixtures
+    description: Download new match data from football-data.co.uk
+    enabled: true
+    timeout_seconds: 300
+    retry_count: 2
+    dependencies: []
+    parallel_group: null
+
+  - name: validate_data
+    description: Check data integrity (duplicates, invalid values, etc.)
+    enabled: true
+    timeout_seconds: 120
+    retry_count: 1
+    dependencies: [download_fixtures]
+    parallel_group: null
+
+  - name: clean_data
+    description: Deduplicate, archive old files, remove stale checkpoints
+    enabled: true
+    timeout_seconds: 180
+    retry_count: 1
+    dependencies: [validate_data]
+    parallel_group: null
+
+  - name: update_database
+    description: Store cleaned data in PostgreSQL
+    enabled: true
+    timeout_seconds: 600
+    retry_count: 2
+    dependencies: [clean_data]
+    parallel_group: null
+
+  - name: backup_database
+    description: pg_dump or SQLite backup with retention
+    enabled: true
+    timeout_seconds: 300
+    retry_count: 1
+    dependencies: []
+    parallel_group: maintenance
+
+  - name: generate_logs
+    description: Rotate logs, archive old reports, write summary
+    enabled: true
+    timeout_seconds: 60
+    retry_count: 1
+    dependencies: [backup_database]
+    parallel_group: maintenance

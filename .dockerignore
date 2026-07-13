@@ -1,0 +1,52 @@
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Virtual Environment ─────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Git ─────────────────────────────────────────────────
+.git/
+.gitattributes
+.gitignore
+
+# ── IDE / Editor ───────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ── Data ────────────────────────────────────────────────
+data/raw/
+data/processed/
+data/external/
+
+# ── Models ──────────────────────────────────────────────
+models/
+
+# ── Logs & Reports ──────────────────────────────────────
+logs/
+reports/
+
+# ── Notebooks ───────────────────────────────────────────
+notebooks/
+.ipynb_checkpoints/
+
+# ── Tests & CI ──────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# ── Environment files ───────────────────────────────────
+.env
+.env.local

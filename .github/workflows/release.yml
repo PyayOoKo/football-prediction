@@ -1,0 +1,248 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Release — Automated semantic release pipeline
+#  Triggered by pushing a version tag (v*) or manually via workflow_dispatch.
+#
+#  1. Validate tag / version
+#  2. Generate changelog from conventional commits
+#  3. Build & push Docker image
+#  4. Create GitHub Release with changelog
+#  5. Publish to PyPI (if applicable)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 1.2.3)"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run — don't publish"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # Never cancel releases
+
+env:
+  PYTHON_VERSION: "3.12"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  1.  VALIDATE
+  # ══════════════════════════════════════════════════════════════════════════════
+  validate:
+    name: ✅ Validate Release
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+      is_prerelease: ${{ steps.parse.outputs.is_prerelease }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse version
+        id: parse
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Check if this is a prerelease
+          if echo "$VERSION" | grep -qE 'alpha|beta|rc|dev'; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Validate semver
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$'; then
+            echo "❌ Invalid semver: $VERSION"
+            exit 1
+          fi
+          echo "✅ Version: $VERSION"
+
+      - name: Verify CHANGELOG has entry for this version
+        run: |
+          VERSION="${{ steps.parse.outputs.version }}"
+          if grep -q "## \[$VERSION\]" CHANGELOG.md 2>/dev/null; then
+            echo "✅ CHANGELOG has entry for v$VERSION."
+          else
+            echo "⚠️  No CHANGELOG entry for v$VERSION. Will auto-generate."
+          fi
+
+      - name: Check GitHub release doesn't already exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.parse.outputs.version }}"
+          if gh release view "v$VERSION" --repo ${{ github.repository }} &>/dev/null; then
+            echo "❌ Release v$VERSION already exists! Delete it first or bump version."
+            exit 1
+          fi
+          echo "✅ Release v$VERSION doesn't exist yet."
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  2.  GENERATE CHANGELOG
+  # ══════════════════════════════════════════════════════════════════════════════
+  changelog:
+    name: 📝 Generate Changelog
+    runs-on: ubuntu-22.04
+    needs: validate
+    timeout-minutes: 10
+
+    outputs:
+      changelog: ${{ steps.read.outputs.changelog }}
+
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Generate changelog
+        id: generate
+        run: |
+          python scripts/generate_changelog.py \
+            --repo ${{ github.repository }} \
+            --current-version ${{ needs.validate.outputs.version }} \
+            --output CHANGELOG.md \
+            ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      - name: Read changelog for release body
+        id: read
+        run: |
+          python << 'PYEOF'
+          import re, os
+          version = "${{ needs.validate.outputs.version }}"
+          with open("CHANGELOG.md") as f:
+              content = f.read()
+          pattern = rf"## \[{re.escape(version)}\].*?(?=## \[|\Z)"
+          match = re.search(pattern, content, re.DOTALL)
+          if match:
+              body = match.group(0).strip()
+          else:
+              body = f"Release v{version}"
+          # Write to GITHUB_OUTPUT
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"changelog<<EOF\n{body}\nEOF\n")
+          PYEOF
+
+      - name: Commit updated CHANGELOG
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "chore: update CHANGELOG for v${{ needs.validate.outputs.version }}"
+          git push
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  3.  BUILD & PUBLISH DOCKER IMAGE
+  # ══════════════════════════════════════════════════════════════════════════════
+  docker:
+    name: 🐳 Build & Publish
+    runs-on: ubuntu-22.04
+    needs: [validate, changelog]
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ needs.validate.outputs.is_prerelease == 'false' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  4.  CREATE GITHUB RELEASE
+  # ══════════════════════════════════════════════════════════════════════════════
+  github-release:
+    name: 🚀 Create GitHub Release
+    runs-on: ubuntu-22.04
+    needs: [validate, changelog, docker]
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      packages: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.validate.outputs.version }}
+          name: v${{ needs.validate.outputs.version }}
+          body: ${{ needs.changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ needs.validate.outputs.is_prerelease }}
+          generate_release_notes: false
+          fail_on_unmatched_files: false
+
+      - name: Bump version for next development cycle
+        if: needs.validate.outputs.is_prerelease == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/bump_version.py \
+            --current ${{ needs.validate.outputs.version }} \
+            --part minor
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "chore: bump version to $(python -c \"import re; print(open('pyproject.toml').read())\" | grep -oP 'version = \"\\K[^\"]+') [skip ci]"
+          git push

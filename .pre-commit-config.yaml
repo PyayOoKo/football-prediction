@@ -1,0 +1,128 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Pre-commit Hooks — run on every commit to enforce code quality.
+#  Install with: pre-commit install
+#  Run manually: pre-commit run --all-files
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Global defaults ────────────────────────────────────
+default_language_version:
+  python: python3.12
+default_install_hook_types: [pre-commit, commit-msg]
+fail_fast: false
+
+repos:
+  # ── 1.  General file checks ──────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        name: Remove trailing whitespace
+      - id: end-of-file-fixer
+        name: Ensure files end with newline
+      - id: check-yaml
+        name: Validate YAML files
+      - id: check-toml
+        name: Validate TOML files
+      - id: check-json
+        name: Validate JSON files
+      - id: check-added-large-files
+        name: Check for large files (>500 KB)
+        args: ["--maxkb=500"]
+      - id: detect-private-key
+        name: Detect private keys
+      - id: check-merge-conflict
+        name: Check for merge conflict markers
+      - id: check-symlinks
+        name: Check symlinks
+      - id: debug-statements
+        name: Check for debug statements (pdb/breakpoint)
+
+  # ── 2.  Python formatting (Black) ────────────────────
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        name: Format Python with Black
+        args: [--line-length=88, --target-version=py312]
+        types: [python]
+
+  # ── 3.  Python linting (Ruff) ────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.9
+    hooks:
+      - id: ruff
+        name: Lint Python with Ruff
+        args: [--fix, --show-fixes]
+        types: [python]
+
+  # ── 4.  Python type checking (MyPy) ──────────────────
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        name: Type check Python with MyPy
+        additional_dependencies:
+          - "types-requests"
+          - "types-PyYAML"
+          - "types-python-dateutil"
+        args:
+          - --ignore-missing-imports
+          - --show-error-codes
+          - --warn-unused-ignores
+        types: [python]
+        exclude: ^tests/
+        # Tests often use dynamic patterns that mypy can't verify
+
+  # ── 5.  Commit message format (Conventional Commits) ─
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.2.0
+    hooks:
+      - id: conventional-pre-commit
+        name: Check commit message format
+        stages: [commit-msg]
+        args:
+          - --strict
+          - --allowed-types=feat,fix,docs,style,refactor,test,chore,perf,ci,revert,build
+
+  # ── 6.  Security scan ────────────────────────────────
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        name: Security scan (Bandit)
+        args:
+          - -r
+          - src/
+          - --severity-level=high
+          - --confidence-level=high
+          - --skip=B101,B301,B403
+        types: [python]
+        pass_filenames: false
+
+  # ── 7.  Sort Python imports (isort) ──────────────────
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: Sort Python imports
+        args: [--profile=black, --line-length=88]
+        types: [python]
+
+  # ── 8.  Check for syntax errors (python -c) ──────────
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.28.6
+    hooks:
+      - id: check-github-workflows
+        name: Validate GitHub Actions workflows
+        files: ^\.github/workflows/
+
+  # ── 9.  Detect secrets (truffleHog) ──────────────────
+  - repo: https://github.com/trufflesecurity/trufflehog
+    rev: v3.78.0
+    hooks:
+      - id: trufflehog
+        name: Detect secrets (TruffleHog)
+        args:
+          - --only-verified
+          - --results=verified,unknown
+        pass_filenames: false

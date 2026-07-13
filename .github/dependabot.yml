@@ -1,0 +1,68 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Dependabot — Automated dependency updates
+#  Checks weekly (Monday) for new versions of all dependencies.
+#  PRs are automatically created with labels for easy triage.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+version: 2
+updates:
+  # ── Python (pip) dependencies ────────────────────────
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/London"
+    allow:
+      - dependency-type: "direct"
+    ignore:
+      # Pin PyTorch to specific minor versions (breaking CUDA compat)
+      - dependency-name: "torch"
+        versions: [">=3.0.0"]
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps(dev)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "automated"
+    reviewers:
+      - ${{ github.repository_owner }}
+    open-pull-requests-limit: 10
+    rebase-strategy: "auto"
+
+  # ── GitHub Actions ───────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/London"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "ci"
+      - "automated"
+    open-pull-requests-limit: 5
+
+  # ── Docker ──────────────────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/London"
+    ignore:
+      # Python 3.12 base images — pin to minor version
+      - dependency-name: "python"
+        versions: [">=3.13"]
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    labels:
+      - "docker"
+      - "automated"
