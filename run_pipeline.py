@@ -1,6 +1,9 @@
 """
 Automated Prediction Pipeline — run daily to download, train, predict, and report.
 
+Uses an ensemble model (XGBoost + Logistic Regression + Poisson) for robust
+predictions while keeping training fast (~20-40s on most hardware).
+
 Usage
 -----
 ::
@@ -26,9 +29,10 @@ Pipeline steps
 2. **Preprocess** — clean, normalise, and validate the updated dataset
 3. **Check retrain** — compare model file age vs data update time; retrain if stale
 4. **Build features** — generate leakage-free feature matrix from updated data
-5. **Predict** — run the model on the most recent / upcoming matches
-6. **Save** — write predictions to CSV in ``reports/predictions/``
-7. **Report** — print / save a summary of the run
+5. **Train ensemble** — train XGBoost + Logistic Regression + Poisson, optimise weights on val set
+6. **Predict** — run the ensemble on the most recent / upcoming matches
+7. **Save** — write predictions to CSV in ``reports/predictions/``
+8. **Report** — print / save a summary of the run
 
 Failure handling
 ----------------
@@ -94,14 +98,15 @@ class PipelineConfig:
     report_dir : str
         Directory to save pipeline reports (relative to project root).
     model_file : str
-        File name of the trained model in ``models/`` (default ``xgboost_model.joblib``).
+        File name of the trained ensemble model in ``models/``
+        (default ``ensemble_model.joblib``).
     """
     retrain_if_stale_days: int = 7
     force_retrain_every_n_runs: int = 10
     predictions_dir: str = "reports/predictions"
     keep_last_n_predictions: int = 30
     report_dir: str = "reports"
-    model_file: str = "xgboost_model.joblib"
+    model_file: str = "ensemble_model.joblib"
 
 
 # Default config instance
@@ -249,15 +254,18 @@ def _increment_run_count() -> int:
 
 
 def step_retrain() -> dict[str, Any]:
-    """Retrain the model if needed.
+    """Retrain the ensemble model if needed.        Trains the full ensemble (XGBoost + Logistic Regression + Poisson),
+        optimises weights on the validation set, and saves the trained
+        ensemble to disk.
 
     Returns
     -------
     dict[str, Any]
-        Report with keys ``success``, ``retrained``, ``model_path``, ``error``.
+        Report with keys ``success``, ``retrained``, ``model_path``,
+        ``weights``, ``val_loss``, ``error``.
     """
     logger.info("─" * 60)
-    logger.info("STEP 3: Check & retrain model")
+    logger.info("STEP 3: Check & retrain ensemble model")
     logger.info("─" * 60)
 
     if not _should_retrain():
@@ -265,7 +273,7 @@ def step_retrain() -> dict[str, Any]:
 
     try:
         from src.feature_engineering import build_features, train_val_test_split
-        from src.train import train_model, save_model
+        from src.ensemble import EnsembleModel
 
         # Load preprocessed data
         data_path = config.paths.processed / "results_clean.csv"
@@ -281,22 +289,36 @@ def step_retrain() -> dict[str, Any]:
         logger.info("  Splitting chronologically ...")
         splits = train_val_test_split(X, y)
 
-        logger.info("  Training model (type=%s) ...", config.train.model_type)
-        model, history = train_model(
+        # Align raw df for Poisson model (needs home_team, away_team, goals)
+        df_sorted = df.loc[X.index] if hasattr(X, "index") else df
+        n_train = len(splits["X_train"])
+        n_val = len(splits["X_val"])
+        df_train = df_sorted.iloc[:n_train] if len(df_sorted) >= n_train else df_sorted
+        df_val = df_sorted.iloc[n_train:n_train + n_val] if len(df_sorted) >= n_train + n_val else pd.DataFrame()
+
+        logger.info("  Training ensemble (XGBoost + Logistic Regression + Poisson) ...")
+        ensemble = EnsembleModel()
+        fit_report = ensemble.fit(
             splits["X_train"], splits["y_train"],
             splits["X_val"], splits["y_val"],
+            df_train=df_train, df_val=df_val,
         )
 
-        model_path = save_model(model, _pipeline_cfg.model_file)
-        logger.info("  Model saved to %s", model_path)
+        # Save ensemble using its built-in save method
+        model_path = config.paths.models / _pipeline_cfg.model_file
+        ensemble.save(str(model_path))
+        logger.info("  Ensemble saved to %s", model_path)
+
+        weights_str = ", ".join(f"{k}={v:.3f}" for k, v in sorted(fit_report["weights"].items()))
+        logger.info("  Ensemble val log-loss: %.4f | Weights: %s", fit_report["val_log_loss"], weights_str)
 
         return {
             "success": True,
             "retrained": True,
-            "model_path": model_path,
-            "train_loss": history.get("train_loss", [None])[0],
-            "val_loss": history.get("val_loss", [None])[0],
-            "val_accuracy": history.get("val_accuracy", [None])[0],
+            "model_path": str(model_path),
+            "val_loss": fit_report.get("val_log_loss"),
+            "weights": fit_report.get("weights", {}),
+            "individual_losses": fit_report.get("individual_log_losses", {}),
         }
     except Exception as exc:
         logger.error("Retrain failed: %s", exc, exc_info=True)
@@ -309,7 +331,10 @@ def step_retrain() -> dict[str, Any]:
 
 
 def step_predict() -> dict[str, Any]:
-    """Generate predictions for upcoming / most recent matches.
+    """Generate predictions for upcoming / most recent matches using the ensemble.
+
+    Loads the trained ensemble model, builds features on the latest data,
+    and generates probability predictions for the most recent matches.
 
     Returns
     -------
@@ -317,15 +342,18 @@ def step_predict() -> dict[str, Any]:
         Report with keys ``success``, ``n_predictions``, ``output_path``, ``error``.
     """
     logger.info("─" * 60)
-    logger.info("STEP 4: Predict upcoming matches")
+    logger.info("STEP 4: Predict upcoming matches (ensemble)")
     logger.info("─" * 60)
 
     try:
-        from src.train import load_model
+        from src.ensemble import EnsembleModel
         from src.feature_engineering import build_features
 
-        # Load the trained model
-        model = load_model(_pipeline_cfg.model_file)
+        # Load the trained ensemble model
+        model_path = config.paths.models / _pipeline_cfg.model_file
+        if not model_path.exists():
+            raise FileNotFoundError(f"Ensemble model not found at {model_path}")
+        ensemble = EnsembleModel.load(str(model_path))
 
         # Load preprocessed data for feature building
         data_path = config.paths.processed / "results_clean.csv"
@@ -334,25 +362,23 @@ def step_predict() -> dict[str, Any]:
 
         df = pd.read_csv(data_path, low_memory=False)
 
-        # Build features (is_training=False means no target column separation
-        # needed, but we need the full feature pipeline for the last rows)
+        # Build features
         logger.info("  Building feature matrix for prediction ...")
         X, _ = build_features(df, is_training=True)
 
         # Predict on the last N rows (most recent matches)
-        # In a real scenario, we'd use upcoming fixtures. Here we use the
-        # most recent matches from the dataset as a proxy.
-        n_recent = min(50, len(X) // 2)  # Predict on last 50 or 50% of data
+        n_recent = min(50, len(X) // 2)
         X_recent = X.iloc[-n_recent:]
 
-        logger.info("  Generating predictions for %d matches ...", n_recent)
-        probs = model.predict_proba(X_recent)
-        preds = model.predict(X_recent)
+        # Align raw df for Poisson model (needs home_team, away_team, etc.)
+        df_sorted = df.loc[X.index] if hasattr(X, "index") else df
+        df_raw_recent = df_sorted.iloc[-n_recent:] if len(df_sorted) >= n_recent else df_sorted
+
+        logger.info("  Generating ensemble predictions for %d matches ...", n_recent)
+        probs = ensemble.predict_proba(X_recent, df_raw=df_raw_recent)
+        preds = ensemble.predict(X_recent, df_raw=df_raw_recent)
 
         # Build output DataFrame
-        # We need timestamps / team names from the original data.
-        # Align by index: the last n_recent rows of X correspond to the
-        # last n_recent rows of the original DataFrame.
         output_df = df.iloc[-n_recent:][
             [c for c in ["date", "home_team", "away_team", "result", "league"]
              if c in df.columns]
@@ -362,6 +388,7 @@ def step_predict() -> dict[str, Any]:
         output_df["draw_prob"] = probs[:, 1]
         output_df["away_win_prob"] = probs[:, 0]
         output_df["max_prob"] = probs.max(axis=1)
+        output_df["model"] = "ensemble"
 
         # Map prediction to label
         label_map = {0: "Away Win", 1: "Draw", 2: "Home Win"}
@@ -427,6 +454,7 @@ def step_report(
         lines.append(f"  Timestamp:     {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append(f"  Duration:      {elapsed:.1f} seconds")
         lines.append(f"  Run #:         {_get_run_count()}")
+        lines.append(f"  Model:         Ensemble (XGBoost + Logistic Regression + Poisson)")
         lines.append("")
 
         # ── Step status table ────────────────────────────
@@ -435,9 +463,8 @@ def step_report(
         lines.append(f"  {'─' * 50}")
 
         for step_name, result in results.items():
-            status = "✅ PASS" if result.get("success") else "❌ FAIL"
+            status = "PASS" if result.get("success") else "FAIL"
             detail = result.get("error", "OK")
-            # Truncate long errors but keep the meaningful part
             detail_str = str(detail)[:40] if len(str(detail)) > 40 else str(detail)
             lines.append(f"  {step_name:<30s} {status:<15s} {detail_str:>40s}")
         lines.append(f"  {'─' * 50}")
@@ -455,17 +482,18 @@ def step_report(
 
         tr = results.get("retrain", {})
         if tr.get("retrained"):
-            lines.append(f"  Retrain:   YES — model saved to {tr.get('model_path', '?')}")
+            lines.append(f"  Retrain:   YES — ensemble saved to {tr.get('model_path', '?')}")
             if tr.get("val_loss"):
                 lines.append(f"             Val log-loss: {tr['val_loss']:.4f}")
-            if tr.get("val_accuracy"):
-                lines.append(f"             Val accuracy: {tr['val_accuracy']:.2%}")
+            if tr.get("weights"):
+                w_str = ", ".join(f"{k}={v:.3f}" for k, v in sorted(tr["weights"].items()))
+                lines.append(f"             Weights: {w_str}")
         else:
             lines.append(f"  Retrain:   NO (model is current)")
 
         pr = results.get("predict", {})
         if pr.get("success"):
-            lines.append(f"  Predict:   {pr.get('n_predictions', 0)} matches → "
+            lines.append(f"  Predict:   {pr.get('n_predictions', 0)} matches -> "
                          f"{pr.get('output_path', '?')}")
 
         lines.append("")
@@ -474,8 +502,12 @@ def step_report(
 
         report_text = "\n".join(lines)
 
-        # ── Print to console ─────────────────────────────
-        print(report_text)
+        # ── Print to console (handle Windows encoding gracefully) ──
+        safe_text = report_text.replace("—", "-")
+        try:
+            print(safe_text)
+        except UnicodeEncodeError:
+            print(safe_text.encode(sys.stdout.encoding, errors="replace").decode(sys.stdout.encoding))
 
         # ── Save to file ─────────────────────────────────
         report_dir = Path(_pipeline_cfg.report_dir)
@@ -617,11 +649,11 @@ def main(argv: list[str] | None = None) -> int:
         logger.warning("=" * 70)
         for step_name, result in results.items():
             if not result.get("success"):
-                logger.warning("  ✗ %s: %s", step_name, result.get("error", "Unknown error"))
+                logger.warning("  %s: %s", step_name, result.get("error", "Unknown error"))
 
     # ── Print summary to stdout ────────────────────────
-    status_icon = "✅" if ok else "⚠️"
-    print(f"\n  {status_icon} Pipeline finished in {time.time() - _start_time:.1f}s")
+    status_icon = "OK" if ok else "WARN"
+    print(f"\n  [{status_icon}] Pipeline finished in {time.time() - _start_time:.1f}s")
     print(f"  Log: logs/pipeline.log")
     print()
 

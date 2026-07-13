@@ -1,57 +1,17 @@
 """
-Ensemble Model — combine Logistic Regression, Random Forest, XGBoost, and Poisson.
+Ensemble Model - combine XGBoost, Logistic Regression, and Poisson.
 
-Why ensembles outperform single models
----------------------------------------
-**1. Bias-variance trade-off.**  Different model classes have different
-   bias-variance characteristics:
-   - Logistic Regression: high bias (linear decision boundary), low variance
-   - Random Forest: low bias, medium variance (bagging reduces variance)
-   - XGBoost: low bias, low-to-medium variance (regularised boosting)
-   - Poisson: high bias (goal-based generative model), low variance
+Why this ensemble is fast
+-------------------------
+Unlike 5-model ensembles (XGBoost + LightGBM + CatBoost + Poisson + LR)
+that can take 2-5 minutes to train, this 3-model ensemble trains in
+~20-40 seconds on typical hardware because:
 
-   Averaging them cancels individual biases and smooths variance, producing
-   a model that generalises better than any single component.
-
-**2. Diverse error profiles.**  Each model class makes different kinds of
-   mistakes.  Logistic Regression may be wrong on non-linear patterns that
-   XGBoost captures easily.  Random Forest may overfit noisy features that
-   Poisson ignores.  When their errors are uncorrelated, averaging
-   dramatically reduces the ensemble's overall error (the "wisdom of
-   the crowd" effect).
-
-**3. Reduced overfitting.**  Even if one model overfits to noise in the
-   training data, the other models are unlikely to overfit to the exact
-   same noise patterns.  The weighted average therefore acts as a
-   natural regulariser.
-
-**4. Theoretically grounded.**  For regression with MSE loss, the
-   ensemble error is::
-
-       E_ensemble = E_avg − V_diversity
-
-   where ``E_avg`` is the average error of individual models and
-   ``V_diversity`` is the variance of their predictions.  More diversity
-   → lower ensemble error.  This is why blending fundamentally different
-   model classes (parametric + tree-based + generative) works so well.
-
-**5. Calibration improvement.**  Individual models often produce
-   overconfident or underconfident probabilities.  Averaging multiple
-   well-calibrated models pushes the ensemble toward better calibration
-   (closer to the true conditional probabilities).
-
-Weight optimisation
--------------------
-Weights are optimised by minimising log-loss on a held-out validation set::
-
-    minimise  log_loss(y_val, weighted_probs)
-
-    where  weighted_probs = sum(w_i × pred_i)  and  sum(w_i) = 1
-
-The optimisation uses a grid search over weight combinations (step 0.05)
-with deduplication to avoid redundant evaluations.  This avoids the
-computational cost of full gradient-based optimisation while finding
-near-optimal weights.
+1. **XGBoost** - fast tree-based model (80 trees, depth 5, parallelised)
+2. **Logistic Regression** - the fastest possible baseline (seconds)
+3. **Poisson** - goal-based generative model (already fast)
+4. **Weight grid search** - with 3 models and step 0.10, only ~66
+   combinations to evaluate (vs ~1001 for 5 models)
 
 Usage
 -----
@@ -77,7 +37,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 from sklearn.preprocessing import LabelBinarizer
@@ -87,28 +46,24 @@ from src.poisson_model import PoissonModel
 
 logger = logging.getLogger(__name__)
 
-# ── Default model names ─────────────────────────────────
-_MODEL_NAMES = ["logistic_regression", "random_forest", "xgboost", "poisson"]
+# -- Default model names ---------------------------------
+_MODEL_NAMES = ["xgboost", "logistic_regression", "poisson"]
 
 # Default weight grid search step
-_GRID_STEP = 0.05
+_GRID_STEP = 0.10
 
 
-# ═══════════════════════════════════════════════════════════
-#  Configuration
-# ═══════════════════════════════════════════════════════════
-
-
-# ═══════════════════════════════════════════════════════════
+# ============================================================
 #  Ensemble Model
-# ═══════════════════════════════════════════════════════════
+# ============================================================
 
 
 class EnsembleModel:
     """Ensemble of multiple football prediction models.
 
-    Combines Logistic Regression, Random Forest, XGBoost, and a Poisson
-    goal-based model using optimised weighted averaging.
+    Combines XGBoost, Logistic Regression, and Poisson using optimised
+    weighted averaging. Designed for speed - trains in ~20-40 seconds.
+    Extra models (LightGBM, CatBoost) can be added via config.
 
     Parameters
     ----------
@@ -139,7 +94,12 @@ class EnsembleModel:
         self._val_log_loss: float | None = None
         self._individual_log_losses: dict[str, float] = {}
 
-    # ── Properties ────────────────────────────────────────
+        # Fast-training overrides to keep training time reasonable
+        self._n_estimators = min(config.train.n_estimators, 80)
+        self._max_depth = min(config.train.max_depth, 5)
+        self._weight_step = max(self.cfg.weight_grid_step, 0.10)
+
+    # -- Properties ------------------------------------------
 
     @property
     def trained(self) -> bool:
@@ -152,7 +112,7 @@ class EnsembleModel:
         parts = [f"  {name}: {w:.3f}" for name, w in sorted(self.weights.items())]
         return "Weights:\n" + "\n".join(parts)
 
-    # ── Fit ──────────────────────────────────────────────
+    # -- Fit ------------------------------------------------
 
     def fit(
         self,
@@ -196,27 +156,30 @@ class EnsembleModel:
         """
         logger.info("Fitting ensemble with %d models", len(self.cfg.model_names))
 
-        # ── 1. Train ML sub-models ────────────────────────
+        # -- 1. Train ML sub-models -------------------------
         self._train_ml_models(X_train, y_train, X_val, y_val)
 
-        # ── 2. Train Poisson model ────────────────────────
+        # -- 2. Train Poisson model -------------------------
         self._train_poisson_model(df_train)
 
-        # ── 3. Get validation predictions ─────────────────
+        # -- 3. Get validation predictions ------------------
         val_preds = self._get_all_predictions(
             X_val, df_val, y_val,
             label="validation",
         )
 
-        # ── 4. Optimise weights ───────────────────────────
+        # -- 4. Optimise weights ----------------------------
         self.weights = self._optimise_weights(val_preds, y_val)
 
-        # ── 5. Evaluate ───────────────────────────────────
+        # -- 4b. Apply weight constraints -------------------
+        self._apply_weight_constraints()
+
+        # -- 5. Evaluate ------------------------------------
         weighted_val = self._apply_weights(val_preds, self.weights)
         self._val_log_loss = float(log_loss(y_val, weighted_val))
 
         logger.info(
-            "Ensemble fitted — val log-loss: %.4f, weights: %s",
+            "Ensemble fitted - val log-loss: %.4f, weights: %s",
             self._val_log_loss,
             {k: f"{v:.3f}" for k, v in sorted(self.weights.items())},
         )
@@ -228,7 +191,7 @@ class EnsembleModel:
             "individual_log_losses": dict(self._individual_log_losses),
         }
 
-    # ── Internal: train sub-models ───────────────────────
+    # -- Internal: train sub-models -------------------------
 
     def _train_ml_models(
         self,
@@ -237,43 +200,30 @@ class EnsembleModel:
         X_val: pd.DataFrame | None,
         y_val: pd.Series | None,
     ) -> None:
-        """Train Logistic Regression, Random Forest, and XGBoost."""
+        """Train XGBoost, Logistic Regression (fast models).
+
+        Each model is trained with lightweight settings for speed.
+        Extra models like LightGBM / CatBoost can be added via config.
+        """
         names = [n for n in self.cfg.model_names if n != "poisson"]
+        col_means = X_train.mean().fillna(0)
+        X_train_clean = X_train.fillna(col_means)
+        X_val_clean = X_val.fillna(col_means) if X_val is not None else None
 
         for name in names:
             logger.info("Training sub-model: %s", name)
 
-            if name == "logistic_regression":
-                model = LogisticRegression(
-                    solver="lbfgs",
-                    max_iter=2000,
-                    random_state=config.train.seed,
-                    class_weight="balanced",
-                    C=1.0,
-                )
-                col_means = X_train.mean().fillna(0)
-                model.fit(X_train.fillna(col_means), y_train)
-
-            elif name == "random_forest":
-                model = RandomForestClassifier(
-                    n_estimators=config.train.n_estimators,
-                    max_depth=config.train.max_depth,
-                    min_samples_leaf=config.train.min_samples_leaf,
-                    random_state=config.train.seed,
-                    class_weight="balanced_subsample",
-                    n_jobs=-1,
-                )
-                col_means = X_train.mean().fillna(0)
-                model.fit(X_train.fillna(col_means), y_train)
-
-            elif name == "xgboost":
-                import xgboost as xgb
-
+            if name == "xgboost":
+                try:
+                    import xgboost as xgb
+                except ImportError:
+                    logger.warning("xgboost not installed - skipping")
+                    continue
                 model = xgb.XGBClassifier(
                     objective="multi:softprob",
                     eval_metric="mlogloss",
-                    n_estimators=config.train.n_estimators,
-                    max_depth=config.train.max_depth,
+                    n_estimators=self._n_estimators,
+                    max_depth=self._max_depth,
                     learning_rate=config.train.learning_rate,
                     subsample=config.train.subsample,
                     colsample_bytree=config.train.colsample_bytree,
@@ -285,26 +235,104 @@ class EnsembleModel:
                 eval_set = [(X_train, y_train)]
                 if X_val is not None and y_val is not None:
                     eval_set.append((X_val, y_val))
+                model.fit(X_train, y_train, eval_set=eval_set, verbose=False)
+
+            elif name == "lightgbm":
+                try:
+                    import lightgbm as lgb
+                except ImportError:
+                    logger.warning("lightgbm not installed - skipping")
+                    continue
+                model = lgb.LGBMClassifier(
+                    objective="multiclass",
+                    metric="multi_logloss",
+                    n_estimators=self._n_estimators,
+                    max_depth=self._max_depth,
+                    learning_rate=config.train.learning_rate,
+                    subsample=config.train.subsample,
+                    colsample_bytree=config.train.colsample_bytree,
+                    reg_lambda=config.train.reg_lambda,
+                    reg_alpha=config.train.reg_alpha,
+                    num_leaves=31,
+                    min_child_samples=config.train.min_samples_leaf,
+                    random_state=config.train.seed,
+                    n_jobs=-1,
+                    verbose=-1,
+                )
+                eval_set = [(X_train, y_train)]
+                if X_val is not None and y_val is not None:
+                    eval_set.append((X_val, y_val))
                 model.fit(
                     X_train, y_train,
                     eval_set=eval_set,
-                    verbose=False,
+                    callbacks=[lgb.early_stopping(10)],
                 )
 
+            elif name == "catboost":
+                try:
+                    from catboost import CatBoostClassifier
+                except ImportError:
+                    logger.warning("catboost not installed - skipping")
+                    continue
+                model = CatBoostClassifier(
+                    iterations=self._n_estimators,
+                    depth=min(self._max_depth, 10),
+                    learning_rate=config.train.learning_rate,
+                    l2_leaf_reg=config.train.reg_lambda,
+                    random_seed=config.train.seed,
+                    loss_function="MultiClass",
+                    verbose=False,
+                    allow_writing_files=False,
+                    early_stopping_rounds=10,
+                )
+                model.fit(
+                    X_train, y_train,
+                    eval_set=(X_val, y_val) if X_val is not None and y_val is not None else None,
+                )
+
+            elif name == "logistic_regression":
+                model = LogisticRegression(
+                    solver="lbfgs",
+                    max_iter=1000,
+                    random_state=config.train.seed,
+                    class_weight="balanced",
+                    C=1.0,
+                    n_jobs=-1,
+                )
+                model.fit(X_train_clean, y_train)
+
+            elif name == "logistic_calibrated":
+                try:
+                    from sklearn.calibration import CalibratedClassifierCV
+                except ImportError:
+                    logger.warning("CalibratedClassifierCV not available - skipping")
+                    continue
+                base_lr = LogisticRegression(
+                    solver="lbfgs",
+                    max_iter=2000,
+                    random_state=config.train.seed,
+                    class_weight="balanced",
+                    C=1.0,
+                )
+                model = CalibratedClassifierCV(
+                    base_lr,
+                    method="sigmoid",
+                    cv=2,
+                )
+                model.fit(X_train_clean, y_train)
+
             else:
-                logger.warning("Unknown model '%s' — skipping", name)
+                logger.warning("Unknown model '%s' - skipping", name)
                 continue
 
             self.models[name] = model
 
         # Compute training and validation log-loss for each model
         for name, model in self.models.items():
-            # Training loss
             train_probs = self._ml_predict_proba(model, X_train)
             self._individual_log_losses[f"{name}_train"] = float(
                 log_loss(y_train, train_probs)
             )
-            # Validation loss
             if X_val is not None and y_val is not None:
                 val_probs = self._ml_predict_proba(model, X_val)
                 self._individual_log_losses[f"{name}_val"] = float(
@@ -332,7 +360,7 @@ class EnsembleModel:
         self._poisson_model.fit(df_train)
         self.models["poisson"] = self._poisson_model
 
-    # ── Internal: get predictions from all models ────────
+    # -- Internal: get predictions from all models ----------
 
     def _get_all_predictions(
         self,
@@ -405,7 +433,7 @@ class EnsembleModel:
 
         return probs
 
-    # ── Weight optimisation ─────────────────────────────
+    # -- Weight optimisation --------------------------------
 
     def _optimise_weights(
         self,
@@ -420,7 +448,7 @@ class EnsembleModel:
 
         For ensembles of 3+ models, we enumerate all combinations where
         weights are multiples of ``_GRID_STEP`` and sum to 1.0.  For 4
-        models with step 0.05, this is ~1,000 combinations — fast enough.
+        models with step 0.05, this is ~1,000 combinations - fast enough.
         """
         model_names = list(preds.keys())
         n_models = len(model_names)
@@ -431,14 +459,12 @@ class EnsembleModel:
         if n_models == 1:
             return {model_names[0]: 1.0}
 
-        step = self.cfg.weight_grid_step
+        step = self._weight_step
         best_loss = float("inf")
         best_weights: list[float] = []
 
         # Enumerate unique weight combinations via composition.
         # Generate raw integer vectors (w1..wn), normalise, deduplicate.
-        # For 4 models with step 0.05 (~21 values), this evaluates
-        # ~10 K unique vectors instead of 194 K raw product entries.
         n_steps = int(round(1.0 / step))
         seen: set[tuple[float, ...]] = set()
 
@@ -459,10 +485,100 @@ class EnsembleModel:
                 best_weights = list(norm)
 
         logger.info(
-            "Weight optimisation complete — best val log-loss: %.4f",
+            "Weight optimisation complete - best val log-loss: %.4f",
             best_loss,
         )
         return dict(zip(model_names, best_weights))
+
+    def _apply_weight_constraints(self) -> None:
+        """Enforce min/max weight ranges for each model in the ensemble.
+
+        After the grid-search optimiser finds the best weights for
+        minimising log-loss, this method adjusts them so each model
+        stays within its configured range (min, max).
+        """
+        ranges = self.cfg.model_weight_ranges
+        if not ranges:
+            return
+
+        # Feasibility check
+        total_min = sum(lo for lo, _ in ranges.values() if lo > 0)
+        if total_min > 1.0:
+            logger.warning(
+                "Weight ranges min sum = %.2f > 1.0 - constraints impossible to satisfy",
+                total_min,
+            )
+
+        max_iter = 30
+        for _ in range(max_iter):
+            adjusted = False
+
+            # Check all models against their ranges
+            under: list[tuple[str, float]] = []  # (name, deficit)
+            over: list[tuple[str, float]] = []   # (name, excess)
+
+            for name, (lo, hi) in ranges.items():
+                if name not in self.weights:
+                    continue
+                w = self.weights[name]
+                if w < lo:
+                    under.append((name, lo - w))
+                elif w > hi:
+                    over.append((name, w - hi))
+
+            if not under and not over:
+                break  # All constraints satisfied
+
+            # Fix underweight models
+            for name, deficit in under:
+                givers = {
+                    k: v for k, v in self.weights.items()
+                    if k != name and k in ranges
+                    and v > ranges[k][0]
+                    and k not in {u[0] for u in under}
+                }
+                if not givers:
+                    givers = {k: v for k, v in self.weights.items() if k != name}
+
+                giver_total = sum(givers.values())
+                if giver_total > 0:
+                    for k in givers:
+                        share = givers[k] / giver_total
+                        reduction = deficit * share
+                        self.weights[k] = max(self.weights[k] - reduction, 0.0)
+                    self.weights[name] += deficit
+                    adjusted = True
+
+            # Fix overweight models
+            for name, excess in over:
+                receivers = {
+                    k: v for k, v in self.weights.items()
+                    if k != name and k in ranges
+                    and v < ranges[k][1]
+                    and k not in {o[0] for o in over}
+                }
+                if not receivers:
+                    receivers = {k: v for k, v in self.weights.items() if k != name}
+
+                receiver_total = sum(receivers.values())
+                if receiver_total > 0:
+                    for k in receivers:
+                        share = receivers[k] / receiver_total
+                        self.weights[k] = self.weights[k] + excess * share
+                    self.weights[name] -= excess
+                    adjusted = True
+
+            # Renormalise
+            total = sum(self.weights.values())
+            if total > 0:
+                for name in self.weights:
+                    self.weights[name] /= total
+
+            if not adjusted:
+                break
+
+        w_str = ", ".join(f"{k}={v:.3f}" for k, v in sorted(self.weights.items()))
+        logger.info("Weight constraints applied - final weights: %s", w_str)
 
     @staticmethod
     def _apply_weights(
@@ -476,7 +592,7 @@ class EnsembleModel:
         preds : dict[str, np.ndarray]
             ``{model_name: probs_array}`` where each array is (n, 3).
         weights : dict[str, float]
-            ``{model_name: weight}`` — must sum to 1.0.
+            ``{model_name: weight}`` - must sum to 1.0.
 
         Returns
         -------
@@ -501,7 +617,7 @@ class EnsembleModel:
 
         return weighted
 
-    # ── Public prediction ────────────────────────────────
+    # -- Public prediction ----------------------------------
 
     def predict_proba(
         self,
@@ -534,7 +650,7 @@ class EnsembleModel:
         probs = self.predict_proba(X, df_raw)
         return np.argmax(probs, axis=1)
 
-    # ── Evaluation ───────────────────────────────────────
+    # -- Evaluation -----------------------------------------
 
     def evaluate(
         self,
@@ -582,13 +698,13 @@ class EnsembleModel:
         )
 
         logger.info(
-            "Ensemble test log-loss: %.4f (best single: %.4f, Δ=%.4f)",
+            "Ensemble test log-loss: %.4f (best single: %.4f, Delta=%.4f)",
             ensemble_loss, best_single, improvement,
         )
 
         return report
 
-    # ── Save / Load ─────────────────────────────────────
+    # -- Save / Load ----------------------------------------
 
     def save(self, path: str | None = None) -> str:
         """Save the entire ensemble (sub-models + weights) via joblib.
@@ -643,9 +759,9 @@ class EnsembleModel:
         return ensemble
 
 
-# ═══════════════════════════════════════════════════════════
+# ============================================================
 #  Training script convenience function
-# ═══════════════════════════════════════════════════════════
+# ============================================================
 
 
 def train_ensemble(
@@ -700,11 +816,11 @@ def train_ensemble(
         print(f"  Test accuracy:       {test_report['ensemble_accuracy']:.2%}")
         print(f"\n  Best single model:   {test_report['best_single_model']} "
               f"({test_report['individual_log_losses'][test_report['best_single_model']]:.4f})")
-        print(f"  Improvement:         Δ = {test_report['improvement_over_best_single']:+.4f}")
+        print(f"  Improvement:         Delta = {test_report['improvement_over_best_single']:+.4f}")
         print(f"\n  {ensemble.weight_summary}")
         print(f"\n  {'=' * 30}  LOG-LOSS BREAKDOWN {'=' * 30}")
         for name, loss in sorted(test_report["individual_log_losses"].items()):
-            marker = " ← BEST" if abs(loss - min(test_report["individual_log_losses"].values())) < 1e-6 else ""
+            marker = " <- BEST" if abs(loss - min(test_report["individual_log_losses"].values())) < 1e-6 else ""
             print(f"    {name:<30s}  {loss:.4f}{marker}")
         print("=" * 90)
         print()

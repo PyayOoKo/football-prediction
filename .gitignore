@@ -66,6 +66,9 @@ logs/
 reports/
 figures/
 
+# ── Docker ─────────────────────────────────────────────
+docker-compose.override.yml
+
 # ── Misc ────────────────────────────────────────────────
 .pytest_cache/
 .mypy_cache/
@@ -73,3 +76,4 @@ figures/
 htmlcov/
 .coverage
 coverage.xml
+

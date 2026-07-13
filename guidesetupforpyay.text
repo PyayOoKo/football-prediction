@@ -21,9 +21,46 @@
      and run:
 
          python -m venv .venv
-         .venv\Scripts\activate
+
+     ⚠ IMPORTANT: Check which Python you are using BEFORE creating the venv!
+        Some applications (Inkscape, Git Bash, etc.) bundle their own Python
+        which CANNOT install numpy/pandas (tries to build from source and
+        fails). Run this check:
+
+            python -c "import sysconfig; print(sysconfig.get_platform())"
+
+        - If it prints "win-amd64" or "win32" → OK, proceed.
+        - If it prints "mingw_x86_64_ucrt_gnu" → You're using Inkscape's
+          Python. Use the Microsoft Store Python instead (see below).
+
+     Activate the environment:
+
+     ┌─ CMD (Command Prompt) ──────────────────────────────────────┐
+     │  .venv\Scripts\activate                                    │
+     └─────────────────────────────────────────────────────────────┘
+
+     ┌─ PowerShell ────────────────────────────────────────────────┐
+     │  .venv\Scripts\Activate.ps1                                │
+     └─────────────────────────────────────────────────────────────┘
+
+     ┌─ Git Bash ──────────────────────────────────────────────────┐
+     │  source .venv/Scripts/activate                              │
+     └─────────────────────────────────────────────────────────────┘
 
      Your terminal prompt will show (.venv) at the start when active.
+
+     ── If your default Python is Inkscape's (MinGW) ──
+     Your system likely has the Microsoft Store Python installed too.
+     Use it explicitly to create the venv:
+
+         "/c/Users/dell/AppData/Local/Microsoft/WindowsApps/python3.exe" -m venv .venv
+
+     Or find it via:
+         where python3.exe
+
+     Then activate normally (as above). The resulting venv will use
+     the standard Windows Python and all packages will install from
+     pre-compiled wheels without needing compilers.
 
   C. Install project dependencies
      ──────────────────────────────────────────────────────────────────────
@@ -31,14 +68,28 @@
 
          pip install -r requirements.txt
 
+     If that fails with SSL certificate errors, add trusted hosts:
+
+         pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org -r requirements.txt
+
+     If that fails with "Failed to build..." errors (cmake, ninja, etc.),
+     your Python is a MinGW build that can't use pre-compiled wheels.
+     Create the venv from a standard Windows Python instead (see step B).
+
      This installs: numpy, pandas, scikit-learn, xgboost, lightgbm, torch
      (optional), matplotlib, seaborn, python-dotenv, requests, pytest,
      mypy, black, ruff, and other utilities.
 
      ⚠ Remember to activate the virtual environment every time you open
-        a new terminal to work on this project:
+        a new terminal to work on this project.
 
-            .venv\Scripts\activate
+        ┌─ Command Prompt ────┐   ┌─ Git Bash ───────────────────┐
+        │  .venv\Scripts\activate │   │  source .venv/Scripts/activate │
+        └──────────────────────┘   └──────────────────────────────┘
+
+        Or run scripts directly without activating:
+
+            .venv/Scripts/python.exe script_name.py
 
   D. Collect the World Cup data
      ──────────────────────────────────────────────────────────────────────
@@ -379,19 +430,63 @@
 
 
 ████████████████████████████████████████████████████████████████████████████████
-  8.  SPEED & PERFORMANCE TIPS
+  8.  SPEED & PERFORMANCE TIPS (IMPORTANT!)
 ████████████████████████████████████████████████████████████████████████████████
 
-  - First full run (train_worldcup.py): ~45-60 seconds
-    - Hyper-parameter tuning: ~16s (20 params x 3 CV folds)
-    - Feature engineering: ~10-15s (Elo, Poisson, Dixon-Coles, player data)
-    - Model training: ~5s
-  - Subsequent runs with --skip-train: ~20s
-  - Dixon-Coles enabled adds ~5-10s on World Cup data (488 matches)
-  - Player data adds ~3-5s for Transfermarkt feature loading
-  - For faster iteration:
-        python train_worldcup.py --skip-train          # Use saved model
-        python predict_worldcup.py                     # Lightweight alternative
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║  THIS IS THE MOST LIKELY REASON YOUR CODE IS RUNNING SLOW!!    ║
+  ╚══════════════════════════════════════════════════════════════════╝
+
+  The pipeline uses an ENSEMBLE model (XGBoost + Logistic Regression +
+  Poisson) by default. It is designed to be FAST (~20-40 seconds).
+
+  If it is taking LONGER, here are the most likely causes:
+
+  --- CAUSE 1: run_pipeline.py tries to download data first ---
+  The pipeline downloads all league data before training. This can
+  be slow if there's no internet or the source is down.
+
+  -> Solution: Skip download:
+     python run_pipeline.py --skip-download
+
+  --- CAUSE 2: You ran the old 5-model ensemble code ---
+  If you see errors about LightGBM, CatBoost, or CalibratedClassifierCV
+  not being installed, the code has been fixed now. Just run again.
+
+  --- CAUSE 3: Player data or lineup collection ---
+  These are optional features that add 30-60 seconds.
+
+  -> Solution: Use --skip-lineups:
+     python refresh_worldcup.py --skip-lineups
+
+  --- CAUSE 4: Hyper-parameter tuning is enabled ---
+  If tune_base_models is True in config.py, it runs CV grid search.
+
+  -> Solution: Set tune_base_models = False (default)
+
+  --- THE FASTEST WAY TO RUN (World Cup) ---
+  This is the simplest and fastest command. Try this first:
+
+     python train_worldcup.py
+
+  Expected time: ~20-30 seconds
+
+  --- THE FASTEST WAY TO RUN (Pipeline) ---
+  If running the full pipeline, use lightweight mode:
+
+     python run_pipeline.py --lightweight
+
+  This skips download and retrain, just runs predictions on existing
+  data and model. Takes ~5-10 seconds.
+
+  --- EXPECTED RUN TIMES ---
+  | Command                              | Expected time |
+  |--------------------------------------|---------------|
+  | python train_worldcup.py              | 20-30 seconds |
+  | python run_pipeline.py --skip-download| 30-60 seconds |
+  | python run_pipeline.py --lightweight  | 5-10 seconds  |
+  | python today_value_bets_live.py       | 10-20 seconds |
+  | python run_dashboard.py               | < 5 seconds   |
 
 
 ████████████████████████████████████████████████████████████████████████████████
@@ -417,21 +512,44 @@
   10. TROUBLESHOOTING
 ████████████████████████████████████████████████████████████████████████████████
 
-  "No module named pandas"
+  "No module named pandas" / "ModuleNotFoundError: No module named 'numpy'"
   ──────────────────────────────────────────────────────────────────────
   Your terminal is not using the right Python / virtual environment.
 
       # First, activate the virtual environment:
-      .venv\Scripts\activate
+      .venv\Scripts\activate          # Command Prompt
+      source .venv/Scripts/activate   # Git Bash
 
       # Then install packages:
       pip install -r requirements.txt
 
   If you still get the error, check which Python you're using:
 
-      where python        # Windows — make sure it points to .venv\Scripts\python
+      where python        # Command Prompt — make sure it points to .venv\Scripts\python
+      which python        # Git Bash
 
   The top result should be inside your project's .venv folder.
+
+  "SSL: CERTIFICATE_VERIFY_FAILED" / "Failed to build 'numpy'" / "Failed to build wheel"
+  ──────────────────────────────────────────────────────────────────────
+  Your Python is a MinGW build (common with Inkscape, Git Bash for Windows).
+  It can't use standard Windows wheels, so pip tries to compile everything
+  from source — which fails because C compilers/cmake/ninja aren't installed.
+
+  Solution: Use the Microsoft Store Python instead.
+
+  Step 1 — Check if you have it:
+      "/c/Users/dell/AppData/Local/Microsoft/WindowsApps/python3.exe" --version
+
+  Step 2 — Create a fresh venv with it:
+      "/c/Users/dell/AppData/Local/Microsoft/WindowsApps/python3.exe" -m venv .venv
+
+  Step 3 — Activate and install:
+      source .venv/Scripts/activate
+      pip install -r requirements.txt
+
+  The Microsoft Store Python is win-amd64, so all packages will install
+  from pre-compiled wheels instantly with no compilation needed.
 
   "File not found: data/raw/worldcup_all.csv"
   ──────────────────────────────────────────────────────────────────────

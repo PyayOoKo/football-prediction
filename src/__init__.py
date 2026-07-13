@@ -1,55 +1,35 @@
 """
-Football Prediction — Source Package.
+Football Prediction — ML pipeline for predicting match outcomes.
 
-Exposes the pipeline stages so consumers can do::
+Package layout
+--------------
+src.config
+    Application configuration and logging setup.
+src.database
+    SQLAlchemy ORM, models, repositories, and Alembic migrations.
+src.data
+    Data loading, preprocessing, cleaning, and feature engineering.
+src.models
+    ML model implementations (XGBoost, Poisson, ensemble).
+src.scrapers
+    Data collection from football-data.co.uk, Transfermarkt, etc.
+src.services
+    Business logic orchestration (prediction, training, betting).
+src.utils
+    Cross-cutting utilities (exceptions, helpers, validators).
 
-    from src import data_loader, feature_engineering
+Quick start
+-----------
+::
+
+    from src.config import configure_logging
+    configure_logging()
+
+    from src.database import get_session
+    with get_session() as session:
+        ...
 """
 
 from __future__ import annotations
 
-from src import (
-    backtesting,
-    calibration,
-    confidence_scoring,
-    data_collection,
-    data_loader,
-    dixon_coles,
-    elo,
-    ensemble,
-    evaluate,
-    feature_engineering,
-    hyperparameter_tuning,
-    odds_processing,
-    player_info,
-    poisson_model,
-    preprocessing,
-    predict,
-    time_series_cv,
-    train,
-    value_betting,
-    xg_features,
-)
-
-__all__ = [
-    "backtesting",
-    "calibration",
-    "confidence_scoring",
-    "data_collection",
-    "dixon_coles",
-    "data_loader",
-    "elo",
-    "ensemble",
-    "evaluate",
-    "feature_engineering",
-    "hyperparameter_tuning",
-    "odds_processing",
-    "player_info",
-    "poisson_model",
-    "preprocessing",
-    "predict",
-    "time_series_cv",
-    "train",
-    "value_betting",
-    "xg_features",
-]
+__version__ = "0.1.0"

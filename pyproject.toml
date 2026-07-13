@@ -21,37 +21,129 @@ classifiers = [
     "Topic :: Games/Entertainment :: Sports",
 ]
 dependencies = [
+    # ── Core data science ───────────────────────────────
     "numpy>=1.26.0",
     "pandas>=2.2.0",
+    "scipy>=1.12.0",
+
+    # ── Machine learning ────────────────────────────────
     "scikit-learn>=1.4.0",
     "xgboost>=2.0.0",
     "lightgbm>=4.3.0",
+
+    # ── Database ─────────────────────────────────────────
+    "sqlalchemy>=2.0.30",
+    "psycopg2-binary>=2.9.9",
+    "alembic>=1.13.0",
+
+    # ── Visualisation ───────────────────────────────────
     "matplotlib>=3.8.0",
     "seaborn>=0.13.0",
+
+    # ── Utilities ───────────────────────────────────────
     "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.1",
+    "pydantic>=2.5.0",
     "tqdm>=4.66.0",
+    "requests>=2.31.0",
+    "httpx>=0.27.0",
+
+    # ── Dashboard & API (used at runtime) ───────────────
+    "streamlit>=1.35.0",
+
+    # ── Notifications ───────────────────────────────────
+    "jinja2>=3.1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "jupyter>=1.0.0",
+    "notebook>=7.0.0",
+    "ipykernel>=6.29.0",
+    # Testing
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
+    "pytest-xdist>=3.6.0",
+    # Linting & formatting
     "black>=24.0.0",
     "ruff>=0.3.0",
+    # Type checking
     "mypy>=1.8.0",
+    "types-requests>=2.31.0",
+    # CI/CD
+    "pre-commit>=3.7.0",
+    "pip-audit>=2.7.0",
+]
+api = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "slowapi>=0.1.9",
+]
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.25.0",
 ]
 deep = [
     "torch>=2.2.0",
 ]
+notify = [
+    # Slack/email notifications
+    "httpx>=0.27.0",
+]
+all = [
+    "football-prediction[dev,api,docs,deep,notify]",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/football-prediction"
+Repository = "https://github.com/yourusername/football-prediction"
+Issues = "https://github.com/yourusername/football-prediction/issues"
+Documentation = "https://yourusername.github.io/football-prediction"
+Changelog = "https://github.com/yourusername/football-prediction/releases"
+
+[project.scripts]
+football-predict = "src.cli:main"
+football-train = "src.train:main"
+football-pipeline = "run_pipeline:main"
 
 [tool.setuptools.packages.find]
 include = ["src", "src.*", "app", "app.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py"]
-addopts = "-v --tb=short"
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-v --tb=short --strict-config"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "db: marks tests that need a database connection",
+    "integration: marks integration tests that call external APIs",
+    "security: marks security-related tests",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "src/__init__.py",
+    "*/tests/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 75
+skip_covered = false
+sort = "Cover"
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "def __repr__",
+    "def __str__",
+]
+
+[tool.coverage.html]
+directory = "coverage_html"
 
 [tool.black]
 line-length = 88
@@ -62,9 +154,28 @@ target-version = "py312"
 line-length = 88
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W"]
+select = ["E", "F", "I", "N", "W", "ARG", "B", "C4", "SIM"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+warn_unused_ignores = true
+no_implicit_reexport = true
+
+[tool.bandit]
+skips = ["B101", "B301", "B403"]
+targets = ["src"]
+
+[tool.pip-audit]
+strict = true
+desc = true
+format = "markdown"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "semver"
+version_provider = "scm"
+update_changelog_on_bump = true
+major_version_zero = true

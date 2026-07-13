@@ -6,12 +6,20 @@
 
 ![Python](https://img.shields.io/badge/python-3.12-blue?logo=python)
 ![XGBoost](https://img.shields.io/badge/model-XGBoost-orange?logo=xgboost)
-![Tests](https://img.shields.io/badge/tests-56%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1.4k%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Pipeline](#-pipeline-overview) • [Dashboard](#-dashboard) • [World Cup 2026](#-world-cup-2026) • [Configuration](#-configuration)
+[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Dashboard](#-dashboard) • [World Cup 2026](#-world-cup-2026) • [Configuration](#-configuration)
 
 </div>
+
+---
+
+## 📚 Documentation
+
+Looking for **complete project documentation**? See the full guide:
+
+➡️ **[`docs/PROJECT_DOCUMENTATION.md`](docs/PROJECT_DOCUMENTATION.md)** — system architecture, folder structure, database schema, ETL/scheduler/validation workflows, diagrams, setup/deployment/development guides, coding standards, and testing strategy.
 
 ---
 
@@ -273,7 +281,7 @@ pytest --cov=src
 pytest tests/test_odds_api.py -v
 ```
 
-**56 tests** covering the Odds API client: response parsing, match lookup, error handling, caching, and end-to-end flows.
+**1,427 tests** across the full project covering feature engineering, betting engine, ETL pipeline, validation, database models, scheduler, cache, services, and more.
 
 ---
 

