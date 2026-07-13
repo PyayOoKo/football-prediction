@@ -10,7 +10,7 @@ created: 2026-07-12
 
 > The most complex module — orchestrates all feature creation in a strict order with leakage prevention.
 
-See also: [[Architecture Overview]], [[Ensemble Model]], [[Config System]], [[Poisson & Elo Models]], [[Data Collection Sources]]
+See also: [[Architecture Overview]], [[Feature Orchestrator]], [[Feature Validation Framework]], [[Betting Market Features]], [[Ensemble Model]], [[Config System]], [[Poisson & Elo Models]], [[Data Collection Sources]]
 
 ---
 
@@ -21,7 +21,8 @@ graph TD
     DF["Raw DataFrame"] --> SORT["Sort chronologically"]
     SORT --> ELO_ADD["add_elo_features()<br/>(src/elo.py)"]
     ELO_ADD --> ODDS_ADD["add_odds_features()<br/>(src/odds_processing.py)"]
-    ODDS_ADD --> PLAYER_ADD["add_player_features()<br/>(src/player_info.py)"]
+    ODDS_ADD --> BM_ADD["add_betting_market_features()<br/>(NEW — 33 columns)"]
+    BM_ADD --> PLAYER_ADD["add_player_features()<br/>(src/player_info.py)"]
     PLAYER_ADD --> XG_ADD["add_xg_features()<br/>(src/xg_features.py)"]
     XG_ADD --> POI_ADD["add_poisson_features()<br/>(src/poisson_model.py)"]
     POI_ADD --> DC_ADD["add_features()<br/>(src/dixon_coles.py)"]
@@ -34,7 +35,7 @@ graph TD
     RATIOS --> X_FINAL["Feature Matrix (X) + Target (y)"]
 ```
 
-**File:** [[feature_engineering.py]]
+**Files:** [[feature_engineering.py]], [[Betting Market Features]] (NEW)
 
 ---
 
@@ -47,6 +48,9 @@ graph TD
 | `.rolling(N).mean().shift(1)` | Rolling avg of last N matches, *excluding* current |
 | `.expanding().mean().shift(1)` | All-time avg, *excluding* current |
 | Chronological sort | Features always computed on past → future order |
+| **FeatureValidator** (NEW) | Automatic leakage detection via date-sort check |
+
+The [[Feature Validation Framework]] automatically validates that feature dataframes are chronologically sorted, catching any accidental leakage at pipeline runtime.
 
 ---
 
@@ -74,7 +78,24 @@ Parameters from `config.elo`: `k=32`, `home_advantage=100`, `initial_rating=1500
 | `market_confidence` | Fair prob of the favorite |
 | `bookmaker_margin_{opening,closing}` | Overround |
 
-### 3. Player Info (`src/player_info.py`) — Optional
+### 3. Betting Market Features (NEW — `src/feature_framework/features/betting_market.py`)
+
+| Feature | Description |
+|---------|-------------|
+| `odds_{home,draw,away}_{opening,closing}` | Raw decimal odds from 9+ bookmakers |
+| `fair_prob_{home,draw,away}_{opening,closing}` | Multiplicative no-margin probs |
+| `odds_movement_{home,draw,away}_{,pct}` | Abs + % change from opening to closing |
+| `clv_{home,draw,away}` | Closing Line Value |
+| `market_favourite`, `market_underdog` | Shortest/longest outcome |
+| `market_confidence` | Favourite prob / total fair prob |
+| `consensus_{home,draw,away}` | Mean fair prob across bookmakers |
+| `odds_volatility` | Std dev of fair probs |
+| `bookmaker_margin_{opening,closing}` | Σ implied prob - 1 |
+| `is_favourite_home`, `is_underdog_home` | Flags for home team |
+
+→ Full details: [[Betting Market Features]]
+
+### 4. Player Info (`src/player_info.py`) — Optional
 
 | Feature | Description |
 |---------|-------------|
@@ -86,7 +107,7 @@ Parameters from `config.elo`: `k=32`, `home_advantage=100`, `initial_rating=1500
 | `{h,a}_avg_age` | Average squad age |
 | `{h,a}_squad_value` | Total market value (€m) |
 
-### 4. xG Features (`src/xg_features.py`)
+### 5. xG Features (`src/xg_features.py`)
 
 | Feature | Description |
 |---------|-------------|
@@ -95,7 +116,7 @@ Parameters from `config.elo`: `k=32`, `home_advantage=100`, `initial_rating=1500
 | `{h,a}_xgd_avg5` / `{h,a}_xgd_avg10` | Rolling xG difference |
 | `{h,a}_xpts` | Expected Points from Poisson conversion |
 
-### 5. Poisson Features (`src/poisson_model.py`)
+### 6. Poisson Features (`src/poisson_model.py`)
 
 | Feature | Description |
 |---------|-------------|
@@ -105,7 +126,7 @@ Parameters from `config.elo`: `k=32`, `home_advantage=100`, `initial_rating=1500
 | `Expected_Goal_Difference` | λ_home - λ_away |
 | `{Home,Away}_{Attack,Defense}_Strength` | α and β parameters |
 
-### 6. Dixon-Coles Features (`src/dixon_coles.py`) — Optional
+### 7. Dixon-Coles Features (`src/dixon_coles.py`) — Optional
 
 | Feature | Description |
 |---------|-------------|
@@ -117,7 +138,7 @@ Parameters from `config.elo`: `k=32`, `home_advantage=100`, `initial_rating=1500
 | `DC_{Home,Draw,Away}_Win_Prob` | Outcome probabilities |
 | `DC_Rho` | Tau correction parameter |
 
-### 7. Rolling Team Features
+### 8. Rolling Team Features
 
 | Feature | Description |
 |---------|-------------|
@@ -129,7 +150,7 @@ Parameters from `config.elo`: `k=32`, `home_advantage=100`, `initial_rating=1500
 | `{h,a}_days_since_last_match` | Rest days |
 | `{h,a}_matches_this_season` | Matches played so far |
 
-### 8. Head-to-Head & League Position
+### 9. Head-to-Head & League Position
 
 | Feature | Description |
 |---------|-------------|
@@ -140,12 +161,26 @@ Parameters from `config.elo`: `k=32`, `home_advantage=100`, `initial_rating=1500
 | `{h,a}_league_position` | League table rank before kickoff |
 | `position_diff` | `|h_position - a_position|` |
 
-### 9. Attack/Defence Ratios
+### 10. Attack/Defence Ratios
 
 | Feature | Description |
 |---------|-------------|
 | `{h,a}_attack_ratio{5,10,20}` | `goals_scored_avg / league_avg` |
 | `{h,a}_defence_ratio{5,10,20}` | `goals_conceded_avg / league_avg` |
+
+---
+
+## Feature Framework (NEW)
+
+The [[Feature Orchestrator]] provides a production-grade pipeline for computing all features with:
+
+| Capability | How It Helps |
+|------------|-------------|
+| **Plugin-based** | Features auto-discover via `FeaturePluginRegistry` |
+| **Declarative** | Feature definitions in YAML, not code |
+| **Dependency resolution** | DAG ensures features compute in correct order |
+| **Parallel by default** | Thread/process pool execution |
+| **Validated output** | [[Feature Validation Framework]] checks every computed value |
 
 ---
 

@@ -26,6 +26,8 @@ created: 2026-07-12
 | Note | Description |
 |------|-------------|
 | [[Architecture Overview]] | High-level architecture, data flow, module dependency graph |
+| [[Feature Orchestrator]] | Production-grade pipeline execution (DAG, cache, retry, resume) |
+| [[Feature Validation Framework]] | 10 automatic quality checks, 5 report types |
 | [[Config System]] | Central configuration singleton (18 sub-configs) |
 | [[Scripts Reference]] | Complete CLI scripts reference + key data files |
 
@@ -36,6 +38,7 @@ created: 2026-07-12
 | Note | Description |
 |------|-------------|
 | [[Feature Engineering Pipeline]] | Feature creation hub — all 10+ feature categories |
+| [[Betting Market Features]] | 33+ betting market features (odds, CLV, consensus, volatility) |
 | [[Ensemble Model]] | Default prediction model (XGBoost + LR + Poisson) |
 | [[Poisson & Elo Models]] | Statistical models for team strength estimation |
 | [[Auxiliary Modules]] | Training, evaluation, calibration, hyperparameter tuning |
@@ -83,9 +86,12 @@ created: 2026-07-12
 graph TD
     HOME["🏠 Vault Home"] --> QS["Quick Start Guide"]
     HOME --> ARCH["Architecture Overview"]
+    HOME --> ORCH["Feature Orchestrator"]
+    HOME --> VAL["Feature Validation Framework"]
     HOME --> CONFIG["Config System"]
     HOME --> SCRIPTS["Scripts Reference"]
     HOME --> FE["Feature Engineering Pipeline"]
+    HOME --> BM["Betting Market Features"]
     HOME --> ENS["Ensemble Model"]
     HOME --> POI["Poisson & Elo Models"]
     HOME --> AUX["Auxiliary Modules"]
@@ -97,10 +103,13 @@ graph TD
     
     style HOME fill:#2ecc71,stroke:#27ae60,color:white,stroke-width:3px
     style QS fill:#3498db,stroke:#2980b9,color:white
+    style ORCH fill:#3498db,stroke:#2980b9,color:white
+    style VAL fill:#3498db,stroke:#2980b9,color:white
     style ARCH fill:#3498db,stroke:#2980b9,color:white
     style CONFIG fill:#3498db,stroke:#2980b9,color:white
     style SCRIPTS fill:#3498db,stroke:#2980b9,color:white
     style FE fill:#9b59b6,stroke:#8e44ad,color:white
+    style BM fill:#9b59b6,stroke:#8e44ad,color:white
     style ENS fill:#9b59b6,stroke:#8e44ad,color:white
     style POI fill:#9b59b6,stroke:#8e44ad,color:white
     style AUX fill:#9b59b6,stroke:#8e44ad,color:white
@@ -119,7 +128,7 @@ graph TD
 
 ## 🔗 Companion Module Dependency Graph
 
-> All 25 companion `.py.md` notes and their `See also:` connections. Each node is a [[wikilink]] — click to open in Obsidian.
+> All 28+ companion `.py.md` notes and their `See also:` connections. Each node is a [[wikilink]] — click to open in Obsidian.
 
 ```mermaid
 graph TB
@@ -131,11 +140,20 @@ graph TB
     classDef eval fill:#1abc9c,stroke:#16a085,color:#fff
     classDef betting fill:#e74c3c,stroke:#c0392b,color:#fff
     classDef dataSub fill:#5dade2,stroke:#2e86c1,color:#fff,stroke-dasharray: 4 2
+    classDef newFramework fill:#2ecc71,stroke:#27ae60,color:#fff,stroke-dasharray: 6 2
 
     %% ── Subgraph: Core / Entry Points ────────────────
     subgraph Core["⚙️ Core & Entry"]
         config_py["[[config.py]]<br/><small>Settings hub</small>"]
         run_pipeline_py["[[run_pipeline.py]]<br/><small>Pipeline orchestrator</small>"]
+    end
+
+    %% ── Subgraph: NEW — Feature Framework ────────────
+    subgraph FeatureFramework["🏗️ Feature Framework (NEW)"]
+        orchestrator_py["[[orchestrator.py]]<br/><small>FeatureOrchestrator</small>"]
+        orchestrator_cli_py["[[orchestrator_cli.py]]<br/><small>CLI commands</small>"]
+        validation_init_py["[[validation/__init__.py]]<br/><small>FeatureValidator</small>"]
+        betting_market_py["[[betting_market.py]]<br/><small>BettingMarketTransformer</small>"]
     end
 
     %% ── Subgraph: Feature Engineering ────────────────
@@ -183,6 +201,13 @@ graph TB
         backtesting_py["[[backtesting.py]]<br/><small>Backtest engine</small>"]
         confidence_scoring_py["[[confidence_scoring.py]]<br/><small>Confidence score</small>"]
     end
+
+    %% ── Edges: Feature Framework ─────────────────────
+    orchestrator_py --> orchestrator_cli_py
+    orchestrator_py --> validation_init_py
+    orchestrator_py --> betting_market_py
+    orchestrator_py --> feature_engineering_py
+    orchestrator_py --> config_py
 
     %% ── Edges: Feature Engineering ───────────────────
     run_pipeline_py --> ensemble_py
@@ -293,6 +318,7 @@ graph TB
 
     %% ── Apply styles ─────────────────────────────────
     class config_py,run_pipeline_py core
+    class orchestrator_py,orchestrator_cli_py,validation_init_py,betting_market_py newFramework
     class feature_engineering_py,elo_py,poisson_model_py,dixon_coles_py,xg_features_py,odds_processing_py,player_info_py features
     class preprocessing_py,data_loader_py data
     class data_cleaners_py,data_loader_sub_py,data_fe_py dataSub
@@ -301,7 +327,7 @@ graph TB
     class value_betting_py,backtesting_py,confidence_scoring_py betting
 ```
 
-**Legend:** 🟢 Core & Entry | 🟣 Feature Engineering | 🔵 Data Layer | 🟠 Models & Training | 🟢 Evaluation | 🔴 Betting & Value
+**Legend:** 🟢 Core & Entry | 🟢🏗️ Feature Framework (NEW) | 🟣 Feature Engineering | 🔵 Data Layer | 🟠 Models & Training | 🟢 Evaluation | 🔴 Betting & Value
 
 > **Reading the graph:** Each arrow A → B means note A has `See also: [[B]]` in its YAML footer. Hover/tap a node in Obsidian to see connections highlighted. The full module dependency graph (code-level imports) is in [[Architecture Overview]].
 
@@ -309,7 +335,7 @@ graph TB
 
 ## 📚 Topic Note Wikilink Graph
 
-> How the 14 topic notes (plus 4 companion resource notes) connect via `[[wikilinks]]`. This is what Obsidian's Graph View shows for this vault.
+> How the 16 topic notes (plus 4 companion resource notes) connect via `[[wikilinks]]`. This is what Obsidian's Graph View shows for this vault.
 
 ```mermaid
 graph TB
@@ -318,6 +344,7 @@ graph TB
     classDef getting fill:#3498db,stroke:#2980b9,color:#fff
     classDef arch fill:#3498db,stroke:#2980b9,color:#fff
     classDef core fill:#9b59b6,stroke:#8e44ad,color:#fff
+    classDef new fill:#2ecc71,stroke:#27ae60,color:#fff,stroke-dasharray: 4 2
     classDef data fill:#e67e22,stroke:#d35400,color:#fff
     classDef betting fill:#e74c3c,stroke:#c0392b,color:#fff
     classDef auto fill:#f39c12,stroke:#e67e22,color:#fff
@@ -334,6 +361,8 @@ graph TB
     %% ── Architecture ─────────────────────────────────
     subgraph Arch["🏗 Architecture"]
         ARCH["Architecture Overview"]
+        ORCH["Feature Orchestrator (NEW)"]
+        VAL["Feature Validation Framework (NEW)"]
         CONFIG["Config System"]
         SCRIPTS["Scripts Reference"]
     end
@@ -341,6 +370,7 @@ graph TB
     %% ── Core Modules ─────────────────────────────────
     subgraph Core["🔧 Core Modules"]
         FE["Feature Engineering Pipeline"]
+        BM["Betting Market Features (NEW)"]
         ENS["Ensemble Model"]
         POI["Poisson & Elo Models"]
         AUX["Auxiliary Modules"]
@@ -375,9 +405,12 @@ graph TB
     %% ── Hub → all topic notes ────────────────────────
     HUB --> QS
     HUB --> ARCH
+    HUB --> ORCH
+    HUB --> VAL
     HUB --> CONFIG
     HUB --> SCRIPTS
     HUB --> FE
+    HUB --> BM
     HUB --> ENS
     HUB --> POI
     HUB --> AUX
@@ -395,11 +428,13 @@ graph TB
     %% ── Getting Started cross-links ──────────────────
     QS --> ARCH
     QS --> SCRIPTS
-    QS --> CL              {% comment %} Quick Start Guide links to Code Link Plugin Setup in its plugins table {% endcomment %}
+    QS --> CL
 
     %% ── Architecture cross-links ─────────────────────
     ARCH --> QS
     ARCH --> FE
+    ARCH --> ORCH
+    ARCH --> VAL
     ARCH --> ENS
     ARCH --> CONFIG
     ARCH --> SEQ
@@ -407,6 +442,14 @@ graph TB
     CONFIG --> ARCH
     CONFIG --> FE
     CONFIG --> ENS
+
+    ORCH --> VAL
+    ORCH --> BM
+    ORCH --> FE
+    ORCH --> CONFIG
+
+    VAL --> ORCH
+    VAL --> FE
 
     SCRIPTS --> QS
     SCRIPTS --> ARCH
@@ -417,6 +460,13 @@ graph TB
     FE --> CONFIG
     FE --> POI
     FE --> DC
+    FE --> ORCH
+    FE --> VAL
+
+    BM --> ORCH
+    BM --> VAL
+    BM --> FE
+    BM --> VB
 
     ENS --> ARCH
     ENS --> FE
@@ -474,13 +524,14 @@ graph TB
     class HUB hub
     class QS getting
     class ARCH,CONFIG,SCRIPTS arch
-    class FE,ENS,POI,AUX core
+    class ORCH,VAL new
+    class FE,BM,ENS,POI,AUX core
     class DC,DB data
     class VB,SEQ betting
     class SCHED auto
     class ER,PERF,CL,GV,VT resource
 ```
 
-**Legend:** 🟢 Hub | 🔵 Getting Started & Architecture | 🟣 Core Modules | 🟠 Data | 🔴 Betting & Analysis | 🟡 Automation | ⚪ Resource Notes (dashed)
+**Legend:** 🟢 Hub | 🔵 Getting Started & Architecture | 🟢🏗️ New Feature Framework Notes | 🟣 Core Modules | 🟠 Data | 🔴 Betting & Analysis | 🟡 Automation | ⚪ Resource Notes (dashed)
 
 > **Reading this graph:** Each arrow A → B means note A contains a `[[wikilink]]` to note B (via `See also:`, `Related notes:`, or inline content). Hover the graph area — with the [[Graph View CSS Snippet]], labels fade in on hover.

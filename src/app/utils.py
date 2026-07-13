@@ -23,18 +23,74 @@ logger = logging.getLogger(__name__)
 # ── Cached model loading ────────────────────────────────
 
 @st.cache_resource(show_spinner="Loading trained model ...")
-def load_model(file_name: str = "xgboost_model.joblib") -> Any | None:
-    """Load a trained model from the models directory."""
-    from src.train import load_model as _load
+def load_model(file_name: str | None = None) -> Any | None:
+    """Load a trained model from the models directory.
 
+    Tries ensemble model first (``ensemble_model.joblib``), then
+    falls back to XGBoost (``xgboost_model.joblib``), then league model.
+    """
+    if file_name is not None:
+        # Explicit file specified
+        return _load_from_file(file_name)
+
+    # Try ensemble model first (modern), then XGBoost, then league
+    candidates = [
+        ("ensemble_model.joblib", _try_load_ensemble),
+        ("xgboost_model.joblib", _try_load_xgb),
+        ("worldcup_xgboost.joblib", _try_load_xgb),
+        ("league_xgboost.joblib", _try_load_xgb),
+    ]
+
+    for name, loader in candidates:
+        model = loader(name)
+        if model is not None:
+            logger.info("Loaded model: %s", name)
+            return model
+
+    return None
+
+
+def _load_from_file(file_name: str) -> Any | None:
+    """Try loading a model from a specific file."""
+    # Try as regular sklearn/xgboost model first
     try:
-        model = _load(file_name)
-        return model
-    except FileNotFoundError:
-        return None
-    except Exception as exc:
-        st.error(f"Failed to load model: {exc}")
-        return None
+        from src.train import load_model as load_xgb
+        return load_xgb(file_name)
+    except Exception:
+        pass
+
+    # Try as ensemble model
+    try:
+        from src.ensemble import EnsembleModel
+        model_path = config.paths.models / file_name
+        if model_path.exists():
+            return EnsembleModel.load(str(model_path))
+    except Exception:
+        pass
+
+    return None
+
+
+def _try_load_ensemble(name: str) -> Any | None:
+    """Try loading an EnsembleModel from file."""
+    try:
+        from src.ensemble import EnsembleModel
+        model_path = config.paths.models / name
+        if model_path.exists():
+            return EnsembleModel.load(str(model_path))
+    except Exception:
+        pass
+    return None
+
+
+def _try_load_xgb(name: str) -> Any | None:
+    """Try loading a sklearn/XGBoost model from file."""
+    try:
+        from src.train import load_model as load_xgb
+        return load_xgb(name)
+    except Exception:
+        pass
+    return None
 
 
 @st.cache_resource(show_spinner="Loading preprocessed data ...")
@@ -125,6 +181,105 @@ def get_latest_matches(df: pd.DataFrame, n: int = 20) -> pd.DataFrame:
                          "home_goals", "away_goals"] if c in df.columns]
     subset = df[cols].dropna(subset=["date"]).sort_values("date", ascending=False)
     return subset.head(n)
+
+
+# ── Model diagnostic ───────────────────────────────────
+
+@st.cache_data(show_spinner="Running model diagnostic ...")
+def run_model_diagnostic(
+    model: Any,
+    df: pd.DataFrame,
+) -> dict[str, Any] | None:
+    """Evaluate the model on test data and return per-class balance metrics.
+
+    Returns a dict with:
+    - ``accuracy``, ``baseline_home``, ``baseline_away``, ``baseline_draw``
+    - ``log_loss``, ``n_test``
+    - Per-class metrics: ``precision``, ``recall``, ``f1`` (each a dict of class->value)
+    - ``confusion_matrix`` (2D list)
+    - ``prediction_dist`` / ``actual_dist``
+    - ``class_labels`` (list of 3 strings)
+    """
+    from src.feature_engineering import build_features, train_val_test_split
+    from sklearn.metrics import (
+        accuracy_score, precision_score, recall_score, f1_score,
+        log_loss, confusion_matrix,
+    )
+
+    try:
+        X, y = build_features(df, is_training=True)
+        if X is None or len(X) < 10:
+            return None
+
+        splits = train_val_test_split(X, y)
+        X_test = splits["X_test"]
+        y_test = splits["y_test"]
+
+        if len(y_test) < 5:
+            return None
+
+        # Align columns to model's expected features
+        if hasattr(model, "get_booster"):
+            try:
+                model_features = model.get_booster().feature_names
+                for col in model_features:
+                    if col not in X_test.columns:
+                        X_test[col] = 0.0
+                X_test = X_test[model_features]
+            except Exception:
+                pass
+
+        y_pred = model.predict(X_test)
+        y_proba = model.predict_proba(X_test)
+
+        acc = accuracy_score(y_test, y_pred)
+        ll = float(log_loss(y_test, y_proba))
+
+        cm = confusion_matrix(y_test, y_pred, labels=[0, 1, 2]).tolist()
+
+        # Per-class metrics
+        precision = precision_score(y_test, y_pred, average=None, labels=[0, 1, 2])
+        recall = recall_score(y_test, y_pred, average=None, labels=[0, 1, 2])
+        f1 = f1_score(y_test, y_pred, average=None, labels=[0, 1, 2])
+
+        # Baselines
+        baseline_home = float((y_test == 2).mean())
+        baseline_away = float((y_test == 0).mean())
+        baseline_draw = float((y_test == 1).mean())
+
+        actual_dist = {
+            "Home Win": int((y_test == 2).sum()),
+            "Draw": int((y_test == 1).sum()),
+            "Away Win": int((y_test == 0).sum()),
+        }
+        pred_dist = {
+            "Home Win": int((y_pred == 2).sum()),
+            "Draw": int((y_pred == 1).sum()),
+            "Away Win": int((y_pred == 0).sum()),
+        }
+
+        class_labels = ["Away Win", "Draw", "Home Win"]
+
+        return {
+            "accuracy": acc,
+            "log_loss": ll,
+            "n_test": len(y_test),
+            "baseline_home": baseline_home,
+            "baseline_away": baseline_away,
+            "baseline_draw": baseline_draw,
+            "best_baseline": max(baseline_home, baseline_away, baseline_draw),
+            "improvement": acc - max(baseline_home, baseline_away, baseline_draw),
+            "precision": {"Away Win": precision[0], "Draw": precision[1], "Home Win": precision[2]},
+            "recall": {"Away Win": recall[0], "Draw": recall[1], "Home Win": recall[2]},
+            "f1": {"Away Win": f1[0], "Draw": f1[1], "Home Win": f1[2]},
+            "confusion_matrix": cm,
+            "class_labels": class_labels,
+            "actual_dist": actual_dist,
+            "prediction_dist": pred_dist,
+        }
+    except Exception as exc:
+        logger.warning("Model diagnostic failed: %s", exc)
+        return None
 
 
 # ── Value bets cache loading ──────────────────────────

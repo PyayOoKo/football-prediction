@@ -27,6 +27,7 @@ from src.app.utils import (
     get_latest_matches,
     load_clean_data,
     load_model,
+    run_model_diagnostic,
 )
 
 # ── Custom CSS ──────────────────────────────────────────
@@ -103,6 +104,8 @@ st.markdown("""
 # ── Session state initialisation ────────────────────────
 if "model" not in st.session_state:
     st.session_state.model = load_model()
+if "diagnostic" not in st.session_state:
+    st.session_state.diagnostic = None
 if "data" not in st.session_state:
     st.session_state.data = load_clean_data()
 
@@ -267,6 +270,184 @@ with right_col:
         st.markdown(f"- Learning rate: `{config.train.learning_rate}`")
         st.markdown(f"- Features: rolling stats, H2H, league position")
         st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════
+#  Model Performance & Balance Section
+# ═══════════════════════════════════════════════════════════
+
+st.markdown("---")
+st.markdown("## 📊 Model Performance & Balance")
+
+if model is not None and data is not None:
+    # Run diagnostic if not cached
+    diag = st.session_state.diagnostic
+    if diag is None:
+        with st.spinner("Running model diagnostic on test data ..."):
+            diag = run_model_diagnostic(model, data)
+            st.session_state.diagnostic = diag
+
+    if diag is not None:
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.markdown(
+                f'<div class="metric-card">'
+                f'<div class="metric-value">{diag["accuracy"]:.1%}</div>'
+                f'<div class="metric-label">Test Accuracy</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        with col2:
+            best_base = diag["best_baseline"]
+            imp = diag["improvement"]
+            imp_color = "#4caf50" if imp > 0 else "#f44336"
+            st.markdown(
+                f'<div class="metric-card">'
+                f'<div class="metric-value" style="color:{imp_color}">{imp:+.1%}</div>'
+                f'<div class="metric-label">vs Baseline ({best_base:.0%})</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        with col3:
+            ll = diag["log_loss"]
+            ll_color = "#4caf50" if ll < 0.9 else "#ffc107" if ll < 1.1 else "#f44336"
+            st.markdown(
+                f'<div class="metric-card">'
+                f'<div class="metric-value" style="color:{ll_color}">{ll:.4f}</div>'
+                f'<div class="metric-label">Log-Loss</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        with col4:
+            st.markdown(
+                f'<div class="metric-card">'
+                f'<div class="metric-value">{diag["n_test"]:,}</div>'
+                f'<div class="metric-label">Test Matches</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ── Per-class metrics table ──────────────────────
+        st.markdown("### Per-Class Performance (Balance Check)")
+
+        class_data = []
+        for cls in ["Home Win", "Draw", "Away Win"]:
+            p = diag["precision"][cls]
+            r = diag["recall"][cls]
+            f = diag["f1"][cls]
+            actual = diag["actual_dist"][cls]
+            predicted = diag["prediction_dist"][cls]
+            diff = predicted - actual
+            diff_str = f"+{diff}" if diff > 0 else str(diff)
+            diff_color = "#4caf50" if diff == 0 else "#f44336" if abs(diff) > 5 else "#ffc107"
+
+            class_data.append({
+                "Class": cls,
+                "Precision": p,
+                "Recall": r,
+                "F1-Score": f,
+                "Actual": actual,
+                "Predicted": predicted,
+                "Δ": f'<span style="color:{diff_color}">{diff_str}</span>',
+            })
+
+        st.markdown(
+            "<div style='color:#8b8fa3;font-size:0.85rem;margin-bottom:0.5rem'>"
+            "A well-balanced model has similar Precision, Recall, and F1 across all three classes. "
+            "Large disparities (especially \"Draw\" being much lower) indicate class imbalance issues."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        df_class = pd.DataFrame(class_data)
+        st.dataframe(
+            df_class,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Δ": st.column_config.TextColumn("Δ Pred vs Actual"),
+                "Precision": st.column_config.NumberColumn(format=".3f"),
+                "Recall": st.column_config.NumberColumn(format=".3f"),
+                "F1-Score": st.column_config.NumberColumn(format=".3f"),
+            },
+        )
+
+        # ── Balance assessment ───────────────────────────
+        draw_f1 = diag["f1"]["Draw"]
+        home_f1 = diag["f1"]["Home Win"]
+        away_f1 = diag["f1"]["Away Win"]
+        draw_recall = diag["recall"]["Draw"]
+
+        issues = []
+        if draw_f1 < 0.2:
+            issues.append("🔴 **Draw blindness** — model rarely predicts draws (F1 < 0.20). This is the #1 balance issue.")
+        elif draw_f1 < 0.35:
+            issues.append("⚠️ **Draw prediction is weak** (F1 < 0.35). The model struggles with the minority class.")
+
+        if home_f1 > away_f1 + 0.15:
+            issues.append("⚖️ **Home win bias** — model significantly favors home teams over away teams.")
+
+        pred_draw = diag["prediction_dist"]["Draw"]
+        actual_draw = diag["actual_dist"]["Draw"]
+        if actual_draw > 0 and pred_draw < actual_draw * 0.5:
+            issues.append(f"📉 **Under-predicts draws** — predicted {pred_draw} vs actual {actual_draw} draws.")
+
+        if not issues:
+            st.success("✅ Model appears well-balanced across all three outcomes.")
+        else:
+            st.warning("⚠️ Balance issues detected:")
+            for issue in issues:
+                st.markdown(f"- {issue}")
+
+        # ── Confusion Matrix ────────────────────────────
+        with st.expander("🔍 View Confusion Matrix"):
+            cm = diag["confusion_matrix"]
+            labels = diag["class_labels"]
+
+            # Build confusion matrix as a dataframe
+            cm_data = []
+            for i, actual_label in enumerate(labels):
+                row_data = {"Actual \\ Predicted": actual_label}
+                for j, pred_label in enumerate(labels):
+                    row_data[pred_label] = cm[i][j]
+                row_data["Correct"] = cm[i][i]
+                row_data["Total"] = sum(cm[i])
+                row_data["Recall"] = f"{cm[i][i]/sum(cm[i]):.0%}" if sum(cm[i]) > 0 else "—"
+                cm_data.append(row_data)
+
+            st.dataframe(
+                pd.DataFrame(cm_data),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            st.markdown(
+                "<div style='color:#8b8fa3;font-size:0.85rem'>"
+                "<strong>Reading the confusion matrix:</strong> Rows = actual outcome, Columns = predicted outcome. "
+                "Diagonal cells (top-left to bottom-right) are correct predictions. "
+                "High off-diagonal values show systematic confusion between two outcomes. "
+                "For example, if many actual Draws are predicted as Home Wins, the model is draw-blind."
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+    else:
+        st.info("Run the diagnostic to see model performance metrics.")
+        if st.button("🔬 Run Model Diagnostic", use_container_width=True):
+            with st.spinner("Running diagnostic on test data ..."):
+                diag = run_model_diagnostic(model, data)
+                st.session_state.diagnostic = diag
+                if diag is None:
+                    st.error("Diagnostic failed. Check that a model is trained and data is available.")
+                else:
+                    st.rerun()
+
+else:
+    st.info("Load a model and data to see performance metrics.")
 
 
 # ── Footer ──────────────────────────────────────────────

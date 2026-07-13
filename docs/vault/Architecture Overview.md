@@ -10,7 +10,7 @@ created: 2026-07-12
 
 > High-level architecture, data flow, module dependencies, and guiding principles.
 
-See also: [[Quick Start Guide]], [[Feature Engineering Pipeline]], [[Ensemble Model]], [[Config System]], [[Runtime Sequence Diagrams]]
+See also: [[Quick Start Guide]], [[Feature Orchestrator]], [[Feature Validation Framework]], [[Feature Engineering Pipeline]], [[Ensemble Model]], [[Config System]], [[Runtime Sequence Diagrams]]
 
 ---
 
@@ -22,6 +22,7 @@ graph TB
         DC[Data Collection]
         DP[Data Preprocessing]
         FE[Feature Engineering]
+        FEF[Feature Engineering Framework]
         DB[(PostgreSQL Database)]
     end
 
@@ -43,8 +44,14 @@ graph TB
 
     subgraph "Orchestration"
         PIP[Pipeline Runner]
+        ORCH[FeatureOrchestrator]
         SCH[Scheduler]
         CL[CLI Scripts]
+    end
+
+    subgraph "Quality"
+        VAL[FeatureValidator]
+        BM[BettingMarketTransformer]
     end
 
     DC --> DP --> FE
@@ -62,8 +69,15 @@ graph TB
     PIP --> DP
     PIP --> FE
     PIP --> ENS
+    ORCH --> FEF
+    FEF --> FE
+    FEF --> VAL
+    FEF --> BM
+    VAL --> FEF
     SCH --> PIP
     CL --> PIP
+    SCH --> ORCH
+    CL --> ORCH
     DB --> DC
     PRED --> DASH
     VB --> DASH
@@ -98,9 +112,10 @@ flowchart LR
         G --> H8["Head-to-head stats"]
         G --> H9["League position"]
         G --> H10["Attack/defence ratios"]
+        G --> H11["Betting market features<br/>(NEW — 33 columns)"]
     end
     
-    H1 & H2 & H3 & H4 & H5 & H6 & H7 & H8 & H9 & H10 --> I["Feature Matrix<br/>(X, y)"]
+    H1 & H2 & H3 & H4 & H5 & H6 & H7 & H8 & H9 & H10 & H11 --> I["Feature Matrix<br/>(X, y)"]
     
     I --> J["train_val_test_split()<br/>chronological split"]
     J --> K["EnsembleModel.fit()<br/>XGBoost + LR + Poisson"]
@@ -109,6 +124,8 @@ flowchart LR
     M --> N["reports/predictions/<br/>predictions_*.csv"]
     N --> O["compute_value_bets()<br/>Value Betting & Backtesting"]
     N --> P["run_backtest()<br/>Value Betting & Backtesting"]
+    
+    N --> Q["FeatureValidator<br/>(NEW — 10 quality checks)"]
 ```
 
 ---
@@ -125,6 +142,21 @@ graph TD
     TWC --> FE1
     TWC --> TR1["src/train.py"]
     
+    %% NEW: Feature Framework
+    ORCH["src/feature_framework/orchestrator.py"] --> FE_FW["src/feature_framework/"]
+    ORCH --> VAL_FW["src/feature_framework/validation/"]
+    ORCH --> PLUG["src/feature_framework/plugins.py"]
+    ORCH --> CFG
+    
+    CLI["src/feature_framework/orchestrator_cli.py"] --> ORCH
+    
+    BM["src/feature_framework/features/betting_market.py"] --> ORCH
+    BM --> FE1
+    
+    VAL_FW --> FE1
+    VAL_FW --> ORCH
+    
+    %% Existing Dependencies
     FE1 --> ELO["src/elo.py"]
     FE1 --> POI["src/poisson_model.py"]
     FE1 --> DCX["src/dixon_coles.py"]
@@ -165,32 +197,14 @@ graph TD
     classDef core fill:#3498db,stroke:#2980b9,color:white
     classDef ml fill:#9b59b6,stroke:#8e44ad,color:white
     classDef data fill:#e67e22,stroke:#d35400,color:white
+    classDef new fill:#e74c3c,stroke:#c0392b,color:white
     
     class RMC,TWC entry
     class FE1,ELO,POI,DCX,XG,PLAYER,ODD,CFG core
     class ENS1,TR1,HT,CONF ml
     class COL,WC,UI,FB,ETL,PREP data
+    class ORCH,CLI,BM,VAL_FW new
 ```
-
----
-
-## Entry Points (`run_pipeline.py`)
-
-The main orchestration script:
-
-```mermaid
-flowchart LR
-    A["--skip-download"] --> B["Step 1: Download"]
-    A --> C["Step 2: Preprocess"]
-    D["--skip-train"] --> E["Step 3: Retrain Ensemble"]
-    F["--lightweight"] --> G["Step 4: Predict"]
-    H["Step 5: Report"]
-    B --> C --> E --> G --> H
-```
-
-- **File:** [[run_pipeline.py]]
-- **Output:** → `reports/predictions/predictions_*.csv`
-- **Scheduling:** cron / Windows Task Scheduler
 
 ---
 
@@ -202,3 +216,4 @@ flowchart LR
 4. **Ensemble by default** — 3 models beat any single model (see [[Ensemble Model]])
 5. **Graceful degradation** — all optional features use placeholder values when data is unavailable
 6. **Stateless modules** — pure functions wherever possible for testability
+7. **Validated pipelines** — all computed features pass through [[Feature Validation Framework]] (NEW)

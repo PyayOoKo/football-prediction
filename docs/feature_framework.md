@@ -273,6 +273,100 @@ python -m pytest tests/ -v
 
 ---
 
+## Feature Pipeline Orchestrator (NEW)
+
+In addition to `FeaturePipeline`, the framework now includes a production-grade `FeatureOrchestrator` with:
+
+| Capability | Description |
+|------------|-------------|
+| **Discover** | Auto-find transformers via `FeaturePluginRegistry` |
+| **Resolve DAG** | Topological sort with cycle detection |
+| **Cache** | Row-count based metadata checksums |
+| **Retry** | Exponential backoff, configurable attempts |
+| **Resume** | Checkpoint save/load, `resume()` method |
+| **Parallel** | Thread/process pools, configurable workers |
+| **Progress** | `tqdm` progress bars + per-feature timing |
+| **Logging** | Structured JSON logs per pipeline run |
+| **Metrics** | Timing, counts, success rates, history |
+| **Incremental** | Skip unchanged features, `force_recompute` |
+
+```python
+from src.feature_framework import FeatureOrchestrator
+
+orchestrator = FeatureOrchestrator(config_dict={
+    "features": [{"name": "elo", "type": "elo", "category": "rating"}]
+})
+report = orchestrator.run(entity_type="dataframe", df=df)
+print(report.summary())
+```
+
+**CLI usage:**
+```bash
+python -m src.feature_framework.orchestrator_cli build-features \
+    --input matches.csv --output features.csv
+```
+
+**72 tests** — see `tests/test_feature_framework/test_orchestrator.py`
+
+---
+
+## Feature Validation Framework (NEW)
+
+Automatically validates computed features with 10 detection checks:
+
+| Check | Threshold | Description |
+|-------|-----------|-------------|
+| Data Leakage | — | Temporal sorting check |
+| Constant Features | `min_unique_ratio=0.01` | Zero-variance columns |
+| Highly Correlated | `correlation_threshold=0.95` | \|r\| > threshold pairs |
+| Missing Values | — | NaN in any column |
+| Invalid Ranges | Per-column bounds | Wildcard support (`odds_*`) |
+| Infinite Values | — | Inf / -Inf detection |
+| NaN Values | — | NaN in numeric columns |
+| Duplicate Features | r > 0.999 | Identical + near-identical |
+| Low Variance | `variance_threshold=0.01` | Variance below threshold |
+| Feature Drift | PSI > 0.1 | Distribution change vs reference |
+
+```python
+from src.feature_framework.validation import FeatureValidator
+
+validator = FeatureValidator()
+report = validator.validate(df)
+print(report.summary())  # 6 report types available
+```
+
+**77 tests** — see `tests/test_feature_framework/test_feature_validation.py`
+
+---
+
+## Betting Market Transformer (NEW)
+
+The `BettingMarketTransformer` produces 33+ market features per match:
+
+| Feature Group | Columns |
+|---------------|---------|
+| Raw odds (opening/closing) | 6 |
+| Implied + fair probability | 6 |
+| Odds movement (abs + %) | 6 |
+| CLV reference | 3 |
+| Market consensus (multi-bookmaker) | 3 |
+| Favourite/underdog status | 4 |
+| Odds volatility | 1 |
+| Bookmaker margin | 2 |
+| Favourite/underdog flags | 2 |
+
+```python
+from src.feature_framework.features.betting_market import BettingMarketTransformer
+
+transformer = BettingMarketTransformer()
+transformer.init()
+result_df = transformer.transform(matches_df)
+```
+
+**50 tests** — see `tests/test_feature_framework/test_betting_market.py`
+
+---
+
 ## Custom Exceptions
 
 | Exception | Raised When |
@@ -297,7 +391,18 @@ python -m pytest tests/ -v
 | `models.py` | `ComputationResult`, `PipelineReport`, `FeatureMetadata`, `TransformContext`, `FeatureSet` |
 | `config.py` | `FeatureConfig`, `FeatureDefinitionSchema`, `load_feature_config()` |
 | `plugins.py` | `FeaturePluginRegistry` |
-| `pipeline.py` | `FeaturePipeline` (main orchestrator) |
+| `pipeline.py` | `FeaturePipeline` (legacy orchestrator) |
+| `orchestrator.py` | **NEW** — `FeatureOrchestrator`, `OrchestratorReport`, `FeatureExecutionRecord` |
+| `orchestrator_cli.py` | **NEW** — 5 CLI commands: build, validate, recompute, list, status |
+| `validation/__init__.py` | **NEW** — `FeatureValidator` with 10 checks, 5 report types |
+| `validation/checks.py` | **NEW** — `compute_psi()`, 10 standalone check functions |
+| `validation/report.py` | **NEW** — 5 report dataclass types |
+| `features/betting_market.py` | **NEW** — `BettingMarketTransformer` (33 output columns) |
+| `features/team_form.py` | `TeamFormTransformer` (rolling form features) |
+| `features/elo_rating.py` | `EloRatingTransformer` |
+| `features/h2h.py` | `HeadToHeadTransformer` |
+| `features/schedule.py` | `ScheduleTransformer` |
+| `features/league_strength.py` | `LeagueStrengthTransformer` |
 | `parallel.py` | `ParallelComputer`, `make_thread_pool()`, `make_process_pool()` |
 | `decorators.py` | `@timeit`, `@log_call`, `@retry` |
 | `exceptions.py` | Custom exceptions |
