@@ -1,0 +1,1070 @@
+2026-07-05 20:00:04 | INFO    | --------------------------------------------------
+2026-07-05 20:00:04 | INFO    | STEP 1: Download data
+2026-07-05 20:00:04 | INFO    | --------------------------------------------------
+2026-07-05 20:00:04 | INFO    | Downloading 2002 World Cup data ...
+2026-07-05 20:00:18 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 20:00:18 | INFO    | Downloading 2006 World Cup data ...
+2026-07-05 20:00:21 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 20:00:21 | INFO    | Downloading 2010 World Cup data ...
+2026-07-05 20:00:24 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 20:00:24 | INFO    | Downloading 2014 World Cup data ...
+2026-07-05 20:00:26 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 20:00:26 | INFO    | Downloading 2018 World Cup data ...
+2026-07-05 20:00:29 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 20:00:29 | INFO    | Downloading 2022 World Cup data ...
+2026-07-05 20:00:48 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 20:00:48 | INFO    | Downloading 2026 World Cup data ...
+2026-07-05 20:01:08 | INFO    |   104 matches (90 completed, 14 upcoming)
+2026-07-05 20:01:08 | INFO    | --------------------------------------------------
+2026-07-05 20:01:08 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-05 20:01:08 | INFO    | --------------------------------------------------
+2026-07-05 20:01:08 | INFO    |   Resolved 1 placeholder references from completed results
+2026-07-05 20:01:08 | INFO    |   Remaining placeholder match-ups: 7
+2026-07-05 20:01:08 | INFO    |     2026-07-10 | Quarter-final | W93 vs W94
+2026-07-05 20:01:08 | INFO    |     2026-07-11 | Quarter-final | W91 vs W92
+2026-07-05 20:01:08 | INFO    |     2026-07-11 | Quarter-final | W95 vs W96
+2026-07-05 20:01:08 | INFO    |     2026-07-14 | Semi-final | W97 vs W98
+2026-07-05 20:01:08 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-05 20:01:08 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-05 20:01:08 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-05 20:01:08 | INFO    |   Quarter-finals: 1/4 with known opponents
+2026-07-05 20:01:08 | INFO    | 
+2026-07-05 20:01:08 | INFO    |   Total:     488 matches
+2026-07-05 20:01:08 | INFO    |   Completed: 474
+2026-07-05 20:01:08 | INFO    |   Upcoming:  14
+2026-07-05 20:01:08 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-05 20:01:08 | INFO    | --------------------------------------------------
+2026-07-05 20:01:08 | INFO    | STEP 3: Train & Predict
+2026-07-05 20:01:08 | INFO    | --------------------------------------------------
+2026-07-05 20:01:08 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\train_worldcup.py
+2026-07-05 20:01:59 | INFO    |   ========================================================================
+2026-07-05 20:01:59 | INFO    |     WORLD CUP - TRAIN & PREDICT (Multi-Tournament)
+2026-07-05 20:01:59 | INFO    |     Model: XGBOOST
+2026-07-05 20:01:59 | INFO    |     Data:  data\raw\worldcup_all.csv
+2026-07-05 20:01:59 | INFO    |   ========================================================================
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     Loading data\raw\worldcup_all.csv ...
+2026-07-05 20:01:59 | INFO    |     [*] 488 rows x 15 cols
+2026-07-05 20:01:59 | INFO    |     [*] Completed: 474 matches
+2026-07-05 20:01:59 | INFO    |     [*] Upcoming:  14 matches
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     Building features ...
+2026-07-05 20:01:59 | INFO    |     [*] Feature matrix: 474 rows x 87 features
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     Splitting chronologically (70/15/15) ...
+2026-07-05 20:01:59 | INFO    |     [*] Train: 331  |  Val: 71  |  Test: 72
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     Tuning hyper-parameters (3-fold time-series CV) ...
+2026-07-05 20:01:59 | INFO    |     [*] Best params: {'subsample': 0.9, 'reg_lambda': 10.0, 'reg_alpha': 1.0, 'n_estimators': 300, 'min_child_weight': 5, 'max_depth': 8, 'learning_rate': 0.01, 'colsample_bytree': 0.8}
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     Training xgboost ...
+2026-07-05 20:01:59 | INFO    |     [*] Train log-loss: 0.9019
+2026-07-05 20:01:59 | INFO    |     [*] Val log-loss:   1.0199
+2026-07-05 20:01:59 | INFO    |     [*] Val accuracy:   0.5211 (52.1%)
+2026-07-05 20:01:59 | INFO    |     [*] Model saved: models/worldcup_xgboost.joblib
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |   ========================================================================
+2026-07-05 20:01:59 | INFO    |     TEST SET RESULTS
+2026-07-05 20:01:59 | INFO    |   ========================================================================
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     Test accuracy: 0.6111 (61.1%)
+2026-07-05 20:01:59 | INFO    |     Correct: 44 / 72
+2026-07-05 20:01:59 | INFO    |     Naive baseline (always Home): 47.2%
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     Confusion matrix:
+2026-07-05 20:01:59 | INFO    |                      Away Win       Draw   Home Win
+2026-07-05 20:01:59 | INFO    |       ------------------------------------------
+2026-07-05 20:01:59 | INFO    |       Away Win        15         0         9
+2026-07-05 20:01:59 | INFO    |           Draw         0         0        14
+2026-07-05 20:01:59 | INFO    |       Home Win         5         0        29
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     Classification report:
+2026-07-05 20:01:59 | INFO    |                 precision    recall  f1-score   support
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |       Away Win      0.750     0.625     0.682        24
+2026-07-05 20:01:59 | INFO    |           Draw      0.000     0.000     0.000        14
+2026-07-05 20:01:59 | INFO    |       Home Win      0.558     0.853     0.674        34
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |       accuracy                          0.611        72
+2026-07-05 20:01:59 | INFO    |      macro avg      0.436     0.493     0.452        72
+2026-07-05 20:01:59 | INFO    |   weighted avg      0.513     0.611     0.546        72
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |   ---------------------------FEATURE IMPORTANCE---------------------------
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |       Rank   Feature                                  Importance
+2026-07-05 20:01:59 | INFO    |       --------------------------------------------------------
+2026-07-05 20:01:59 | INFO    |       1      Elo_Difference                               0.0978
+2026-07-05 20:01:59 | INFO    |       2      Expected_Goal_Difference                     0.0473
+2026-07-05 20:01:59 | INFO    |       3      a_xg_avg5                                    0.0402
+2026-07-05 20:01:59 | INFO    |       4      h_xgd_avg5                                   0.0365
+2026-07-05 20:01:59 | INFO    |       5      away_goals_ht                                0.0286
+2026-07-05 20:01:59 | INFO    |       6      home_goals_ht                                0.0266
+2026-07-05 20:01:59 | INFO    |       7      a_xga_avg5                                   0.0266
+2026-07-05 20:01:59 | INFO    |       8      h_goal_diff_avgN                             0.0265
+2026-07-05 20:01:59 | INFO    |       9      a_goal_diff_avg5                             0.0261
+2026-07-05 20:01:59 | INFO    |       10     a_goal_diff_avgN                             0.0259
+2026-07-05 20:01:59 | INFO    |       11     h_goals_conceded_avg5                        0.0253
+2026-07-05 20:01:59 | INFO    |       12     Home_Elo                                     0.0234
+2026-07-05 20:01:59 | INFO    |       13     a_win_rate_overall                           0.0229
+2026-07-05 20:01:59 | INFO    |       14     a_goals_scored_avg5                          0.0224
+2026-07-05 20:01:59 | INFO    |       15     h_win_rate_home                              0.0216
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |   ========================================================================
+2026-07-05 20:01:59 | INFO    |     PREDICTING UPCOMING MATCHES
+2026-07-05 20:01:59 | INFO    |   ========================================================================
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     Predictable matches:  7 (both teams known)
+2026-07-05 20:01:59 | INFO    |     Placeholder matches:  7 (opponent TBD)
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     ========================================================================
+2026-07-05 20:01:59 | INFO    |     KNOCKOUT ROUND PREDICTIONS (neutral venue — averaged both orderings)
+2026-07-05 20:01:59 | INFO    |     ========================================================================
+2026-07-05 20:01:59 | INFO    |     Date           Team 1                 Team 2                 Prediction       Conf    
+2026-07-05 20:01:59 | INFO    |     --------------------------------------------------------------------------------
+2026-07-05 20:01:59 | INFO    |     2026-07-05     Brazil                 Norway                 Brazil wins      46%
+2026-07-05 20:01:59 | INFO    |     2026-07-05     Mexico                 England                England wins     45%
+2026-07-05 20:01:59 | INFO    |     2026-07-06     Portugal               Spain                  Portugal wins    41%
+2026-07-05 20:01:59 | INFO    |     2026-07-06     USA                    Belgium                Belgium wins     44%
+2026-07-05 20:01:59 | INFO    |     2026-07-07     Argentina              Egypt                  Argentina wins   41%
+2026-07-05 20:01:59 | INFO    |     2026-07-07     Switzerland            Colombia               Colombia wins    41%
+2026-07-05 20:01:59 | INFO    |     2026-07-09     France                 Morocco                France wins      43%
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     Detailed probabilities:
+2026-07-05 20:01:59 | INFO    |     Date           Match                                          Team 1       Draw         Team 2      
+2026-07-05 20:01:59 | INFO    |     ----------------------------------------------------------------------------------
+2026-07-05 20:01:59 | INFO    |     2026-07-05     Brazil vs Norway                                45.9%    19.7%    34.4%
+2026-07-05 20:01:59 | INFO    |     2026-07-05     Mexico vs England                               34.3%    20.9%    44.9%
+2026-07-05 20:01:59 | INFO    |     2026-07-06     Portugal vs Spain                               40.6%    20.7%    38.7%
+2026-07-05 20:01:59 | INFO    |     2026-07-06     USA vs Belgium                                  36.1%    20.1%    43.8%
+2026-07-05 20:01:59 | INFO    |     2026-07-07     Argentina vs Egypt                              41.2%    22.0%    36.8%
+2026-07-05 20:01:59 | INFO    |     2026-07-07     Switzerland vs Colombia                         36.2%    22.4%    41.3%
+2026-07-05 20:01:59 | INFO    |     2026-07-09     France vs Morocco                               42.9%    20.2%    36.9%
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     [*] Predictions saved to reports\predictions_worldcup\worldcup_predictions.csv
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     ========================================================================
+2026-07-05 20:01:59 | INFO    |     POISSON GOAL PREDICTIONS (from historical goal rates)
+2026-07-05 20:01:59 | INFO    |     ========================================================================
+2026-07-05 20:01:59 | INFO    |     Date           Match                                          Exp Goals              Score      O/U 2.5   
+2026-07-05 20:01:59 | INFO    |     --------------------------------------------------------------------------------------------
+2026-07-05 20:01:59 | INFO    |     2026-07-05     Brazil vs Norway                               Brazil: 3.33 / Norway: 1.43 3-1        OVER
+2026-07-05 20:01:59 | INFO    |     2026-07-05     Mexico vs England                              Mexico: 0.86 / England: 0.98 1-1        UNDER
+2026-07-05 20:01:59 | INFO    |     2026-07-06     Portugal vs Spain                              Portugal: 1.28 / Spain: 1.26 1-1        OVER
+2026-07-05 20:01:59 | INFO    |     2026-07-06     USA vs Belgium                                 USA: 1.04 / Belgium: 1.29 1-1        UNDER
+2026-07-05 20:01:59 | INFO    |     2026-07-07     Argentina vs Egypt                             Argentina: 2.08 / Egypt: 0.73 2-1        OVER
+2026-07-05 20:01:59 | INFO    |     2026-07-07     Switzerland vs Colombia                        Switzerland: 0.73 / Colombia: 1.29 1-1        UNDER
+2026-07-05 20:01:59 | INFO    |     2026-07-09     France vs Morocco                              France: 1.30 / Morocco: 0.64 1-1        UNDER
+2026-07-05 20:01:59 | INFO    |     
+2026-07-05 20:01:59 | INFO    |     Prediction summary:
+2026-07-05 20:01:59 | INFO    |       Team 1 wins: 4 (57%)
+2026-07-05 20:01:59 | INFO    |       Draws:       0 (0%)
+2026-07-05 20:01:59 | INFO    |       Team 2 wins: 3 (43%)
+2026-07-05 20:01:59 | INFO    |       Avg confidence: 42.9%
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |     [W] 7 matches have TBD opponents:
+2026-07-05 20:01:59 | INFO    |       2026-07-10 | W93                    vs W94                    | Quarter-final
+2026-07-05 20:01:59 | INFO    |       2026-07-11 | W91                    vs W92                    | Quarter-final
+2026-07-05 20:01:59 | INFO    |       2026-07-11 | W95                    vs W96                    | Quarter-final
+2026-07-05 20:01:59 | INFO    |       2026-07-14 | W97                    vs W98                    | Semi-final
+2026-07-05 20:01:59 | INFO    |       2026-07-15 | W99                    vs W100                   | Semi-final
+2026-07-05 20:01:59 | INFO    |       2026-07-18 | L101                   vs L102                   | Match for third place
+2026-07-05 20:01:59 | INFO    |       2026-07-19 | W101                   vs W102                   | Final
+2026-07-05 20:01:59 | INFO    |     -> Re-run once opponents are known and data is updated
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 20:01:59 | INFO    |   ========================================================================
+2026-07-05 20:01:59 | INFO    |     DONE - 47.6s
+2026-07-05 20:01:59 | INFO    |     Model:  xgboost
+2026-07-05 20:01:59 | INFO    |     Trained on: 474 matches x 87 features
+2026-07-05 20:01:59 | INFO    |     Test accuracy: 61.11%
+2026-07-05 20:01:59 | INFO    |     Predictions: 7 matches -> reports\predictions_worldcup\worldcup_predictions.csv
+2026-07-05 20:01:59 | INFO    |   ========================================================================
+2026-07-05 20:01:59 | INFO    |   
+2026-07-05 21:30:33 | INFO    | --------------------------------------------------
+2026-07-05 21:30:33 | INFO    | STEP 1: Download data
+2026-07-05 21:30:33 | INFO    | --------------------------------------------------
+2026-07-05 21:30:33 | INFO    | Downloading 2002 World Cup data ...
+2026-07-05 21:30:33 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 21:30:33 | INFO    | Downloading 2006 World Cup data ...
+2026-07-05 21:30:34 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 21:30:34 | INFO    | Downloading 2010 World Cup data ...
+2026-07-05 21:30:34 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 21:30:34 | INFO    | Downloading 2014 World Cup data ...
+2026-07-05 21:30:35 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 21:30:35 | INFO    | Downloading 2018 World Cup data ...
+2026-07-05 21:30:35 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 21:30:35 | INFO    | Downloading 2022 World Cup data ...
+2026-07-05 21:30:35 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 21:30:35 | INFO    | Downloading 2026 World Cup data ...
+2026-07-05 21:30:35 | INFO    |   104 matches (90 completed, 14 upcoming)
+2026-07-05 21:30:35 | INFO    | --------------------------------------------------
+2026-07-05 21:30:35 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-05 21:30:35 | INFO    | --------------------------------------------------
+2026-07-05 21:30:36 | INFO    |   Resolved 1 placeholder references from completed results
+2026-07-05 21:30:36 | INFO    |   Remaining placeholder match-ups: 7
+2026-07-05 21:30:36 | INFO    |     2026-07-10 | Quarter-final | W93 vs W94
+2026-07-05 21:30:36 | INFO    |     2026-07-11 | Quarter-final | W91 vs W92
+2026-07-05 21:30:36 | INFO    |     2026-07-11 | Quarter-final | W95 vs W96
+2026-07-05 21:30:36 | INFO    |     2026-07-14 | Semi-final | W97 vs W98
+2026-07-05 21:30:36 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-05 21:30:36 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-05 21:30:36 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-05 21:30:36 | INFO    |   Quarter-finals: 1/4 with known opponents
+2026-07-05 21:30:36 | INFO    | 
+2026-07-05 21:30:36 | INFO    |   Total:     488 matches
+2026-07-05 21:30:36 | INFO    |   Completed: 474
+2026-07-05 21:30:36 | INFO    |   Upcoming:  14
+2026-07-05 21:30:36 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-05 21:30:36 | INFO    | --------------------------------------------------
+2026-07-05 21:30:36 | INFO    | STEP 3: Train & Predict
+2026-07-05 21:30:36 | INFO    | --------------------------------------------------
+2026-07-05 21:30:36 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\train_worldcup.py
+2026-07-05 21:37:12 | INFO    | --------------------------------------------------
+2026-07-05 21:37:12 | INFO    | STEP 1: Download data
+2026-07-05 21:37:12 | INFO    | --------------------------------------------------
+2026-07-05 21:37:12 | INFO    | Downloading 2002 World Cup data ...
+2026-07-05 21:37:12 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 21:37:12 | INFO    | Downloading 2006 World Cup data ...
+2026-07-05 21:37:13 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 21:37:13 | INFO    | Downloading 2010 World Cup data ...
+2026-07-05 21:37:13 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 21:37:13 | INFO    | Downloading 2014 World Cup data ...
+2026-07-05 21:37:13 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 21:37:13 | INFO    | Downloading 2018 World Cup data ...
+2026-07-05 21:37:14 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 21:37:14 | INFO    | Downloading 2022 World Cup data ...
+2026-07-05 21:37:14 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-05 21:37:14 | INFO    | Downloading 2026 World Cup data ...
+2026-07-05 21:37:14 | INFO    |   104 matches (90 completed, 14 upcoming)
+2026-07-05 21:37:14 | INFO    | --------------------------------------------------
+2026-07-05 21:37:14 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-05 21:37:14 | INFO    | --------------------------------------------------
+2026-07-05 21:37:14 | INFO    |   Resolved 1 placeholder references from completed results
+2026-07-05 21:37:14 | INFO    |   Remaining placeholder match-ups: 7
+2026-07-05 21:37:14 | INFO    |     2026-07-10 | Quarter-final | W93 vs W94
+2026-07-05 21:37:14 | INFO    |     2026-07-11 | Quarter-final | W91 vs W92
+2026-07-05 21:37:14 | INFO    |     2026-07-11 | Quarter-final | W95 vs W96
+2026-07-05 21:37:14 | INFO    |     2026-07-14 | Semi-final | W97 vs W98
+2026-07-05 21:37:14 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-05 21:37:14 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-05 21:37:14 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-05 21:37:14 | INFO    |   Quarter-finals: 1/4 with known opponents
+2026-07-05 21:37:14 | INFO    | 
+2026-07-05 21:37:14 | INFO    |   Total:     488 matches
+2026-07-05 21:37:14 | INFO    |   Completed: 474
+2026-07-05 21:37:14 | INFO    |   Upcoming:  14
+2026-07-05 21:37:14 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-05 21:37:14 | INFO    | --------------------------------------------------
+2026-07-05 21:37:14 | INFO    | STEP 3: Train & Predict
+2026-07-05 21:37:14 | INFO    | --------------------------------------------------
+2026-07-05 21:37:14 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\train_worldcup.py
+2026-07-05 21:37:49 | INFO    |   ========================================================================
+2026-07-05 21:37:49 | INFO    |     WORLD CUP - TRAIN & PREDICT (Multi-Tournament)
+2026-07-05 21:37:49 | INFO    |     Model: XGBOOST
+2026-07-06 07:33:50 | INFO    | --------------------------------------------------
+2026-07-06 07:33:50 | INFO    | STEP 1: Download data
+2026-07-06 07:33:50 | INFO    | --------------------------------------------------
+2026-07-06 07:33:50 | INFO    | Downloading 2002 World Cup data ...
+2026-07-06 07:33:52 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-06 07:33:52 | INFO    | Downloading 2006 World Cup data ...
+2026-07-06 07:33:52 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-06 07:33:52 | INFO    | Downloading 2010 World Cup data ...
+2026-07-06 10:09:03 | INFO    | --------------------------------------------------
+2026-07-06 10:09:03 | INFO    | STEP 1: Download data
+2026-07-06 10:09:03 | INFO    | --------------------------------------------------
+2026-07-06 10:09:03 | INFO    | Downloading 2002 World Cup data ...
+2026-07-06 10:09:04 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-06 10:09:04 | INFO    | Downloading 2006 World Cup data ...
+2026-07-06 10:09:04 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-06 10:09:04 | INFO    | Downloading 2010 World Cup data ...
+2026-07-06 10:09:04 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-06 10:09:04 | INFO    | Downloading 2014 World Cup data ...
+2026-07-06 10:09:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-06 10:09:05 | INFO    | Downloading 2018 World Cup data ...
+2026-07-06 10:09:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-06 10:09:05 | INFO    | Downloading 2022 World Cup data ...
+2026-07-06 10:09:06 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-06 10:09:06 | INFO    | Downloading 2026 World Cup data ...
+2026-07-06 10:09:06 | INFO    |   104 matches (92 completed, 12 upcoming)
+2026-07-06 10:09:06 | INFO    | --------------------------------------------------
+2026-07-06 10:09:06 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-06 10:09:06 | INFO    | --------------------------------------------------
+2026-07-06 10:09:06 | INFO    |   Resolved 1 placeholder references from completed results
+2026-07-06 10:09:06 | INFO    |   Remaining placeholder match-ups: 6
+2026-07-06 10:09:06 | INFO    |     2026-07-10 | Quarter-final | W93 vs W94
+2026-07-06 10:09:06 | INFO    |     2026-07-11 | Quarter-final | W95 vs W96
+2026-07-06 10:09:06 | INFO    |     2026-07-14 | Semi-final | W97 vs W98
+2026-07-06 10:09:06 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-06 10:09:06 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-06 10:09:06 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-06 10:09:06 | INFO    |   Quarter-finals: 2/4 with known opponents
+2026-07-06 10:09:06 | INFO    | 
+2026-07-06 10:09:06 | INFO    |   Total:     488 matches
+2026-07-06 10:09:06 | INFO    |   Completed: 476
+2026-07-06 10:09:06 | INFO    |   Upcoming:  12
+2026-07-06 10:09:06 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-06 10:09:06 | INFO    | --------------------------------------------------
+2026-07-06 10:09:06 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-06 10:09:06 | INFO    | --------------------------------------------------
+2026-07-06 10:09:06 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-06 10:09:06 | INFO    | --------------------------------------------------
+2026-07-06 10:09:06 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-06 10:09:06 | INFO    | --------------------------------------------------
+2026-07-06 10:09:06 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-06 12:10:41 | ERROR   |   Lineup collection timed out (20 min limit)
+2026-07-06 12:10:41 | INFO    | --------------------------------------------------
+2026-07-06 12:10:41 | INFO    | STEP 4: Train & Predict
+2026-07-06 12:10:41 | INFO    | --------------------------------------------------
+2026-07-06 20:00:03 | INFO    | --------------------------------------------------
+2026-07-06 20:00:03 | INFO    | STEP 1: Download data
+2026-07-06 20:00:03 | INFO    | --------------------------------------------------
+2026-07-06 20:00:03 | INFO    | Downloading 2002 World Cup data ...
+2026-07-07 08:00:02 | INFO    | --------------------------------------------------
+2026-07-07 08:00:02 | INFO    | STEP 1: Download data
+2026-07-07 08:00:02 | INFO    | --------------------------------------------------
+2026-07-07 08:00:02 | INFO    | Downloading 2002 World Cup data ...
+2026-07-07 08:00:03 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 08:00:03 | INFO    | Downloading 2006 World Cup data ...
+2026-07-07 08:00:03 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 08:00:03 | INFO    | Downloading 2010 World Cup data ...
+2026-07-07 08:00:04 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 08:00:04 | INFO    | Downloading 2014 World Cup data ...
+2026-07-07 08:00:04 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 08:00:04 | INFO    | Downloading 2018 World Cup data ...
+2026-07-07 08:00:04 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 08:00:04 | INFO    | Downloading 2022 World Cup data ...
+2026-07-07 08:00:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 08:00:05 | INFO    | Downloading 2026 World Cup data ...
+2026-07-07 08:00:05 | INFO    |   104 matches (93 completed, 11 upcoming)
+2026-07-07 08:00:05 | INFO    | --------------------------------------------------
+2026-07-07 08:00:05 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-07 08:00:05 | INFO    | --------------------------------------------------
+2026-07-07 08:00:05 | INFO    |   Resolved 1 placeholder references from completed results
+2026-07-07 08:00:05 | INFO    |   Remaining placeholder match-ups: 6
+2026-07-07 08:00:05 | INFO    |     2026-07-10 | Quarter-final | Spain vs W94
+2026-07-07 08:00:05 | INFO    |     2026-07-11 | Quarter-final | W95 vs W96
+2026-07-07 08:00:05 | INFO    |     2026-07-14 | Semi-final | W97 vs W98
+2026-07-07 08:00:05 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-07 08:00:05 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-07 08:00:05 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-07 08:00:05 | INFO    |   Quarter-finals: 2/4 with known opponents
+2026-07-07 08:00:05 | INFO    | 
+2026-07-07 08:00:05 | INFO    |   Total:     488 matches
+2026-07-07 08:00:05 | INFO    |   Completed: 477
+2026-07-07 08:00:05 | INFO    |   Upcoming:  11
+2026-07-07 08:00:05 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-07 08:00:05 | INFO    | --------------------------------------------------
+2026-07-07 08:00:05 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-07 08:00:05 | INFO    | --------------------------------------------------
+2026-07-07 08:00:05 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-07 08:00:05 | INFO    | --------------------------------------------------
+2026-07-07 08:00:05 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-07 08:00:05 | INFO    | --------------------------------------------------
+2026-07-07 08:00:05 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-07 14:00:26 | INFO    | --------------------------------------------------
+2026-07-07 14:00:26 | INFO    | STEP 1: Download data
+2026-07-07 14:00:26 | INFO    | --------------------------------------------------
+2026-07-07 14:00:26 | INFO    | Downloading 2002 World Cup data ...
+2026-07-07 14:00:27 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 14:00:27 | INFO    | Downloading 2006 World Cup data ...
+2026-07-07 14:00:27 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 14:00:27 | INFO    | Downloading 2010 World Cup data ...
+2026-07-07 14:00:28 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 14:00:28 | INFO    | Downloading 2014 World Cup data ...
+2026-07-07 14:00:28 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 14:00:28 | INFO    | Downloading 2018 World Cup data ...
+2026-07-07 14:00:29 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 14:00:29 | INFO    | Downloading 2022 World Cup data ...
+2026-07-07 14:00:29 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 14:00:29 | INFO    | Downloading 2026 World Cup data ...
+2026-07-07 14:00:29 | INFO    |   104 matches (94 completed, 10 upcoming)
+2026-07-07 14:00:29 | INFO    | --------------------------------------------------
+2026-07-07 14:00:29 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-07 14:00:29 | INFO    | --------------------------------------------------
+2026-07-07 14:00:30 | INFO    |   Resolved 1 placeholder references from completed results
+2026-07-07 14:00:30 | INFO    |   Remaining placeholder match-ups: 5
+2026-07-07 14:00:30 | INFO    |     2026-07-11 | Quarter-final | W95 vs W96
+2026-07-07 14:00:30 | INFO    |     2026-07-14 | Semi-final | W97 vs W98
+2026-07-07 14:00:30 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-07 14:00:30 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-07 14:00:30 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-07 14:00:30 | INFO    |   Quarter-finals: 3/4 with known opponents
+2026-07-07 14:00:30 | INFO    | 
+2026-07-07 14:00:30 | INFO    |   Total:     488 matches
+2026-07-07 14:00:30 | INFO    |   Completed: 478
+2026-07-07 14:00:30 | INFO    |   Upcoming:  10
+2026-07-07 14:00:30 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-07 14:00:30 | INFO    | --------------------------------------------------
+2026-07-07 14:00:30 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-07 14:00:30 | INFO    | --------------------------------------------------
+2026-07-07 14:00:30 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-07 14:00:30 | INFO    | --------------------------------------------------
+2026-07-07 14:00:30 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-07 14:00:30 | INFO    | --------------------------------------------------
+2026-07-07 14:00:30 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-07 14:20:31 | ERROR   |   Lineup collection timed out (20 min limit)
+2026-07-07 14:20:31 | INFO    | --------------------------------------------------
+2026-07-07 14:20:31 | INFO    | STEP 4: Train & Predict
+2026-07-07 14:20:31 | INFO    | --------------------------------------------------
+2026-07-07 14:20:31 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\train_worldcup.py
+2026-07-07 14:30:32 | ERROR   |   Training timed out (10 min limit)
+2026-07-07 14:30:32 | ERROR   | Training step failed. Check logs above.
+2026-07-07 20:00:03 | INFO    | --------------------------------------------------
+2026-07-07 20:00:03 | INFO    | STEP 1: Download data
+2026-07-07 20:00:03 | INFO    | --------------------------------------------------
+2026-07-07 20:00:03 | INFO    | Downloading 2002 World Cup data ...
+2026-07-07 20:00:19 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 20:00:19 | INFO    | Downloading 2006 World Cup data ...
+2026-07-07 20:00:21 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 20:00:21 | INFO    | Downloading 2010 World Cup data ...
+2026-07-07 20:00:24 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 20:00:24 | INFO    | Downloading 2014 World Cup data ...
+2026-07-07 20:00:27 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 20:00:27 | INFO    | Downloading 2018 World Cup data ...
+2026-07-07 20:00:30 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 20:00:30 | INFO    | Downloading 2022 World Cup data ...
+2026-07-07 20:00:33 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-07 20:00:33 | INFO    | Downloading 2026 World Cup data ...
+2026-07-07 20:00:35 | INFO    |   104 matches (94 completed, 10 upcoming)
+2026-07-07 20:00:35 | INFO    | --------------------------------------------------
+2026-07-07 20:00:35 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-07 20:00:35 | INFO    | --------------------------------------------------
+2026-07-07 20:00:35 | INFO    |   Remaining placeholder match-ups: 5
+2026-07-07 20:00:35 | INFO    |     2026-07-11 | Quarter-final | W95 vs W96
+2026-07-07 20:00:35 | INFO    |     2026-07-14 | Semi-final | W97 vs W98
+2026-07-07 20:00:35 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-07 20:00:35 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-07 20:00:35 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-07 20:00:35 | INFO    |   Quarter-finals: 3/4 with known opponents
+2026-07-07 20:00:35 | INFO    | 
+2026-07-07 20:00:35 | INFO    |   Total:     488 matches
+2026-07-07 20:00:35 | INFO    |   Completed: 478
+2026-07-07 20:00:35 | INFO    |   Upcoming:  10
+2026-07-07 20:00:35 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-07 20:00:35 | INFO    | --------------------------------------------------
+2026-07-07 20:00:35 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-07 20:00:35 | INFO    | --------------------------------------------------
+2026-07-07 20:00:35 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-07 20:00:35 | INFO    | --------------------------------------------------
+2026-07-07 20:00:35 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-07 20:00:35 | INFO    | --------------------------------------------------
+2026-07-07 20:00:35 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-08 20:00:04 | INFO    | --------------------------------------------------
+2026-07-08 20:00:04 | INFO    | STEP 1: Download data
+2026-07-08 20:00:04 | INFO    | --------------------------------------------------
+2026-07-08 20:00:04 | INFO    | Downloading 2002 World Cup data ...
+2026-07-08 20:00:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-08 20:00:05 | INFO    | Downloading 2006 World Cup data ...
+2026-07-08 20:00:06 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-08 20:00:06 | INFO    | Downloading 2010 World Cup data ...
+2026-07-08 20:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-08 20:00:07 | INFO    | Downloading 2014 World Cup data ...
+2026-07-08 20:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-08 20:00:08 | INFO    | Downloading 2018 World Cup data ...
+2026-07-08 20:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-08 20:00:08 | INFO    | Downloading 2022 World Cup data ...
+2026-07-08 20:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-08 20:00:09 | INFO    | Downloading 2026 World Cup data ...
+2026-07-08 20:00:10 | INFO    |   104 matches (96 completed, 8 upcoming)
+2026-07-08 20:00:10 | INFO    | --------------------------------------------------
+2026-07-08 20:00:10 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-08 20:00:10 | INFO    | --------------------------------------------------
+2026-07-08 20:00:10 | INFO    |   Remaining placeholder match-ups: 4
+2026-07-08 20:00:10 | INFO    |     2026-07-14 | Semi-final | W97 vs W98
+2026-07-08 20:00:10 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-08 20:00:10 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-08 20:00:10 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-08 20:00:10 | INFO    |   Quarter-finals: 4/4 with known opponents
+2026-07-08 20:00:10 | INFO    | 
+2026-07-08 20:00:10 | INFO    |   Total:     488 matches
+2026-07-08 20:00:10 | INFO    |   Completed: 480
+2026-07-08 20:00:10 | INFO    |   Upcoming:  8
+2026-07-08 20:00:10 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-08 20:00:10 | INFO    | --------------------------------------------------
+2026-07-08 20:00:10 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-08 20:00:10 | INFO    | --------------------------------------------------
+2026-07-08 20:00:10 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-08 20:00:10 | INFO    | --------------------------------------------------
+2026-07-08 20:00:10 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-08 20:00:10 | INFO    | --------------------------------------------------
+2026-07-08 20:00:10 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-08 20:04:08 | WARNING |   [stderr] 20:00:17 | World Cup data loaded: 7 tournaments (2002, 2006, 2010, 2014, 2018, 2022, 2026)
+2026-07-09 17:37:32 | INFO    | --------------------------------------------------
+2026-07-09 17:37:32 | INFO    | STEP 1: Download data
+2026-07-09 17:37:32 | INFO    | --------------------------------------------------
+2026-07-09 17:37:32 | INFO    | Downloading 2002 World Cup data ...
+2026-07-09 20:00:04 | INFO    | --------------------------------------------------
+2026-07-09 20:00:04 | INFO    | STEP 1: Download data
+2026-07-09 20:00:04 | INFO    | --------------------------------------------------
+2026-07-09 20:00:04 | INFO    | Downloading 2002 World Cup data ...
+2026-07-09 20:00:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-09 20:00:05 | INFO    | Downloading 2006 World Cup data ...
+2026-07-09 20:00:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-09 20:00:05 | INFO    | Downloading 2010 World Cup data ...
+2026-07-09 20:00:06 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-09 20:00:06 | INFO    | Downloading 2014 World Cup data ...
+2026-07-09 20:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-09 20:00:07 | INFO    | Downloading 2018 World Cup data ...
+2026-07-09 20:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-09 20:00:07 | INFO    | Downloading 2022 World Cup data ...
+2026-07-09 20:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-09 20:00:08 | INFO    | Downloading 2026 World Cup data ...
+2026-07-09 20:00:09 | INFO    |   104 matches (96 completed, 8 upcoming)
+2026-07-09 20:00:09 | INFO    | --------------------------------------------------
+2026-07-09 20:00:09 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-09 20:00:09 | INFO    | --------------------------------------------------
+2026-07-09 20:00:09 | INFO    |   Remaining placeholder match-ups: 4
+2026-07-09 20:00:09 | INFO    |     2026-07-14 | Semi-final | W97 vs W98
+2026-07-09 20:00:09 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-09 20:00:09 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-09 20:00:09 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-09 20:00:09 | INFO    |   Quarter-finals: 4/4 with known opponents
+2026-07-09 20:00:09 | INFO    | 
+2026-07-09 20:00:09 | INFO    |   Total:     488 matches
+2026-07-09 20:00:09 | INFO    |   Completed: 480
+2026-07-09 20:00:09 | INFO    |   Upcoming:  8
+2026-07-09 20:00:09 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-09 20:00:09 | INFO    | --------------------------------------------------
+2026-07-09 20:00:09 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-09 20:00:09 | INFO    | --------------------------------------------------
+2026-07-09 20:00:09 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-09 20:00:09 | INFO    | --------------------------------------------------
+2026-07-09 20:00:09 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-09 20:00:09 | INFO    | --------------------------------------------------
+2026-07-09 20:00:09 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-09 20:00:35 | WARNING |   [stderr] 20:00:22 | World Cup data loaded: 7 tournaments (2002, 2006, 2010, 2014, 2018, 2022, 2026)
+2026-07-10 14:00:06 | INFO    | --------------------------------------------------
+2026-07-10 14:00:06 | INFO    | STEP 1: Download data
+2026-07-10 14:00:06 | INFO    | --------------------------------------------------
+2026-07-10 14:00:06 | INFO    | Downloading 2002 World Cup data ...
+2026-07-10 14:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-10 14:00:07 | INFO    | Downloading 2006 World Cup data ...
+2026-07-10 14:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-10 14:00:08 | INFO    | Downloading 2010 World Cup data ...
+2026-07-10 14:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-10 14:00:09 | INFO    | Downloading 2014 World Cup data ...
+2026-07-10 14:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-10 14:00:09 | INFO    | Downloading 2018 World Cup data ...
+2026-07-10 14:00:10 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-10 14:00:10 | INFO    | Downloading 2022 World Cup data ...
+2026-07-10 14:00:11 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-10 14:00:11 | INFO    | Downloading 2026 World Cup data ...
+2026-07-10 14:00:11 | INFO    |   104 matches (97 completed, 7 upcoming)
+2026-07-10 14:00:11 | INFO    | --------------------------------------------------
+2026-07-10 14:00:11 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-10 14:00:11 | INFO    | --------------------------------------------------
+2026-07-10 14:00:11 | INFO    |   Resolved 1 placeholder references from completed results
+2026-07-10 14:00:11 | INFO    |   Remaining placeholder match-ups: 4
+2026-07-10 14:00:11 | INFO    |     2026-07-14 | Semi-final | France vs W98
+2026-07-10 14:00:11 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-10 14:00:11 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-10 14:00:11 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-10 14:00:11 | INFO    |   Quarter-finals: 3/3 with known opponents
+2026-07-10 14:00:11 | INFO    | 
+2026-07-10 14:00:11 | INFO    |   Total:     488 matches
+2026-07-10 14:00:11 | INFO    |   Completed: 481
+2026-07-10 14:00:11 | INFO    |   Upcoming:  7
+2026-07-10 14:00:11 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-10 14:00:11 | INFO    | --------------------------------------------------
+2026-07-10 14:00:11 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-10 14:00:11 | INFO    | --------------------------------------------------
+2026-07-10 14:00:11 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-10 14:00:11 | INFO    | --------------------------------------------------
+2026-07-10 14:00:11 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-10 14:00:11 | INFO    | --------------------------------------------------
+2026-07-10 14:00:11 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-10 14:20:11 | ERROR   |   Lineup collection timed out (20 min limit)
+2026-07-10 14:20:11 | INFO    | --------------------------------------------------
+2026-07-10 14:20:11 | INFO    | STEP 4: Train & Predict
+2026-07-10 14:20:11 | INFO    | --------------------------------------------------
+2026-07-10 14:20:11 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\train_worldcup.py
+2026-07-10 14:21:27 | INFO    |   ========================================================================
+2026-07-10 14:21:27 | INFO    |     WORLD CUP - TRAIN & PREDICT (Multi-Tournament)
+2026-07-10 14:21:27 | INFO    |     Model: XGBOOST
+2026-07-10 14:21:27 | INFO    |     Data:  data\raw\worldcup_all.csv
+2026-07-10 14:21:27 | INFO    |   ========================================================================
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     Loading data\raw\worldcup_all.csv ...
+2026-07-10 14:21:27 | INFO    |     [*] 488 rows x 15 cols
+2026-07-10 14:21:27 | INFO    |     [*] Completed: 481 matches
+2026-07-10 14:21:27 | INFO    |     [*] Upcoming:  7 matches
+2026-07-10 14:21:27 | INFO    |     [TIME] Load data: 0.0s
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     Building features ...
+2026-07-10 14:21:27 | INFO    |     [*] Feature matrix: 481 rows x 145 features
+2026-07-10 14:21:27 | INFO    |     [TIME] Build features (train): 27.3s
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     Splitting chronologically (70/15/15) ...
+2026-07-10 14:21:27 | INFO    |     [*] Train: 336  |  Val: 72  |  Test: 73
+2026-07-10 14:21:27 | INFO    |     [TIME] Split: 0.0s
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     Tuning hyper-parameters (3-fold time-series CV) ...
+2026-07-10 14:21:27 | INFO    |     [*] Best params: {'subsample': 0.6, 'reg_lambda': 5.0, 'reg_alpha': 1.0, 'n_estimators': 300, 'min_child_weight': 5, 'max_depth': 3, 'learning_rate': 0.01, 'colsample_bytree': 0.7}
+2026-07-10 14:21:27 | INFO    |     [TIME] Hyper-parameter tuning: 19.5s
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     Training xgboost ...
+2026-07-10 14:21:27 | INFO    |     [*] Train log-loss: 0.6166
+2026-07-10 14:21:27 | INFO    |     [*] Val log-loss:   0.8323
+2026-07-10 14:21:27 | INFO    |     [*] Val accuracy:   0.6806 (68.1%)
+2026-07-10 14:21:27 | INFO    |     [TIME] Train model: 1.4s
+2026-07-10 14:21:27 | INFO    |     [*] Model saved: models/worldcup_xgboost.joblib
+2026-07-10 14:21:27 | INFO    |     [TIME] Save model: 0.0s
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |   ========================================================================
+2026-07-10 14:21:27 | INFO    |     TEST SET RESULTS
+2026-07-10 14:21:27 | INFO    |   ========================================================================
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     Test accuracy: 0.7397 (74.0%)
+2026-07-10 14:21:27 | INFO    |     Correct: 54 / 73
+2026-07-10 14:21:27 | INFO    |     Naive baseline (always Home): 46.6%
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     Confusion matrix:
+2026-07-10 14:21:27 | INFO    |                      Away Win       Draw   Home Win
+2026-07-10 14:21:27 | INFO    |       ------------------------------------------
+2026-07-10 14:21:27 | INFO    |       Away Win        23         0         3
+2026-07-10 14:21:27 | INFO    |           Draw         2         1        10
+2026-07-10 14:21:27 | INFO    |       Home Win         4         0        30
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     Classification report:
+2026-07-10 14:21:27 | INFO    |                 precision    recall  f1-score   support
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |       Away Win      0.793     0.885     0.836        26
+2026-07-10 14:21:27 | INFO    |           Draw      1.000     0.077     0.143        13
+2026-07-10 14:21:27 | INFO    |       Home Win      0.698     0.882     0.779        34
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |       accuracy                          0.740        73
+2026-07-10 14:21:27 | INFO    |      macro avg      0.830     0.615     0.586        73
+2026-07-10 14:21:27 | INFO    |   weighted avg      0.786     0.740     0.686        73
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |   ---------------------------FEATURE IMPORTANCE---------------------------
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |       Rank   Feature                                  Importance
+2026-07-10 14:21:27 | INFO    |       --------------------------------------------------------
+2026-07-10 14:21:27 | INFO    |       1      DC_Expected_Goal_Difference                  0.0491
+2026-07-10 14:21:27 | INFO    |       2      DC_Away_Win_Prob                             0.0452
+2026-07-10 14:21:27 | INFO    |       3      DC_Home_Win_Prob                             0.0415
+2026-07-10 14:21:27 | INFO    |       4      DC_Expected_Away_Goals                       0.0175
+2026-07-10 14:21:27 | INFO    |       5      DC_Draw_Prob                                 0.0173
+2026-07-10 14:21:27 | INFO    |       6      a_squad_value                                0.0159
+2026-07-10 14:21:27 | INFO    |       7      away_goals_ht                                0.0150
+2026-07-10 14:21:27 | INFO    |       8      a_goal_diff_avg5                             0.0147
+2026-07-10 14:21:27 | INFO    |       9      DC_Expected_Home_Goals                       0.0146
+2026-07-10 14:21:27 | INFO    |       10     a_goal_diff_avg20                            0.0144
+2026-07-10 14:21:27 | INFO    |       11     a_win_rate_home                              0.0144
+2026-07-10 14:21:27 | INFO    |       12     home_goals_ht                                0.0141
+2026-07-10 14:21:27 | INFO    |       13     a_points_avg10                               0.0133
+2026-07-10 14:21:27 | INFO    |       14     h_home_matches                               0.0132
+2026-07-10 14:21:27 | INFO    |       15     a_win_rate_overall                           0.0125
+2026-07-10 14:21:27 | INFO    |     [TIME] Evaluate: 0.0s
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |   ========================================================================
+2026-07-10 14:21:27 | INFO    |     PREDICTING UPCOMING MATCHES
+2026-07-10 14:21:27 | INFO    |   ========================================================================
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     Predictable matches:  3 (both teams known)
+2026-07-10 14:21:27 | INFO    |     Placeholder matches:  4 (opponent TBD)
+2026-07-10 14:21:27 | INFO    |     [TIME] Build features (predict, combined orig+swapped): 24.4s
+2026-07-10 14:21:27 | INFO    |     [TIME] Model predict (swap-average + combine): 0.0s
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     ========================================================================
+2026-07-10 14:21:27 | INFO    |     KNOCKOUT ROUND PREDICTIONS (neutral venue — averaged both orderings)
+2026-07-10 14:21:27 | INFO    |     ========================================================================
+2026-07-10 14:21:27 | INFO    |     Date           Team 1                 Team 2                 Prediction       Conf    
+2026-07-10 14:21:27 | INFO    |     --------------------------------------------------------------------------------
+2026-07-10 14:21:27 | INFO    |     2026-07-10     Spain                  Belgium                Spain wins       61%
+2026-07-10 14:21:27 | INFO    |     2026-07-11     Argentina              Switzerland            Argentina wins   61%
+2026-07-10 14:21:27 | INFO    |     2026-07-11     Norway                 England                England wins     46%
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     Detailed probabilities:
+2026-07-10 14:21:27 | INFO    |     Date           Match                                          Team 1       Draw         Team 2      
+2026-07-10 14:21:27 | INFO    |     ----------------------------------------------------------------------------------
+2026-07-10 14:21:27 | INFO    |     2026-07-10     Spain vs Belgium                                60.7%    19.1%    20.2%
+2026-07-10 14:21:27 | INFO    |     2026-07-11     Argentina vs Switzerland                        61.3%    20.5%    18.2%
+2026-07-10 14:21:27 | INFO    |     2026-07-11     Norway vs England                               35.7%    18.0%    46.3%
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     [*] Predictions saved to reports\predictions_worldcup\worldcup_predictions.csv
+2026-07-10 14:21:27 | INFO    |     [TIME] Poisson goal predictions: 0.0s
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     ========================================================================
+2026-07-10 14:21:27 | INFO    |     POISSON GOAL PREDICTIONS (from historical goal rates)
+2026-07-10 14:21:27 | INFO    |     ========================================================================
+2026-07-10 14:21:27 | INFO    |     Date           Match                                          Exp Goals              Score      O/U 2.5   
+2026-07-10 14:21:27 | INFO    |     --------------------------------------------------------------------------------------------
+2026-07-10 14:21:27 | INFO    |     2026-07-10     Spain vs Belgium                               Spain: 1.37 / Belgium: 0.96 1-1        UNDER
+2026-07-10 14:21:27 | INFO    |     2026-07-11     Argentina vs Switzerland                       Argentina: 1.48 / Switzerland: 0.86 1-1        UNDER
+2026-07-10 14:21:27 | INFO    |     2026-07-11     Norway vs England                              Norway: 1.85 / England: 1.98 2-2        OVER
+2026-07-10 14:21:27 | INFO    |     
+2026-07-10 14:21:27 | INFO    |     Prediction summary:
+2026-07-10 14:21:27 | INFO    |       Team 1 wins: 2 (67%)
+2026-07-10 14:21:27 | INFO    |       Draws:       0 (0%)
+2026-07-10 14:21:27 | INFO    |       Team 2 wins: 1 (33%)
+2026-07-10 14:21:27 | INFO    |       Avg confidence: 56.1%
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |     [W] 4 matches have TBD opponents:
+2026-07-10 14:21:27 | INFO    |       2026-07-14 | France                 vs W98                    | Semi-final
+2026-07-10 14:21:27 | INFO    |       2026-07-15 | W99                    vs W100                   | Semi-final
+2026-07-10 14:21:27 | INFO    |       2026-07-18 | L101                   vs L102                   | Match for third place
+2026-07-10 14:21:27 | INFO    |       2026-07-19 | W101                   vs W102                   | Final
+2026-07-10 14:21:27 | INFO    |     -> Re-run once opponents are known and data is updated
+2026-07-10 14:21:27 | INFO    |     [TIME] Predict step total: 24.5s
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | INFO    |   ========================================================================
+2026-07-10 14:21:27 | INFO    |     DONE - 72.9s
+2026-07-10 14:21:27 | INFO    |     Model:  xgboost
+2026-07-10 14:21:27 | INFO    |     Trained on: 481 matches x 145 features
+2026-07-10 14:21:27 | INFO    |     Test accuracy: 73.97%
+2026-07-10 14:21:27 | INFO    |     Predictions: 3 matches -> reports\predictions_worldcup\worldcup_predictions.csv
+2026-07-10 14:21:27 | INFO    |   ========================================================================
+2026-07-10 14:21:27 | INFO    |   
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:16 | INFO    | Building features on 481 rows
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:16 | INFO    | Elo features added: 74 teams, K=32, home_adv=50, host_nations=True
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:16 | INFO    | Elo adjustment: Morocco -50 pts (16 rows adjusted)
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:16 | INFO    | Adding odds features on 481 rows
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:16 | WARNING | No odds columns found in DataFrame. Creating zero-filled placeholders for all odds features.
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:16 | INFO    | Loaded 1207 player records from C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:16 | INFO    | Adding player information features on 481 rows
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:17 | INFO    | Player info features added — 7 columns from real player data (injuries=True, gk=True, scorer=True, age=True, value=True, rotation=False)
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:17 | INFO    | Adding xG features on 481 rows
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:17 | INFO    | xG features added — 15 columns from placeholders (no xG data found)
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:17 | INFO    | Poisson features added — \u03bc_home=1.404, \u03bc_away=1.133, 74 teams
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:37 | WARNING | Dixon-Coles MLE did not fully converge: STOP: TOTAL NO. OF F,G EVALUATIONS EXCEEDS LIMIT
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:38 | INFO    | Dixon-Coles features added: 481 matches, refit every 100, last \u03c1=-0.169
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:40 | INFO    | Feature matrix: 481 rows × 145 columns  |  target distribution: {2: 0.4490644490644491, 0: 0.340956340956341, 1: 0.20997920997921}
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:40 | INFO    | Chronological split — train: 336, val: 72, test: 73
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:40 | INFO    | Hyper-parameter tuning 'xgboost' — 3-fold CV, 20 random samples
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:59 | INFO    | Best CV log-loss: 0.9203  with params: {'subsample': 0.6, 'reg_lambda': 5.0, 'reg_alpha': 1.0, 'n_estimators': 300, 'min_child_weight': 5, 'max_depth': 3, 'learning_rate': 0.01, 'colsample_bytree': 0.7}
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:20:59 | INFO    | Starting training with model_type='xgboost'
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:01 | INFO    | Early stopped at iteration 288 / 300
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:01 | INFO    | Training complete.
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:01 | INFO    | Model saved to C:\Users\dell\Documents\complex num\football prediction\models\worldcup_xgboost.joblib
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:01 | INFO    | Building features on 487 rows
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:01 | INFO    | Elo features added: 74 teams, K=32, home_adv=50, host_nations=True
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:01 | INFO    | Elo adjustment: Morocco -50 pts (16 rows adjusted)
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:01 | INFO    | Adding odds features on 487 rows
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:01 | WARNING | No odds columns found in DataFrame. Creating zero-filled placeholders for all odds features.
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:01 | INFO    | Loaded 1207 player records from C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:01 | INFO    | Adding player information features on 487 rows
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:02 | INFO    | Player info features added — 7 columns from real player data (injuries=True, gk=True, scorer=True, age=True, value=True, rotation=False)
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:02 | INFO    | Adding xG features on 487 rows
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:02 | INFO    | xG features added — 15 columns from placeholders (no xG data found)
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:02 | INFO    | Poisson features added — \u03bc_home=1.391, \u03bc_away=1.119, 74 teams
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:23 | WARNING | Dixon-Coles MLE did not fully converge: STOP: TOTAL NO. OF F,G EVALUATIONS EXCEEDS LIMIT
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:24 | INFO    | Dixon-Coles features added: 487 matches, refit every 100, last \u03c1=-0.169
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:25 | INFO    | Feature matrix: 487 rows × 147 columns  |  target distribution: {2: 0.44353182751540043, 0: 0.33675564681724846, 1: 0.20739219712525667, -1: 0.012320328542094456}
+2026-07-10 14:21:27 | WARNING |   [stderr] 14:21:25 | INFO    | Poisson features added — \u03bc_home=1.404, \u03bc_away=1.133, 74 teams
+2026-07-10 14:21:27 | INFO    |   Training & prediction completed successfully
+2026-07-10 14:21:27 | INFO    | --------------------------------------------------
+2026-07-10 14:21:27 | INFO    | Done in 1280.7 seconds
+2026-07-10 14:21:27 | INFO    | --------------------------------------------------
+2026-07-10 20:00:07 | INFO    | --------------------------------------------------
+2026-07-10 20:00:07 | INFO    | STEP 1: Download data
+2026-07-10 20:00:07 | INFO    | --------------------------------------------------
+2026-07-10 20:00:07 | INFO    | Downloading 2002 World Cup data ...
+2026-07-10 20:00:10 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-10 20:00:10 | INFO    | Downloading 2006 World Cup data ...
+2026-07-11 14:00:02 | INFO    | --------------------------------------------------
+2026-07-11 14:00:02 | INFO    | STEP 1: Download data
+2026-07-11 14:00:02 | INFO    | --------------------------------------------------
+2026-07-11 14:00:02 | INFO    | Downloading 2002 World Cup data ...
+2026-07-11 14:00:03 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-11 14:00:03 | INFO    | Downloading 2006 World Cup data ...
+2026-07-11 14:00:04 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-11 14:00:04 | INFO    | Downloading 2010 World Cup data ...
+2026-07-11 14:00:04 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-11 14:00:04 | INFO    | Downloading 2014 World Cup data ...
+2026-07-11 14:00:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-11 14:00:05 | INFO    | Downloading 2018 World Cup data ...
+2026-07-11 14:00:06 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-11 14:00:06 | INFO    | Downloading 2022 World Cup data ...
+2026-07-11 14:00:06 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-11 14:00:06 | INFO    | Downloading 2026 World Cup data ...
+2026-07-11 14:00:07 | INFO    |   104 matches (98 completed, 6 upcoming)
+2026-07-11 14:00:07 | INFO    | --------------------------------------------------
+2026-07-11 14:00:07 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-11 14:00:07 | INFO    | --------------------------------------------------
+2026-07-11 14:00:07 | INFO    |   Resolved 1 placeholder references from completed results
+2026-07-11 14:00:07 | INFO    |   Remaining placeholder match-ups: 3
+2026-07-11 14:00:07 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-11 14:00:07 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-11 14:00:07 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-11 14:00:07 | INFO    |   Quarter-finals: 2/2 with known opponents
+2026-07-11 14:00:07 | INFO    | 
+2026-07-11 14:00:07 | INFO    |   Total:     488 matches
+2026-07-11 14:00:07 | INFO    |   Completed: 482
+2026-07-11 14:00:07 | INFO    |   Upcoming:  6
+2026-07-11 14:00:07 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-11 14:00:07 | INFO    | --------------------------------------------------
+2026-07-11 14:00:07 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-11 14:00:07 | INFO    | --------------------------------------------------
+2026-07-11 14:00:07 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-11 14:00:07 | INFO    | --------------------------------------------------
+2026-07-11 14:00:07 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-11 14:00:07 | INFO    | --------------------------------------------------
+2026-07-11 14:00:07 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-11 20:00:05 | INFO    | --------------------------------------------------
+2026-07-11 20:00:05 | INFO    | STEP 1: Download data
+2026-07-11 20:00:05 | INFO    | --------------------------------------------------
+2026-07-11 20:00:05 | INFO    | Downloading 2002 World Cup data ...
+2026-07-11 20:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-11 20:00:07 | INFO    | Downloading 2006 World Cup data ...
+2026-07-11 20:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-11 20:00:07 | INFO    | Downloading 2010 World Cup data ...
+2026-07-11 20:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-11 20:00:08 | INFO    | Downloading 2014 World Cup data ...
+2026-07-11 20:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-11 20:00:09 | INFO    | Downloading 2018 World Cup data ...
+2026-07-11 20:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-11 20:00:09 | INFO    | Downloading 2022 World Cup data ...
+2026-07-11 20:00:10 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-11 20:00:10 | INFO    | Downloading 2026 World Cup data ...
+2026-07-11 20:00:10 | INFO    |   104 matches (98 completed, 6 upcoming)
+2026-07-11 20:00:10 | INFO    | --------------------------------------------------
+2026-07-11 20:00:10 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-11 20:00:10 | INFO    | --------------------------------------------------
+2026-07-11 20:00:11 | INFO    |   Resolved 1 placeholder references from completed results
+2026-07-11 20:00:11 | INFO    |   Remaining placeholder match-ups: 3
+2026-07-11 20:00:11 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-11 20:00:11 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-11 20:00:11 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-11 20:00:11 | INFO    |   Quarter-finals: 2/2 with known opponents
+2026-07-11 20:00:11 | INFO    | 
+2026-07-11 20:00:11 | INFO    |   Total:     488 matches
+2026-07-11 20:00:11 | INFO    |   Completed: 482
+2026-07-11 20:00:11 | INFO    |   Upcoming:  6
+2026-07-11 20:00:11 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-11 20:00:11 | INFO    | --------------------------------------------------
+2026-07-11 20:00:11 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-11 20:00:11 | INFO    | --------------------------------------------------
+2026-07-11 20:00:11 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-11 20:00:11 | INFO    | --------------------------------------------------
+2026-07-11 20:00:11 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-11 20:00:11 | INFO    | --------------------------------------------------
+2026-07-11 20:00:11 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-12 02:03:26 | INFO    | --------------------------------------------------
+2026-07-12 02:03:26 | INFO    | STEP 1: Download data
+2026-07-12 02:03:26 | INFO    | --------------------------------------------------
+2026-07-12 02:03:26 | INFO    | Downloading 2002 World Cup data ...
+2026-07-12 02:03:26 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 02:03:26 | INFO    | Downloading 2006 World Cup data ...
+2026-07-12 02:03:26 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 02:03:26 | INFO    | Downloading 2010 World Cup data ...
+2026-07-12 02:03:26 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 02:03:26 | INFO    | Downloading 2014 World Cup data ...
+2026-07-12 02:03:27 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 02:03:27 | INFO    | Downloading 2018 World Cup data ...
+2026-07-12 02:03:27 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 02:03:27 | INFO    | Downloading 2022 World Cup data ...
+2026-07-12 02:03:27 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 02:03:27 | INFO    | Downloading 2026 World Cup data ...
+2026-07-12 02:03:27 | INFO    |   104 matches (98 completed, 6 upcoming)
+2026-07-12 02:03:27 | INFO    | --------------------------------------------------
+2026-07-12 02:03:27 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-12 02:03:27 | INFO    | --------------------------------------------------
+2026-07-12 02:03:27 | INFO    |   Remaining placeholder match-ups: 3
+2026-07-12 02:03:27 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-12 02:03:27 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-12 02:03:27 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-12 02:03:27 | INFO    |   Quarter-finals: 2/2 with known opponents
+2026-07-12 02:03:27 | INFO    | 
+2026-07-12 02:03:27 | INFO    |   Total:     488 matches
+2026-07-12 02:03:27 | INFO    |   Completed: 482
+2026-07-12 02:03:27 | INFO    |   Upcoming:  6
+2026-07-12 02:03:27 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-12 02:03:27 | INFO    | --------------------------------------------------
+2026-07-12 02:03:27 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-12 02:03:27 | INFO    | --------------------------------------------------
+2026-07-12 02:03:27 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-12 02:03:27 | INFO    | --------------------------------------------------
+2026-07-12 02:03:27 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-12 02:03:27 | INFO    | --------------------------------------------------
+2026-07-12 02:03:27 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-12 11:53:19 | INFO    | --------------------------------------------------
+2026-07-12 11:53:19 | INFO    | STEP 1: Download data
+2026-07-12 11:53:19 | INFO    | --------------------------------------------------
+2026-07-12 11:53:19 | INFO    | Downloading 2002 World Cup data ...
+2026-07-12 11:53:20 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 11:53:20 | INFO    | Downloading 2006 World Cup data ...
+2026-07-12 11:53:20 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 11:53:20 | INFO    | Downloading 2010 World Cup data ...
+2026-07-12 11:53:20 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 11:53:20 | INFO    | Downloading 2014 World Cup data ...
+2026-07-12 11:53:21 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 11:53:21 | INFO    | Downloading 2018 World Cup data ...
+2026-07-12 11:53:21 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 11:53:21 | INFO    | Downloading 2022 World Cup data ...
+2026-07-12 11:53:22 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 11:53:22 | INFO    | Downloading 2026 World Cup data ...
+2026-07-12 11:53:22 | INFO    |   104 matches (100 completed, 4 upcoming)
+2026-07-12 11:53:22 | INFO    | --------------------------------------------------
+2026-07-12 11:53:22 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-12 11:53:22 | INFO    | --------------------------------------------------
+2026-07-12 11:53:22 | INFO    |   Remaining placeholder match-ups: 3
+2026-07-12 11:53:22 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-12 11:53:22 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-12 11:53:22 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-12 11:53:22 | INFO    | 
+2026-07-12 11:53:22 | INFO    |   Total:     488 matches
+2026-07-12 11:53:22 | INFO    |   Completed: 484
+2026-07-12 11:53:22 | INFO    |   Upcoming:  4
+2026-07-12 11:53:22 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-12 11:53:22 | INFO    | --------------------------------------------------
+2026-07-12 11:53:22 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-12 11:53:22 | INFO    | --------------------------------------------------
+2026-07-12 11:53:22 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-12 11:53:22 | INFO    | --------------------------------------------------
+2026-07-12 11:53:22 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-12 11:53:22 | INFO    | --------------------------------------------------
+2026-07-12 11:53:22 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-12 11:53:30 | ERROR   |   Lineup collection failed with exit code 3221225786
+2026-07-12 11:53:30 | INFO    | --------------------------------------------------
+2026-07-12 11:53:30 | INFO    | STEP 4: Train & Predict
+2026-07-12 11:53:30 | INFO    | --------------------------------------------------
+2026-07-12 14:00:04 | INFO    | --------------------------------------------------
+2026-07-12 14:00:04 | INFO    | STEP 1: Download data
+2026-07-12 14:00:04 | INFO    | --------------------------------------------------
+2026-07-12 14:00:04 | INFO    | Downloading 2002 World Cup data ...
+2026-07-12 14:00:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 14:00:05 | INFO    | Downloading 2006 World Cup data ...
+2026-07-12 14:00:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 14:00:05 | INFO    | Downloading 2010 World Cup data ...
+2026-07-12 14:00:06 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 14:00:06 | INFO    | Downloading 2014 World Cup data ...
+2026-07-12 14:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 14:00:07 | INFO    | Downloading 2018 World Cup data ...
+2026-07-12 14:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 14:00:07 | INFO    | Downloading 2022 World Cup data ...
+2026-07-12 14:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-12 14:00:08 | INFO    | Downloading 2026 World Cup data ...
+2026-07-12 14:00:09 | INFO    |   104 matches (100 completed, 4 upcoming)
+2026-07-12 14:00:09 | INFO    | --------------------------------------------------
+2026-07-12 14:00:09 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-12 14:00:09 | INFO    | --------------------------------------------------
+2026-07-12 14:00:09 | INFO    |   Remaining placeholder match-ups: 3
+2026-07-12 14:00:09 | INFO    |     2026-07-15 | Semi-final | W99 vs W100
+2026-07-12 14:00:09 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-12 14:00:09 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-12 14:00:09 | INFO    | 
+2026-07-12 14:00:09 | INFO    |   Total:     488 matches
+2026-07-12 14:00:09 | INFO    |   Completed: 484
+2026-07-12 14:00:09 | INFO    |   Upcoming:  4
+2026-07-12 14:00:09 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-12 14:00:09 | INFO    | --------------------------------------------------
+2026-07-12 14:00:09 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-12 14:00:09 | INFO    | --------------------------------------------------
+2026-07-12 14:00:09 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-12 14:00:09 | INFO    | --------------------------------------------------
+2026-07-12 14:00:09 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-12 14:00:09 | INFO    | --------------------------------------------------
+2026-07-12 14:00:09 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-12 20:00:07 | INFO    | --------------------------------------------------
+2026-07-12 20:00:07 | INFO    | STEP 1: Download data
+2026-07-12 20:00:07 | INFO    | --------------------------------------------------
+2026-07-12 20:00:07 | INFO    | Downloading 2002 World Cup data ...
+2026-07-12 20:00:07 | ERROR   |   X 2002: FAILED - ('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))
+2026-07-12 20:00:07 | ERROR   | Data collection failed. Aborting.
+2026-07-13 02:00:07 | INFO    | --------------------------------------------------
+2026-07-13 02:00:07 | INFO    | STEP 1: Download data
+2026-07-13 02:00:07 | INFO    | --------------------------------------------------
+2026-07-13 02:00:07 | INFO    | Downloading 2002 World Cup data ...
+2026-07-13 02:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 02:00:08 | INFO    | Downloading 2006 World Cup data ...
+2026-07-13 02:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 02:00:09 | INFO    | Downloading 2010 World Cup data ...
+2026-07-13 02:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 02:00:09 | INFO    | Downloading 2014 World Cup data ...
+2026-07-13 02:00:10 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 02:00:10 | INFO    | Downloading 2018 World Cup data ...
+2026-07-13 02:00:11 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 02:00:11 | INFO    | Downloading 2022 World Cup data ...
+2026-07-13 02:00:12 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 02:00:12 | INFO    | Downloading 2026 World Cup data ...
+2026-07-13 02:00:12 | INFO    |   104 matches (100 completed, 4 upcoming)
+2026-07-13 02:00:12 | INFO    | --------------------------------------------------
+2026-07-13 02:00:12 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-13 02:00:12 | INFO    | --------------------------------------------------
+2026-07-13 02:00:12 | INFO    |   Remaining placeholder match-ups: 2
+2026-07-13 02:00:12 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-13 02:00:12 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-13 02:00:12 | INFO    | 
+2026-07-13 02:00:12 | INFO    |   Total:     488 matches
+2026-07-13 02:00:12 | INFO    |   Completed: 484
+2026-07-13 02:00:12 | INFO    |   Upcoming:  4
+2026-07-13 02:00:12 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-13 02:00:12 | INFO    | --------------------------------------------------
+2026-07-13 02:00:12 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-13 02:00:12 | INFO    | --------------------------------------------------
+2026-07-13 02:00:12 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_player_data.py
+2026-07-13 02:00:49 | WARNING |   [stderr] 02:00:14 | Found 66 teams in World Cup data with Transfermarkt IDs
+2026-07-13 02:00:49 | WARNING |   [stderr] 02:00:14 | Scraping 66 teams from Transfermarkt...
+2026-07-13 11:45:59 | INFO    | --------------------------------------------------
+2026-07-13 11:45:59 | INFO    | STEP 1: Download data
+2026-07-13 11:45:59 | INFO    | --------------------------------------------------
+2026-07-13 11:45:59 | INFO    | Downloading 2002 World Cup data ...
+2026-07-13 11:45:59 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 11:45:59 | INFO    | Downloading 2006 World Cup data ...
+2026-07-13 11:46:00 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 11:46:00 | INFO    | Downloading 2010 World Cup data ...
+2026-07-13 11:46:01 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 11:46:01 | INFO    | Downloading 2014 World Cup data ...
+2026-07-13 11:46:03 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 11:46:03 | INFO    | Downloading 2018 World Cup data ...
+2026-07-13 11:46:04 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 11:46:04 | INFO    | Downloading 2022 World Cup data ...
+2026-07-13 11:46:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 11:46:05 | INFO    | Downloading 2026 World Cup data ...
+2026-07-13 11:46:05 | INFO    |   104 matches (100 completed, 4 upcoming)
+2026-07-13 11:46:05 | INFO    | --------------------------------------------------
+2026-07-13 11:46:05 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-13 11:46:05 | INFO    | --------------------------------------------------
+2026-07-13 11:46:05 | INFO    |   Remaining placeholder match-ups: 2
+2026-07-13 11:46:05 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-13 11:46:05 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-13 11:46:05 | INFO    | 
+2026-07-13 11:46:05 | INFO    |   Total:     488 matches
+2026-07-13 11:46:05 | INFO    |   Completed: 484
+2026-07-13 11:46:05 | INFO    |   Upcoming:  4
+2026-07-13 11:46:05 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-13 11:46:05 | INFO    | --------------------------------------------------
+2026-07-13 11:46:05 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-13 11:46:05 | INFO    | --------------------------------------------------
+2026-07-13 11:46:05 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_player_data.py
+2026-07-13 11:46:08 | WARNING |   [stderr] 11:46:07 | Found 66 teams in World Cup data with Transfermarkt IDs
+2026-07-13 11:46:08 | WARNING |   [stderr] 11:46:07 | Scraping 66 teams from Transfermarkt...
+2026-07-13 20:00:03 | INFO    | --------------------------------------------------
+2026-07-13 20:00:03 | INFO    | STEP 1: Download data
+2026-07-13 20:00:03 | INFO    | --------------------------------------------------
+2026-07-13 20:00:03 | INFO    | Downloading 2002 World Cup data ...
+2026-07-13 20:00:04 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 20:00:04 | INFO    | Downloading 2006 World Cup data ...
+2026-07-13 20:00:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 20:00:05 | INFO    | Downloading 2010 World Cup data ...
+2026-07-13 20:00:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 20:00:05 | INFO    | Downloading 2014 World Cup data ...
+2026-07-13 20:00:06 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 20:00:06 | INFO    | Downloading 2018 World Cup data ...
+2026-07-13 20:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 20:00:07 | INFO    | Downloading 2022 World Cup data ...
+2026-07-13 20:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-13 20:00:08 | INFO    | Downloading 2026 World Cup data ...
+2026-07-13 20:00:08 | INFO    |   104 matches (100 completed, 4 upcoming)
+2026-07-13 20:00:08 | INFO    | --------------------------------------------------
+2026-07-13 20:00:08 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-13 20:00:08 | INFO    | --------------------------------------------------
+2026-07-13 20:00:08 | INFO    |   Remaining placeholder match-ups: 2
+2026-07-13 20:00:08 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-13 20:00:08 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-13 20:00:08 | INFO    | 
+2026-07-13 20:00:08 | INFO    |   Total:     488 matches
+2026-07-13 20:00:08 | INFO    |   Completed: 484
+2026-07-13 20:00:08 | INFO    |   Upcoming:  4
+2026-07-13 20:00:08 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-13 20:00:08 | INFO    | --------------------------------------------------
+2026-07-13 20:00:08 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-13 20:00:08 | INFO    | --------------------------------------------------
+2026-07-13 20:00:08 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-13 20:00:08 | INFO    | --------------------------------------------------
+2026-07-13 20:00:08 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-13 20:00:08 | INFO    | --------------------------------------------------
+2026-07-13 20:00:08 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-13 20:03:42 | WARNING |   [stderr] 20:00:09 | World Cup data loaded: 7 tournaments (2002, 2006, 2010, 2014, 2018, 2022, 2026)

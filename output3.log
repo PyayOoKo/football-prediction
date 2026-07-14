@@ -1,0 +1,3 @@
+No odds columns found in DataFrame. Creating zero-filled placeholders for all odds features.
+No bookmaker odds columns found for consensus computation.
+No xG columns found (checked patterns: ['home_xg', 'xg_home', 'xghome', 'h_xg', 'hxg'], ['away_xg', 'xg_away', 'xgaway', 'a_xg', 'axg']). Creating zero-filled placeholders.

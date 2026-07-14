@@ -1,0 +1,60 @@
+Data: 17937 rows x 111 cols
+Date range: 2016-08-12 to 2026-05-24
+Teams: 161
+Using 14 feature columns
+Train: 12555, Val: 2691, Test: 2691
+
+Training XGBoost...
+Training time: 47.4s
+
+Train: Accuracy=75.55%, LogLoss=0.5911
+
+Val: Accuracy=63.88%, LogLoss=0.7713
+
+Test: Accuracy=64.40%, LogLoss=0.7550
+
+Test Classification Report:
+              precision    recall  f1-score   support
+
+    Away Win       0.67      0.70      0.69       863
+        Draw       0.43      0.27      0.33       673
+    Home Win       0.70      0.82      0.75      1155
+
+    accuracy                           0.64      2691
+   macro avg       0.60      0.60      0.59      2691
+weighted avg       0.62      0.64      0.63      2691
+
+
+============================================================
+  RECENT PREDICTIONS (Last 15 Test Matches)
+============================================================
+  Date         Home                 Away                 Score  Prediction H%    D%    A%   
+  2026-05-24   West Ham United      Leeds United         3-0    Away Win   12% 32% 56%
+  2026-05-24   Villarreal           Ath Madrid           5-1    Home Win   83% 14% 2%
+  2026-05-24   Verona               Roma                 0-2    Away Win   2% 17% 81%
+  2026-05-24   Tottenham Hotspur    Everton              1-0    Home Win   47% 34% 19%
+  2026-05-24   Torino               Juventus             2-2    Away Win   20% 31% 49%
+  2026-05-24   Sunderland           Chelsea              2-1    Home Win   57% 35% 8%
+  2026-05-24   Parma                Sassuolo             1-0    Home Win   79% 18% 2%
+  2026-05-24   Nottingham Forest    AFC Bournemouth      1-1    Home Win   78% 17% 5%
+  2026-05-24   Napoli               Udinese              1-0    Home Win   88% 6% 5%
+  2026-05-24   Milan                Cagliari             1-2    Away Win   9% 29% 62%
+  2026-05-24   Manchester City      Aston Villa          1-2    Away Win   0% 1% 98%
+  2026-05-24   Liverpool            Brentford            1-1    Home Win   55% 37% 8%
+  2026-05-24   Lecce                Genoa                1-0    Home Win   86% 12% 3%
+  2026-05-24   Fulham               Newcastle United     2-0    Draw       6% 56% 38%
+  2026-05-24   Crystal Palace       Arsenal              1-2    Draw       18% 53% 29%
+
+Top 10 Features:
+  home_goals_ht                 : 0.2982
+  away_goals_ht                 : 0.2485
+  away_shots_target             : 0.0977
+  home_shots_target             : 0.0851
+  home_red                      : 0.0368
+  away_red                      : 0.0315
+  home_corners                  : 0.0277
+  home_shots                    : 0.0276
+  away_shots                    : 0.0262
+  away_corners                  : 0.0253
+
+Model saved to models/xgboost_model.joblib
