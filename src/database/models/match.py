@@ -13,6 +13,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -46,7 +47,7 @@ if TYPE_CHECKING:
 class Match(Base):
     __tablename__ = "matches"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
     # ── Foreign keys ───────────────────────────────────
     competition_id: Mapped[int | None] = mapped_column(

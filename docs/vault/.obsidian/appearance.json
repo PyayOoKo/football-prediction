@@ -2,7 +2,10 @@
   "accentColor": "#2ecc71",
   "cssTheme": "",
   "baseFontSize": 15,
-  "enabledCssSnippets": [],
+  "enabledCssSnippets": [
+    "graph-view-enhancer",
+    "vault-theme-enhancer"
+  ],
   "showViewHeader": true,
   "nativeMenus": false
 }

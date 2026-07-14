@@ -37,12 +37,12 @@ class BaseRepository(Generic[ModelT]):
     def get_by_id(self, entity_id: int) -> ModelT | None:
         return self._session.get(self._model, entity_id)
 
-    def get_all(self) -> list[ModelT]:
-        stmt = select(self._model)
+    def get_all(self, limit: int = 1000) -> list[ModelT]:
+        stmt = select(self._model).limit(limit)
         return list(self._session.scalars(stmt).all())
 
-    def find(self, **filters: Any) -> list[ModelT]:
-        stmt = select(self._model).filter_by(**filters)
+    def find(self, limit: int = 1000, **filters: Any) -> list[ModelT]:
+        stmt = select(self._model).filter_by(**filters).limit(limit)
         return list(self._session.scalars(stmt).all())
 
     def find_one(self, **filters: Any) -> ModelT | None:

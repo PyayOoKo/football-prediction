@@ -42,7 +42,7 @@ class Season(Base):
 
     # ── Identity ───────────────────────────────────────
     name: Mapped[str] = mapped_column(
-        String(32), nullable=False, comment="e.g. '2024/2025', '2022'"
+        String(64), nullable=False, comment="e.g. '2024/2025', '2022'"
     )
     competition_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("competitions.id"), nullable=False, index=True

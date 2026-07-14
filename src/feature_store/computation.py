@@ -622,6 +622,335 @@ class FeatureComputationEngine:
             )
 
 
+    # ═══════════════════════════════════════════════════════════
+    #  Bulk pipeline compute — run feature_engineering then store
+    # ═══════════════════════════════════════════════════════════
+
+    def compute_all_from_pipeline(
+        self,
+        preprocessed_path: str | None = None,
+        *,
+        max_nan_pct: float = 5.0,
+        trigger: str = "manual",
+        batch_label: str | None = None,
+        dataset_metadata: dict[str, Any] | None = None,
+    ) -> ComputationReport:
+        """Run the full feature engineering pipeline and store all results.
+
+        Orchestrates the complete flow:
+        1. Load preprocessed data (or run preprocessing)
+        2. Call ``build_features()`` to compute the full feature matrix
+        3. Register every feature column in the registry
+        4. Store each (match, feature, value) triple in the store
+        5. Validate NaN/inf counts per feature
+        6. Return a detailed ``ComputationReport``
+
+        Parameters
+        ----------
+        preprocessed_path : str, optional
+            Path to preprocessed CSV. If None, runs preprocessing first.
+        max_nan_pct : float
+            Maximum allowed NaN percentage per feature (default 5.0).
+            Features exceeding this threshold are logged as warnings if
+            between 5-40% and cause a failure report if over 40%.
+        trigger : str
+            Computation trigger label (default ``manual``).
+        batch_label : str, optional
+            Custom batch label. Auto-generated if not provided.
+        dataset_metadata : dict, optional
+            Extra metadata about the dataset (hash, version, etc.).
+
+        Returns
+        -------
+        ComputationReport
+            Full report with per-feature stats, entity count, timing.
+        """
+        import hashlib
+        import time as _time
+        from pathlib import Path
+
+        from datetime import datetime, timezone
+
+        from config import config
+        from src.feature_engineering import build_features
+
+        start_time = _time.time()
+
+        # ── 1. Load / preprocess data ──────────────────────
+        if preprocessed_path and Path(preprocessed_path).exists():
+            import pandas as pd
+            df = pd.read_csv(preprocessed_path, low_memory=False)
+            data_source = preprocessed_path
+        else:
+            from src.preprocessing import run_preprocessing
+            pp_report = run_preprocessing(save=True)
+            data_source = pp_report.get("saved_to", "unknown")
+            df = pd.read_csv(data_source, low_memory=False) if Path(str(data_source)).exists() else pd.DataFrame()
+
+        if df.empty:
+            raise ValueError("No data available for feature computation.")
+
+        # ── 2. Build features ─────────────────────────────
+        logger.info("Building features on %d rows...", len(df))
+        X, y = build_features(df, is_training=True)
+        n_matches = len(X)
+        n_features_total = X.shape[1]
+
+        if n_matches == 0 or n_features_total == 0:
+            raise ValueError("Feature matrix is empty — check data and config.")
+
+        logger.info("Feature matrix: %d matches × %d features", n_matches, n_features_total)
+
+        # ── 3. Generate dataset hash for versioning ────────
+        data_hash = hashlib.sha256(
+            pd.util.hash_pandas_object(X).values.tobytes()
+        ).hexdigest()[:12]
+
+        # ── 4. Start batch tracking ───────────────────────
+        if batch_label is None:
+            ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            batch_label = f"compute_all_{ts}"
+
+        batch = self._store.start_batch(
+            batch_label=batch_label,
+            trigger=trigger,
+            features_computed=list(X.columns),
+            entity_count=n_matches,
+        )
+
+        report = ComputationReport(
+            batch_id=batch.id,
+            batch_label=batch_label,
+            feature_names=list(X.columns),
+            entity_type="match",
+            entity_count=n_matches,
+        )
+
+        # ── 5. Register all features and store values ─────
+        feature_name_to_def: dict[str, FeatureDefinition] = {}
+        nan_warnings: list[str] = []
+
+        # Fill NaN with 0s for storage safety
+        # We keep track of NaN counts for the report before filling
+        nan_counts = X.isna().sum()
+        nan_pcts = (nan_counts / max(n_matches, 1)) * 100
+
+        X_filled = X.fillna(0)
+        inf_mask = X_filled.select_dtypes(include=["number"]).isin([float("inf"), float("-inf")])
+        if inf_mask.any().any():
+            n_inf = inf_mask.sum().sum()
+            logger.warning("Found %d inf values in feature matrix — replacing with 0", n_inf)
+            X_filled = X_filled.replace([float("inf"), float("-inf")], 0.0)
+
+        # ── 5a. Register each feature, detect category from name ──
+        from src.feature_store.models import FeatureCategory
+
+        def _infer_category(col: str) -> FeatureCategory:
+            col_lower = col.lower()
+            if col_lower.startswith("elo") or col_lower.endswith("elo"):
+                return FeatureCategory.ELO_RATING
+            if col_lower.startswith("h2h"):
+                return FeatureCategory.H2H_STAT
+            if col_lower.startswith(("xg_", "xga_", "xgd_", "xpts_")) or "_xg" in col_lower:
+                return FeatureCategory.XG_FEATURE
+            if col_lower.startswith(("odds_", "clv_", "consensus_")):
+                return FeatureCategory.ODDS_FEATURE
+            if col_lower.startswith(("h_attack_", "a_attack_", "h_defence_", "a_defence_")):
+                return FeatureCategory.ATTACK_STRENGTH if "attack" in col_lower else FeatureCategory.DEFENSE_STRENGTH
+            if col_lower.startswith(("h_goal_diff", "a_goal_diff")):
+                return FeatureCategory.TEAM_FORM
+            if col_lower.startswith(("h_goals_", "a_goals_")):
+                return FeatureCategory.ROLLING_STAT
+            if col_lower.startswith(("h_points_", "a_points_", "h_win_rate", "a_win_rate")):
+                return FeatureCategory.TEAM_FORM
+            if col_lower.startswith(("h_days_", "a_days_")):
+                return FeatureCategory.REST_DAYS
+            if col_lower.startswith(("h_matches_", "a_matches_", "h_home_", "a_home_", "h_away_", "a_away_")):
+                return FeatureCategory.ROLLING_STAT
+            if col_lower.startswith(("position_", "league_position", "h_league_", "a_league_")):
+                return FeatureCategory.TEAM_FORM
+            if col_lower.endswith("_importance"):
+                return FeatureCategory.COMPOSITE
+            if col_lower.startswith(("home_team", "away_team")):
+                return FeatureCategory.COMPOSITE
+            return FeatureCategory.COMPOSITE
+
+        def _infer_entity_type(col: str) -> str:
+            if col.startswith(("h_", "a_", "h2h_", "position_")):
+                return "match"
+            if col.startswith(("Home_", "Away_")):
+                return "match"
+            return "match"
+
+        def _infer_feature_type(col: str) -> str:
+            cat = _infer_category(col)
+            if cat == FeatureCategory.ELO_RATING:
+                return "elo"
+            if cat == FeatureCategory.H2H_STAT:
+                return "h2h_stat"
+            if cat == FeatureCategory.XG_FEATURE:
+                return "xg_feature"
+            if cat == FeatureCategory.ODDS_FEATURE:
+                return "odds_feature"
+            if cat in (FeatureCategory.ATTACK_STRENGTH, FeatureCategory.DEFENSE_STRENGTH):
+                return "rolling_stat"
+            return "rolling_stat"
+
+        # Register features in topological order (no deps for bulk compute)
+        n_computed = 0
+        n_failed = 0
+        n_skipped = 0
+
+        if self.show_progress:
+            try:
+                from tqdm import tqdm
+                pbar = tqdm(total=n_features_total, desc="Registering features", unit="feat")
+            except ImportError:
+                pbar = None
+        else:
+            pbar = None
+
+        for col in X.columns:
+            col_clean = str(col).replace(" ", "_").replace("-", "_")
+            # Ensure name is valid
+            safe_name = "".join(c for c in col_clean if c.isalnum() or c in ("_",)).strip("_")
+
+            try:
+                # Try to register; if exists, get latest
+                try:
+                    defn = self._registry.register(
+                        name=safe_name,
+                        feature_type=_infer_feature_type(col),
+                        category=_infer_category(col),
+                        entity_type=_infer_entity_type(col),
+                        description=f"Feature from build_features(): {col}",
+                        computation_params={"source_column": col},
+                        status=FeatureStatus.ACTIVE,
+                    )
+                except ValueError:
+                    defn = self._registry.latest(safe_name)
+                    if defn is None:
+                        defn = self._registry.register(
+                            name=safe_name,
+                            feature_type=_infer_feature_type(col),
+                            category=_infer_category(col),
+                            entity_type=_infer_entity_type(col),
+                            description=f"Feature from build_features(): {col}",
+                            computation_params={"source_column": col},
+                        )
+
+                feature_name_to_def[col] = defn
+
+                # Store values for each match
+                values_for_def = []
+                col_data = X_filled[col]
+                for match_idx in range(n_matches):
+                    val = col_data.iloc[match_idx]
+                    if pd.isna(val):
+                        continue
+                    values_for_def.append({
+                        "definition_id": defn.id,
+                        "match_id": int(match_idx),
+                        "numeric_value": float(val) if not isinstance(val, (str, bytes)) else None,
+                        "text_value": str(val) if isinstance(val, (str, bytes)) else None,
+                        "computed_by": "pipeline",
+                        "batch_id": batch.id,
+                    })
+
+                if values_for_def:
+                    self._store.set_many(values_for_def)
+                n_computed += n_matches
+
+                # Track NaN for report
+                nan_pct = nan_pcts.get(col, 0.0)
+                if nan_pct > max_nan_pct:
+                    nan_warnings.append(f"{safe_name}: {nan_pct:.1f}% NaN")
+
+                report.per_feature_stats[safe_name] = {
+                    "computed": n_matches,
+                    "skipped": 0,
+                    "failed": 0,
+                    "duration": 0.0,
+                    "status": "ok",
+                    "nan_pct": round(float(nan_pct), 2),
+                }
+
+            except Exception as exc:
+                n_failed += n_matches
+                report.per_feature_stats[safe_name] = {
+                    "computed": 0,
+                    "skipped": 0,
+                    "failed": n_matches,
+                    "duration": 0.0,
+                    "status": f"error: {exc}",
+                    "nan_pct": 0.0,
+                }
+                logger.error("Failed to process feature %s: %s", col, exc)
+
+            if pbar:
+                pbar.update(1)
+
+        if pbar:
+            pbar.close()
+
+        # ── 6. NaN validation ──────────────────────────────
+        def _parse_nan_pct(w: str) -> float:
+            """Extract NaN percentage from warning string like 'feat: 12.3% NaN'."""
+            try:
+                return float(w.split(":")[1].replace("%", "").replace("NaN", "").strip())
+            except (ValueError, IndexError):
+                return 0.0
+
+        severe_nan = [w for w in nan_warnings if _parse_nan_pct(w) > 40]
+        moderate_nan = [w for w in nan_warnings if _parse_nan_pct(w) <= 40]
+        if moderate_nan:
+            for w in moderate_nan:
+                logger.warning("High NaN in feature %s", w)
+        if severe_nan:
+            for w in severe_nan:
+                logger.warning("SEVERE NaN in feature %s", w)
+
+        # ── 7. Finalise report ─────────────────────────────
+        report.computed_count = n_computed
+        report.failed_count = n_failed
+        report.skipped_count = n_skipped
+        report.duration_seconds = _time.time() - start_time
+        report.success = n_failed == 0
+
+        extra = dataset_metadata or {}
+        extra.update({
+            "data_source": str(data_source),
+            "data_hash": data_hash,
+            "n_matches": n_matches,
+            "n_features": n_features_total,
+            "n_features_registered": len(feature_name_to_def),
+            "n_features_stored": sum(
+                1 for s in report.per_feature_stats.values()
+                if s.get("computed", 0) > 0
+            ),
+            "total_nan_cells": int(nan_counts.sum()),
+            "total_cells": int(n_matches * n_features_total),
+            "nan_rate_pct": round(float(nan_counts.sum() / max(n_matches * n_features_total, 1) * 100), 2),
+            "features_with_high_nan": len(nan_warnings),
+            "features_with_severe_nan": len(severe_nan),
+        })
+        batch.extra_metadata = extra
+
+        self._store.complete_batch(
+            batch.id,
+            success=report.success,
+            error=(f"{len(severe_nan)} features with >40% NaN" if severe_nan else None) or (
+                f"{len(moderate_nan)} features with >5% NaN" if moderate_nan else None
+            ),
+        )
+
+        logger.info(
+            "Pipeline compute complete — %d features, %d matches (%.2fs)",
+            len(feature_name_to_def), n_matches, report.duration_seconds,
+        )
+        return report
+
+
 # ═══════════════════════════════════════════════════════════
 #  LazyFeature — compute on first access
 # ═══════════════════════════════════════════════════════════

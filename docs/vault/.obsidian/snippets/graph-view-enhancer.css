@@ -1,135 +1,72 @@
-/* ===================================================================
- *  Obsidian CSS Snippet — Graph View Enhancer
- *  Install: Copy this file to .obsidian/snippets/ and enable in
- *           Settings → Appearance → CSS snippets.
- *
- *  Tailored for the Football Prediction vault.
- *
- *  ⚠ IMPORTANT: The Graph View is rendered via WebGL / Canvas.
- *    CSS cannot style individual nodes — Obsidian provides a
- *    "CSS bridge" where the following class names are read by
- *    the renderer and applied globally to the graph.
- * =================================================================== */
+:root {
+  --graph-node:           #3b82f6;
+  --graph-node-tag:       #d4a843;
+  --graph-node-attach:    #22c55e;
+  --graph-node-unresolved:#ef4444;
+  --graph-node-focused:   #fbbf24;
+  --graph-node-highlight: #60a5fa;
+  --graph-line:           rgba(148, 163, 184, 0.35);
+  --graph-line-highlight: rgba(251, 191, 36, 0.6);
+  --graph-arrow:          rgba(148, 163, 184, 0.35);
+  --graph-label:          var(--text-muted, #94a3b8);
+}
 
+.theme-dark {
+  --graph-node:           #60a5fa;
+  --graph-node-tag:       #fbbf24;
+  --graph-node-attach:    #4ade80;
+  --graph-node-unresolved:#f87171;
+  --graph-node-focused:   #fde68a;
+  --graph-line:           rgba(148, 163, 184, 0.25);
+  --graph-line-highlight: rgba(251, 191, 36, 0.5);
+}
 
-
-/* ── 1. NODE COLORS BY TYPE ──────────────────────────────
- *  These apply globally to all nodes of each type.
- *  For per-tag coloring, use the built-in Groups feature:
- *    Graph View (right panel) → Groups → New Group →
- *    Filter by tag → Pick a color.
- * ──────────────────────────────────────────────────────── */
-
-/* Regular file nodes — muted blue */
 .graph-view.color-fill {
-    color: #4a8dcf !important;
+  color: var(--graph-node) !important;
+  opacity: 0.9;
 }
 
-/* Tag nodes (#tags) — shown in a distinct amber */
 .graph-view.color-fill-tag {
-    color: #e6a84c !important;
+  color: var(--graph-node-tag) !important;
+  opacity: 0.85;
 }
 
-/* Attachment nodes (images, PDFs, etc.) — sage green */
 .graph-view.color-fill-attachment {
-    color: #6ebf7a !important;
+  color: var(--graph-node-attach) !important;
+  opacity: 0.85;
 }
 
-/* Unresolved / broken wikilink nodes — soft red */
 .graph-view.color-fill-unresolved {
-    color: #d46a6a !important;
+  color: var(--graph-node-unresolved) !important;
+  opacity: 0.6;
 }
 
-
-
-/* ── 2. EDGES: 50% TRANSPARENT ───────────────────────────
- *  Links between nodes become semi-transparent so the
- *  structure is visible without overwhelming the graph.
- * ──────────────────────────────────────────────────────── */
-
-/* Regular link lines */
-.graph-view.color-line {
-    color: rgba(180, 180, 200, 0.5) !important;
-}
-
-/* Arrowheads on directed links */
-.graph-view.color-arrow {
-    color: rgba(180, 180, 200, 0.5) !important;
-}
-
-/* Highlighted links (when a node is selected) */
-.graph-view.color-line-highlight {
-    color: rgba(120, 180, 255, 0.7) !important;
-}
-
-
-
-/* ── 3. FOCUSED / ACTIVE NODE — SUBTLE GLOW ────────────
- *  The "glow" effect is achieved by making the focused node
- *  substantially brighter. A true CSS glow (text-shadow /
- *  box-shadow / filter: drop-shadow) does not work in WebGL
- *  canvases, so we use a bright, saturated color instead.
- * ──────────────────────────────────────────────────────── */
-
-/* The currently focused/selected node */
 .graph-view.color-fill-focused {
-    color: #ffd866 !important;
+  color: var(--graph-node-focused) !important;
 }
 
-/* Highlight fill for tagged content (when toggled) */
 .graph-view.color-fill-highlight {
-    color: #5dade2 !important;
+  color: var(--graph-node-highlight) !important;
 }
 
+.graph-view.color-line {
+  color: var(--graph-line) !important;
+}
 
+.graph-view.color-arrow {
+  color: var(--graph-arrow) !important;
+}
 
-/* ── 4. LABELS: HIDDEN BY DEFAULT, SHOWN ON HOVER ──────
- *  ⚠ CANVAS LIMITATION: Because the graph is WebGL, CSS
- *    cannot target individual labels. The following makes
- *    ALL labels transparent and restores them when the
- *    entire graph container is hovered.
- *
- *    For per-label toggling, use Obsidian's built-in
- *    Graph View controls (the "Labels" toggle at the top
- *    of the Graph View panel).
- * ──────────────────────────────────────────────────────── */
+.graph-view.color-line-highlight {
+  color: var(--graph-line-highlight) !important;
+}
 
-/* Hide all labels by default */
 .graph-view.color-text {
-    color: transparent !important;
+  color: transparent !important;
+  transition: color 0.15s ease;
 }
 
-/* Show labels when hovering the graph area.
- * ⚠ This depends on Obsidian's DOM structure:
- *   If `.graph-view.color-text` is a child of `.graph-view`, the
- *   descendant selector works. If both are on the same element,
- *   hover won't trigger. Use the Graph View toolbar's "Labels"
- *   button as a fallback to manually toggle labels. */
-.graph-view:hover .graph-view.color-text {
-    color: var(--text-muted, #888) !important;
-}
-
-
-
-/* ── 5. TAG NODES — OPACITY ───────────────────────────
- *  Slight opacity bump for tag nodes to make them stand out.
- * ──────────────────────────────────────────────────────── */
-.graph-view.color-fill-tag {
-    opacity: 0.9 !important;
-}
-
-
-
-/* ── 6. THEME-SPECIFIC TWEAKS ──────────────────────────
- *  Adjust for dark vs light mode if needed.
- * ──────────────────────────────────────────────────────── */
-
-/* Dark theme: softer background contrast */
-.theme-dark .graph-view.color-fill {
-    color: #5a9fd8 !important;
-}
-
-/* Light theme: slightly different tint */
-.theme-light .graph-view.color-fill {
-    color: #3a7dbe !important;
+.graph-view:hover .graph-view.color-text,
+.graph-view:focus-within .graph-view.color-text {
+  color: var(--graph-label) !important;
 }

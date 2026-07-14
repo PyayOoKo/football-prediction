@@ -18,6 +18,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     DateTime,
     Float,
@@ -36,7 +37,7 @@ from src.database.models.match import Match
 class Odds(Base):
     __tablename__ = "odds"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
     # ── Identity ───────────────────────────────────────
     match_id: Mapped[int] = mapped_column(

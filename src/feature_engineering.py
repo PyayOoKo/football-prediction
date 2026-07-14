@@ -932,6 +932,38 @@ def _add_competition_importance(df: pd.DataFrame) -> pd.DataFrame:
 # ═══════════════════════════════════════════════════════════
 
 
+
+def _add_running_league_avg(df: pd.DataFrame) -> pd.DataFrame:
+    """Add running league-average goals using an expanding window (no lookahead)."""
+    team_stats = _compute_team_stats(df)
+    team_stats.sort_values(["team", "date"], inplace=True)
+
+    def _expanding_avg(grp: pd.DataFrame) -> pd.DataFrame:
+        grp = grp.sort_values("date").copy()
+        # Compute running averages shifted by 1 to exclude current match
+        grp["goals_scored_cum"] = grp["goals_scored"].expanding().mean().shift(1)
+        grp["goals_conceded_cum"] = grp["goals_conceded"].expanding().mean().shift(1)
+        return grp
+
+    team_stats = team_stats.groupby("team", group_keys=False).apply(_expanding_avg)
+
+    # Aggregate across all teams to get league avg per match day
+    league_avgs = team_stats.groupby("match_id").agg({
+        "goals_scored_cum": "mean",
+        "goals_conceded_cum": "mean",
+    }).rename(columns={
+        "goals_scored_cum": "league_avg_goals_scored",
+        "goals_conceded_cum": "league_avg_goals_conceded",
+    })
+
+    df = df.join(league_avgs, how="left")
+
+    for col in ["league_avg_goals_scored", "league_avg_goals_conceded"]:
+        if col in df.columns:
+            df[col] = df[col].fillna(1.0)
+    return df
+
+
 def _add_attack_defence_ratios(df: pd.DataFrame) -> pd.DataFrame:
     """Add rolling-window attack/defence strength ratio features.
 
@@ -954,17 +986,17 @@ def _add_attack_defence_ratios(df: pd.DataFrame) -> pd.DataFrame:
     **Leakage note:** relies on the (already shifted) rolling averages
     from ``_add_rolling_features``, so no additional leakage risk.
     """
-    # Compute league-average goals per match from completed matches only
-    completed = df[df["result"].notna()] if "result" in df.columns else df
-    if len(completed) == 0:
-        return df
+    # Compute league-average goals from the running (expanding) window
+    # so each match only sees data available before kick-off.
+    # The expanding window is computed per-match and shifted to avoid lookahead.
+    df = _add_running_league_avg(df)
 
-    avg_home = float(completed["home_goals"].mean())
-    avg_away = float(completed["away_goals"].mean())
-
-    # Guard against division by zero (no goals ever scored)
-    league_avg = (avg_home + avg_away) / 2.0
-    if league_avg <= 0:
+    # Use running (no-lookahead) league average
+    league_avg = (
+        df["league_avg_goals_scored"].mean() +
+        df["league_avg_goals_conceded"].mean()
+    ) / 2.0
+    if pd.isna(league_avg) or league_avg <= 0:
         league_avg = 1.0
 
     # Check which rolling windows are available

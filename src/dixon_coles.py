@@ -959,7 +959,7 @@ class DixonColesModel:
                           reference_date=ref_date, verbose=False)
 
         # Fill features for rows up to the first cutoff
-        for i in range(first_cutoff_pos + 1):
+        for i in range(first_cutoff_pos):  # Exclude cutoff to prevent self-leakage
             _fill_dc_row(df, current_model, i, home_team_col, away_team_col,
                          exp_home, exp_away, home_attack, home_def,
                          away_attack, away_def, hw_prob, d_prob, aw_prob, rho_vals)
@@ -992,7 +992,7 @@ class DixonColesModel:
                               reference_date=ref_date, verbose=False)
 
             # Fill rows between last_filled_pos+1 and cutoff_pos
-            for i in range(last_filled_pos + 1, cutoff_pos + 1):
+            for i in range(last_filled_pos + 1, cutoff_pos):  # Exclude cutoff to prevent self-leakage
                 _fill_dc_row(df, current_model, i, home_team_col, away_team_col,
                              exp_home, exp_away, home_attack, home_def,
                              away_attack, away_def, hw_prob, d_prob, aw_prob, rho_vals)

@@ -480,6 +480,66 @@ def cmd_compute(args: argparse.Namespace) -> None:
     session.close()
 
 
+def cmd_compute_all(args: argparse.Namespace) -> None:
+    """Run the full feature pipeline and store everything."""
+    session = _get_session(args.db_url)
+    store = FeatureStore(session)
+    registry = FeatureRegistry(session)
+    computer_registry = ComputerRegistry()
+
+    engine = FeatureComputationEngine(
+        registry=computer_registry,
+        store=store,
+        registry_service=registry,
+        show_progress=not args.no_progress,
+    )
+
+    report = engine.compute_all_from_pipeline(
+        preprocessed_path=args.preprocessed or None,
+        max_nan_pct=args.max_nan_pct,
+        trigger=args.trigger,
+        batch_label=args.label,
+    )
+
+    print("=" * 55)
+    print(f"Batch:        {report.batch_label}")
+    print(f"Batch ID:     {report.batch_id}")
+    print(f"Duration:     {report.duration_seconds:.2f}s")
+    print(f"Success:      {'YES' if report.success else 'NO'}")
+    if report.error:
+        print(f"Error:        {report.error}")
+
+    print(f"\n{'Stat':<30s} {'Value':<15s}")
+    print("-" * 45)
+    print(f"{'Features registered':<30s} {len(report.per_feature_stats):<15d}")
+    print(f"{'Entity count (matches)':<30s} {report.entity_count:<15d}")
+    print(f"{'Total computed':<30s} {report.computed_count:<15d}")
+    print(f"{'Total skipped':<30s} {report.skipped_count:<15d}")
+    print(f"{'Total failed':<30s} {report.failed_count:<15d}")
+
+    # Show NaN summary
+    features_with_nan = [
+        (n, s) for n, s in report.per_feature_stats.items()
+        if s.get("nan_pct", 0) > 5
+    ]
+    if features_with_nan:
+        print(f"\n  WARN: Features with >5% NaN ({len(features_with_nan)}):")
+        for name, stats in sorted(features_with_nan, key=lambda x: -x[1].get("nan_pct", 0))[:10]:
+            print(f"    {name:<35s} {stats['nan_pct']:.1f}% NaN")
+        if len(features_with_nan) > 10:
+            print(f"    ... and {len(features_with_nan) - 10} more")
+
+    errors = [(n, s) for n, s in report.per_feature_stats.items() if "error" in s.get("status", "")]
+    if errors:
+        print(f"\n  ERRORS ({len(errors)}):")
+        for name, stats in errors:
+            print(f"    {name}: {stats['status']}")
+
+    print("=" * 55)
+    session.commit()
+    session.close()
+
+
 def cmd_resume(args: argparse.Namespace) -> None:
     """Resume a failed computation batch."""
     session = _get_session(args.db_url)
@@ -831,6 +891,14 @@ Examples:
     p_comp.add_argument("--force", action="store_true", help="Force recompute all entities")
     p_comp.add_argument("--no-progress", action="store_true", help="Hide progress bars")
 
+    # compute-all
+    p_ca = subparsers.add_parser("compute-all", help="Run full pipeline: preprocess → build_features → register → store")
+    p_ca.add_argument("--preprocessed", help="Path to preprocessed CSV (skip preprocessing)")
+    p_ca.add_argument("--max-nan-pct", type=float, default=5.0, help="Max allowed NaN %% per feature")
+    p_ca.add_argument("--trigger", default="manual", help="Computation trigger label")
+    p_ca.add_argument("--label", help="Custom batch label")
+    p_ca.add_argument("--no-progress", action="store_true", help="Hide progress bars")
+
     # resume
     p_res = subparsers.add_parser("resume", help="Resume a computation batch")
     p_res.add_argument("batch_id", help="Batch ID to resume")
@@ -888,6 +956,7 @@ COMMAND_MAP: dict[str, Any] = {
     "set": cmd_set_value,
     "validate": cmd_validate,
     "compute": cmd_compute,
+    "compute-all": cmd_compute_all,
     "resume": cmd_resume,
     "provenance": cmd_provenance,
     "lineage-summary": cmd_lineage_summary,

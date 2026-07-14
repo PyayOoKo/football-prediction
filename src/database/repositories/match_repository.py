@@ -20,10 +20,13 @@ class MatchRepository(BaseRepository[Match]):
     def __init__(self, session: Any) -> None:
         super().__init__(session, Match)
 
-    def get_by_date_range(self, start: date, end: date) -> list[Match]:
-        stmt = select(Match).where(
-            and_(Match.match_date >= start, Match.match_date <= end)
-        ).order_by(Match.match_date)
+    def get_by_date_range(self, start: date, end: date, limit: int = 10000) -> list[Match]:
+        stmt = (
+            select(Match)
+            .where(and_(Match.match_date >= start, Match.match_date <= end))
+            .order_by(Match.match_date)
+            .limit(limit)
+        )
         return list(self._session.scalars(stmt).all())
 
     def get_upcoming(self, limit: int = 10) -> list[Match]:
@@ -56,10 +59,10 @@ class MatchRepository(BaseRepository[Match]):
         )
         return list(self._session.scalars(stmt).all())
 
-    def get_by_league(self, league_id: int, limit: int = 100) -> list[Match]:
+    def get_by_competition(self, competition_id: int, limit: int = 100) -> list[Match]:
         stmt = (
             select(Match)
-            .where(Match.league_id == league_id)
+            .where(Match.competition_id == competition_id)
             .order_by(Match.match_date.desc())
             .limit(limit)
         )

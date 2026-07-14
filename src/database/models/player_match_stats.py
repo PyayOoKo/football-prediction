@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -30,7 +31,7 @@ from src.database.models.player import Player
 class PlayerMatchStats(Base):
     __tablename__ = "player_match_stats"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
     # ── Identity ───────────────────────────────────────
     match_id: Mapped[int] = mapped_column(

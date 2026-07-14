@@ -40,7 +40,7 @@ class Team(Base):
         Integer, ForeignKey("countries.id"), nullable=True, index=True
     )
     stadium_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("stadiums.id"), nullable=True
+        Integer, ForeignKey("stadiums.id"), nullable=True, index=True
     )
 
     # ── Details ────────────────────────────────────────
