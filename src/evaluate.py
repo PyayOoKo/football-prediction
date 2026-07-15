@@ -75,6 +75,12 @@ def evaluate_model(
         report["f1"] = f1_score(y_test, y_pred, average="weighted")
     if "log_loss" in metrics and y_proba is not None:
         report["log_loss"] = log_loss(y_test, y_proba)
+    if "brier_score" in metrics and y_proba is not None:
+        y_oh = np.zeros((len(y_test), y_proba.shape[1]))
+        for i, v in enumerate(y_test):
+            if 0 <= v <= y_proba.shape[1] - 1:
+                y_oh[i, int(v)] = 1
+        report["brier_score"] = float(np.mean(np.sum((y_proba - y_oh) ** 2, axis=1)))
     if "roc_auc" in metrics and y_proba is not None:
         report["roc_auc"] = _compute_roc_auc(y_test, y_proba)
 

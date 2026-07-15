@@ -61,6 +61,7 @@ from src.database.models.season import Season
 from src.database.models.stadium import Stadium
 from src.database.models.team import Team
 from src.database.models.team_elo_history import TeamEloHistory
+from src.database.models.closing_odds import ClosingOdds
 from src.database.models.team_form import TeamForm
 from src.database.models.team_xg_history import TeamXgHistory
 from src.database.models.transfer import Transfer
@@ -69,6 +70,7 @@ from src.database.models.weather import Weather
 __all__ = [
     "BettingResult",
     "ClosingLineValue",
+    "ClosingOdds",
     "Competition",
     "Country",
     "ExpectedValueBet",

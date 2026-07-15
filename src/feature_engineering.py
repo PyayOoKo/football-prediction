@@ -50,7 +50,36 @@ Generated features (``h_`` = home team, ``a_`` = away team, ``h2h_`` = head-to-h
     ├──────────────────────────────────────┼─────────────────────────────────┤
     │ ``position_diff``                    │ Abs diff in league positions    │
     │ ``home_team`` / ``away_team``        │ Encoded as int (label/onehot)   │
+    ├──────────────────────────────────────┼─────────────────────────────────┤
+    │ **ADVANCED FEATURES** (opt-in)       │                                 │
+    ├──────────────────────────────────────┼─────────────────────────────────┤
+    │ ``{h,a}_temperature_celsius``        │ Match-day temperature (C)       │
+    │ ``{h,a}_humidity_pct``               │ Humidity percentage (0-100)     │
+    │ ``{h,a}_wind_speed_kmh``             │ Wind speed (km/h)               │
+    │ ``{h,a}_weather_severity``           │ Composite weather severity (0-1)│
+    │ ``referee_home_yellow_rate``         │ Avg home yellows under ref      │
+    │ ``referee_away_yellow_rate``         │ Avg away yellows under ref      │
+    │ ``referee_home_win_rate``            │ Home win rate under ref         │
+    │ ``referee_card_total_avg``           │ Avg total cards under ref       │
+    │ ``{h,a}_rest_days``                  │ Days since team's last match    │
+    │ ``{h,a}_matches_last_7_days``        │ Matches in last 7 days (fatigue)│
+    │ ``{h,a}_matches_last_14_days``       │ Matches in last 14 days         │
+    │ ``{h,a}_consec_home``                │ Consecutive home matches streak │
+    │ ``{h,a}_consec_away``                │ Consecutive away matches streak │
+    │ ``{h,a}_travel_distance``            │ Distance from prev venue (km)   │
+    │ ``{h,a}_h2h_{ctx}_{metric}_last{W}`` │ Extended H2H: context+window    │
+    │ ``{h,a}_{ctx}_{metric}_avg{W}``      │ Extended form: context+window   │
     └──────────────────────────────────────┴─────────────────────────────────┘
+
+   Contexts: ``overall``, ``home``, ``away``
+   Metrics (extended H2H): wins, draws, losses, goals_scored, goals_conceded,
+                           goal_diff, btts, over_2.5, clean_sheets, xg/xga/xgd
+   Metrics (extended form): points, wins, draws, losses, goals_scored,
+                            goals_conceded, goal_diff, clean_sheets, btts,
+                            over_2.5, under_2.5, xg/xga/xgd, shots, cards
+
+Advanced features are **opt-in** via ``config.weather.enabled``,
+``config.referee.enabled``, and ``config.extended_features.enabled``.
 
 Typical usage::
 
@@ -76,6 +105,17 @@ from src.dixon_coles import DixonColesModel, TOURNAMENT_IMPORTANCE as DC_TOURNAM
 from src.xg_features import add_xg_features
 from src.player_info import add_player_features
 from src.odds_processing import add_odds_features, add_consensus_features
+
+# Lazy imports for extended feature transformers
+# (Avoid circular imports at module level)
+_EXTENDED_FEATURES_AVAILABLE = False
+try:
+    from src.feature_framework.features.schedule import ScheduleTransformer
+    from src.feature_framework.features.h2h import H2HTransformer
+    from src.feature_framework.features.team_form import TeamFormTransformer
+    _EXTENDED_FEATURES_AVAILABLE = True
+except ImportError:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +279,24 @@ def build_features(
 
     # 0e. Competition importance as an explicit feature column
     df = _add_competition_importance(df)
+
+    # 0f. Weather features (temperature, humidity, wind, pitch condition)
+    df = _add_weather_features(df)
+
+    # 0g. Referee statistics (card rates, foul rates, home bias)
+    df = _add_referee_features(df)
+
+    # 0h. Schedule / congestion features (travel distance, fatigue, rest days)
+    df = _add_schedule_features(df)
+
+    # 0i. Extended H2H features (multi-window, multi-context)
+    df = _add_extended_h2h_features(df)
+
+    # 0j. Transfer impact features (recent signings, squad turnover)
+    df = _add_transfer_features(df)
+
+    # 0k. Extended form features (multi-context, multi-window with xG/shots/cards)
+    df = _add_extended_form_features(df)
 
     # 1. Rolling team features (form, goals, win rate, GD, rest days) — multiple windows
     windows = config.features.rolling_windows
@@ -924,6 +982,610 @@ def _add_competition_importance(df: pd.DataFrame) -> pd.DataFrame:
         df["competition_importance"].min(),
         df["competition_importance"].max(),
     )
+    return df
+
+
+# ═══════════════════════════════════════════════════════════
+#  0f.  Weather features (temperature, humidity, wind, pitch)
+# ═══════════════════════════════════════════════════════════
+
+
+def _add_weather_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Add weather-related features from database or CSV.
+
+    Reads weather data from ``weather.csv`` (external dir) or fills
+    neutral placeholders when no weather data is available.
+
+    Features added (``h_`` = home, ``a_`` = away):
+        - ``{{h,a}}_temperature_celsius`` — match-day temperature
+        - ``{{h,a}}_humidity_pct`` — humidity percentage (0-100)
+        - ``{{h,a}}_wind_speed_kmh`` — wind speed in km/h
+        - ``{{h,a}}_precipitation_mm`` — precipitation in mm
+        - ``{{h,a}}_pitch_condition_encoded`` — pitch condition (0=dry, 1=wet, 2=frozen)
+        - ``{{h,a}}_weather_severity`` — composite severity (0-1)
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Match DataFrame with a row index that can be joined.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of **df** with weather feature columns added.
+    """
+    if not config.weather.enabled:
+        return df
+
+    _weather_csv = config.paths.external / "weather.csv"
+    has_weather = _weather_csv.exists()
+
+    if not has_weather:
+        if config.weather.warn_missing:
+            logger.warning(
+                "Weather features enabled but %s not found — using placeholders. "
+                "Collect weather data and save to: %s",
+                _weather_csv, _weather_csv,
+            )
+        # Fill with neutral placeholders
+        defaults = {
+            "temperature_celsius": config.weather.default_temp,
+            "humidity_pct": 50.0,
+            "wind_speed_kmh": 10.0,
+            "precipitation_mm": 0.0,
+            "pitch_condition_encoded": 0.0,
+            "weather_severity": 0.0,
+        }
+        for col, val in defaults.items():
+            df[f"h_{col}"] = val
+            df[f"a_{col}"] = val
+        return df
+
+    try:
+        weather_df = pd.read_csv(_weather_csv)
+        logger.info("Loaded %d weather records from %s", len(weather_df), _weather_csv)
+
+        # Normalise columns
+        col_map: dict[str, str] = {}
+        norm_targets = {
+            "match_id": "match_id", "temperature": "temperature_celsius",
+            "temp": "temperature_celsius", "humidity": "humidity_pct",
+            "wind": "wind_speed_kmh", "precipitation": "precipitation_mm",
+            "pitch": "pitch_condition_encoded", "condition": "condition_str",
+        }
+        for c in weather_df.columns:
+            cl = c.lower().strip().replace(" ", "_")
+            if cl in norm_targets:
+                col_map[c] = norm_targets[cl]
+        weather_df.rename(columns=col_map, inplace=True)
+
+        # Match by index — assume weather_df index aligns with df
+        if "match_id" in weather_df.columns:
+            weather_df.set_index("match_id", inplace=True)
+
+        # Encode pitch condition to numeric
+        if "condition_str" in weather_df.columns:
+            cond_map = {"dry": 0, "wet": 1, "waterlogged": 2, "frozen": 3}
+            weather_df["pitch_condition_encoded"] = (
+                weather_df["condition_str"].astype(str).str.lower().map(cond_map).fillna(0)
+            )
+
+        # Composite weather severity (0-1) — 3 components: precip(0.4) + wind(0.3) + temp_extreme(0.3)
+        severity = pd.Series(0.0, index=weather_df.index)
+        for col, weight in [("precipitation_mm", 0.4), ("wind_speed_kmh", 0.3)]:
+            if col in weather_df.columns:
+                norm_val = weather_df[col].fillna(0) / (weather_df[col].max() if weather_df[col].max() > 0 else 1)
+                severity += weight * norm_val
+        # Temperature extreme: 0 at 15°C, 1 at extremes (<0°C or >35°C)
+        if "temperature_celsius" in weather_df.columns:
+            temp = weather_df["temperature_celsius"].fillna(15.0)
+            temp_extreme = (temp - 15.0).abs() / 20.0  # 0 at 15°C, 1 at 35°C or -5°C
+            severity += 0.3 * temp_extreme.clip(0, 1)
+        weather_df["weather_severity"] = severity.clip(0, 1)
+
+        # Add weather features — use index alignment (both DataFrames sorted by date)
+        # Weather is match-level (same for both teams), so assign directly
+        for col in ["temperature_celsius", "humidity_pct", "wind_speed_kmh",
+                     "precipitation_mm", "pitch_condition_encoded", "weather_severity"]:
+            if col in weather_df.columns:
+                vals = weather_df[col].values
+                # Ensure we have the right number of values
+                if len(vals) >= len(df):
+                    vals = vals[:len(df)]
+                else:
+                    logger.warning("Weather CSV has %d rows but match DF has %d — extending with placeholders",
+                                   len(vals), len(df))
+                    vals = list(vals) + [config.weather.placeholder_value] * (len(df) - len(vals))
+                df["h_" + col] = vals
+                df["a_" + col] = vals
+
+        logger.info(
+            "Added weather features (%d columns) from %s",
+            len([c for c in df.columns if "temperature" in c or "humidity" in c]),
+            _weather_csv,
+        )
+
+    except Exception as exc:
+        logger.error("Failed to load weather data: %s — using placeholders", exc)
+        defaults = {
+            "temperature_celsius": config.weather.default_temp,
+            "humidity_pct": 50.0, "wind_speed_kmh": 10.0,
+            "precipitation_mm": 0.0, "pitch_condition_encoded": 0.0,
+            "weather_severity": 0.0,
+        }
+        for col, val in defaults.items():
+            df[f"h_{col}"] = val
+            df[f"a_{col}"] = val
+
+    return df
+
+
+# ═══════════════════════════════════════════════════════════
+#  0g.  Referee statistics (card rates, foul rates, home bias)
+# ═══════════════════════════════════════════════════════════
+
+
+def _add_referee_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Add referee-based features from database or CSV.
+
+    Reads referee data from ``referees.csv`` (external dir) or fills
+    neutral placeholders when no data is available.
+
+    Features added:
+        - ``referee_home_yellow_rate`` — avg yellow cards per match for home team
+          under this referee (rolling window)
+        - ``referee_away_yellow_rate`` — avg yellow cards per match for away team
+        - ``referee_home_win_rate`` — proportion of home wins under this referee
+        - ``referee_card_total_avg`` — avg total cards (YC + RC) per match
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Match DataFrame with ``referee`` column (optional).
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of **df** with referee feature columns added.
+    """
+    if not config.referee.enabled:
+        return df
+
+    _referee_csv = config.paths.external / "referees.csv"
+    has_referee_data = _referee_csv.exists()
+
+    if not has_referee_data:
+        if config.referee.warn_missing:
+            logger.warning(
+                "Referee features enabled but %s not found — using placeholders. "
+                "Save referee data to: %s",
+                _referee_csv, _referee_csv,
+            )
+        df["referee_home_yellow_rate"] = config.referee.placeholder_value
+        df["referee_away_yellow_rate"] = config.referee.placeholder_value
+        df["referee_home_win_rate"] = 0.5
+        df["referee_card_total_avg"] = config.referee.placeholder_value
+        return df
+
+    try:
+        ref_df = pd.read_csv(_referee_csv)
+        logger.info("Loaded %d referee records from %s", len(ref_df), _referee_csv)
+
+        # Normalise columns
+        col_map = {}
+        for c in ref_df.columns:
+            cl = c.lower().strip()
+            if cl in ("referee", "referee_name", "name", "full_name"):
+                col_map[c] = "referee_name"
+            elif cl in ("home_yellow", "home_yellow_cards", "h_yellow", "h_yc"):
+                col_map[c] = "home_yellow_cards"
+            elif cl in ("away_yellow", "away_yellow_cards", "a_yellow", "a_yc"):
+                col_map[c] = "away_yellow_cards"
+            elif cl in ("home_red", "home_red_cards", "h_red", "h_rc"):
+                col_map[c] = "home_red_cards"
+            elif cl in ("away_red", "away_red_cards", "a_red", "a_rc"):
+                col_map[c] = "away_red_cards"
+            elif cl in ("match_id", "id", "matchid"):
+                col_map[c] = "match_id"
+            elif cl in ("home_fouls", "h_fouls"):
+                col_map[c] = "home_fouls"
+            elif cl in ("away_fouls", "a_fouls"):
+                col_map[c] = "away_fouls"
+            elif cl in ("result", "winner"):
+                col_map[c] = "result"
+            elif cl in ("date", "match_date"):
+                col_map[c] = "date"
+        ref_df.rename(columns=col_map, inplace=True)
+
+        if "referee_name" not in ref_df.columns:
+            # No referee name column — use averages as placeholders
+            yellow_h = ref_df.get("home_yellow_cards", pd.Series()).mean() or 0
+            yellow_a = ref_df.get("away_yellow_cards", pd.Series()).mean() or 0
+            red_h = ref_df.get("home_red_cards", pd.Series()).mean() or 0
+            red_a = ref_df.get("away_red_cards", pd.Series()).mean() or 0
+            df["referee_home_yellow_rate"] = yellow_h
+            df["referee_away_yellow_rate"] = yellow_a
+            df["referee_card_total_avg"] = yellow_h + yellow_a + red_h + red_a
+            df["referee_home_win_rate"] = 0.5
+            return df
+
+        # Group by referee and compute rolling stats
+        if "date" in ref_df.columns:
+            ref_df["date"] = pd.to_datetime(ref_df["date"])
+            ref_df.sort_values(["referee_name", "date"], inplace=True)
+
+        window = config.referee.window
+
+        def _ref_stats(grp: pd.DataFrame) -> pd.DataFrame:
+            grp = grp.sort_values("date").copy() if "date" in grp.columns else grp.copy()
+            grp["ref_home_yellow_rate"] = (
+                grp.get("home_yellow_cards", pd.Series(0, index=grp.index))
+                .rolling(window, min_periods=1).mean().shift(1)
+            )
+            grp["ref_away_yellow_rate"] = (
+                grp.get("away_yellow_cards", pd.Series(0, index=grp.index))
+                .rolling(window, min_periods=1).mean().shift(1)
+            )
+            total_cards = (
+                grp.get("home_yellow_cards", pd.Series(0, index=grp.index)).fillna(0)
+                + grp.get("away_yellow_cards", pd.Series(0, index=grp.index)).fillna(0)
+                + grp.get("home_red_cards", pd.Series(0, index=grp.index)).fillna(0)
+                + grp.get("away_red_cards", pd.Series(0, index=grp.index)).fillna(0)
+            )
+            grp["ref_card_total_avg"] = total_cards.rolling(window, min_periods=1).mean().shift(1)
+
+            # Home win rate under this referee
+            if "result" in grp.columns:
+                grp["ref_home_win_rate"] = (
+                    (grp["result"].str.upper() == "H")
+                    .rolling(window, min_periods=1).mean().shift(1)
+                )
+            else:
+                grp["ref_home_win_rate"] = 0.5
+
+            return grp
+
+        ref_stats = ref_df.groupby("referee_name", group_keys=False).apply(_ref_stats)
+
+        # Merge onto df by match_id or index
+        if "match_id" in ref_stats.columns and "match_id" in df.columns:
+            merge_cols = ["match_id", "ref_home_yellow_rate", "ref_away_yellow_rate",
+                         "ref_card_total_avg", "ref_home_win_rate"]
+            existing = [c for c in merge_cols if c in ref_stats.columns]
+            df = df.merge(ref_stats[existing], on="match_id", how="left")
+        else:
+            # Fallback: sequential alignment (fragile — warn user)
+            logger.warning(
+                "Cannot merge referee stats by match_id. Using sequential alignment — "
+                "this may misalign data if referee.csv and match DataFrame are not "
+                "in the same order or have different numbers of rows."
+            )
+            for col in ["ref_home_yellow_rate", "ref_away_yellow_rate",
+                        "ref_card_total_avg", "ref_home_win_rate"]:
+                if col in ref_stats.columns:
+                    # Warning: this is a fragile alignment — ensure files are row-aligned
+                    df[col] = ref_stats[col].iloc[:len(df)].values if len(ref_stats) >= len(df) else config.referee.placeholder_value
+                else:
+                    df[col] = config.referee.placeholder_value
+
+        # Fill NaN placeholders
+        for col in ["ref_home_yellow_rate", "ref_away_yellow_rate",
+                    "ref_card_total_avg", "ref_home_win_rate"]:
+            if col in df.columns:
+                df[col] = df[col].fillna(config.referee.placeholder_value)
+
+        logger.info("Added referee features (%d columns)",
+                     len([c for c in df.columns if "ref_" in c]))
+
+    except Exception as exc:
+        logger.error("Failed to load referee data: %s — using placeholders", exc)
+        df["referee_home_yellow_rate"] = config.referee.placeholder_value
+        df["referee_away_yellow_rate"] = config.referee.placeholder_value
+        df["referee_home_win_rate"] = 0.5
+        df["referee_card_total_avg"] = config.referee.placeholder_value
+
+    return df
+
+
+# ═══════════════════════════════════════════════════════════
+#  0h.  Schedule / congestion features (travel, fatigue, rest)
+# ═══════════════════════════════════════════════════════════
+
+
+def _add_schedule_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Add schedule/congestion features using the ScheduleTransformer.
+
+    Integrates the feature framework's ``ScheduleTransformer`` to compute:
+    - Rest days since last match
+    - Matches in last 7/14 days (fatigue)
+    - Consecutive home/away streaks
+    - Back-to-back opponent flag
+    - Travel distance (if venue coordinates available)
+    - Days since last match in same competition
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Match DataFrame with ``date``, ``home_team``, ``away_team``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of **df** with schedule feature columns added.
+    """
+    if not config.schedule.enabled:
+        return df
+
+    try:
+        if not _EXTENDED_FEATURES_AVAILABLE:
+            logger.warning(
+                "Schedule features require the feature framework modules. "
+                "Install them or set config.schedule.enabled=False."
+            )
+            return df
+
+        transformer = ScheduleTransformer(
+            include_travel_distance=config.schedule.include_travel_distance,
+            league_specific=True,
+            sort_by_date=False,  # Already sorted by build_features
+        )
+        transformer.init()
+        df = transformer.transform(df)
+
+        n_added = len([c for c in df.columns if c.startswith(("h_", "a_"))
+                       and any(kw in c for kw in ["rest_days", "matches_last",
+                                                   "consec_", "back_to_back",
+                                                   "travel_distance",
+                                                   "days_since_competition"])])
+        logger.info("Added %d schedule/congestion feature columns", n_added)
+
+    except Exception as exc:
+        logger.error("Failed to compute schedule features: %s", exc)
+
+    return df
+
+
+# ═══════════════════════════════════════════════════════════
+#  0i.  Extended H2H (multi-window, multi-context, xG-aware)
+# ═══════════════════════════════════════════════════════════
+
+
+def _add_extended_h2h_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Add extended H2H features using the H2HTransformer.
+
+    Provides richer H2H statistics than the basic ``_add_h2h_features``:
+    - Multiple windows (3, 5, 10 meetings)
+    - Multiple contexts (overall, home, away)
+    - More metrics (wins, draws, losses, goals, BTTS, over/under,
+      clean sheets, xG/xGA/xGD when available)
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Match DataFrame with required columns.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of **df** with extended H2H feature columns added.
+    """
+    if not config.extended_features.enabled or not config.extended_features.include_extended_h2h:
+        return df
+
+    try:
+        if not _EXTENDED_FEATURES_AVAILABLE:
+            logger.warning(
+                "Extended H2H features require the feature framework modules."
+            )
+            return df
+
+        windows = config.extended_features.h2h_windows
+        transformer = H2HTransformer(
+            windows=list(windows),
+            contexts=["overall", "home", "away"],
+            include_xg=True,
+            sort_by_date=False,
+        )
+        transformer.init()
+        df = transformer.transform(df)
+
+        n_added = len([c for c in df.columns if c.startswith(("h_h2h_", "a_h2h_"))])
+        logger.info("Added %d extended H2H feature columns (windows=%s)", n_added, windows)
+
+    except Exception as exc:
+        logger.error("Failed to compute extended H2H features: %s", exc)
+
+    return df
+
+# ═══════════════════════════════════════════════════════════
+#  0k.  Transfer impact features (recent signings, squad turnover)
+# ═══════════════════════════════════════════════════════════
+
+
+def _add_transfer_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Add transfer/roster-change impact features.
+
+    Reads transfer data from ``transfers.csv`` (external dir) or fills
+    neutral placeholders when no data is available.
+
+    Transfer activity significantly impacts team performance:
+    - Many new signings → squad cohesion disruption (short-term negative)
+    - Key player sold → weakened squad
+    - Late-window arrivals → no preseason integration
+
+    Features added:
+        - ``{{h,a}}_signings_count`` — number of players transferred in (last window)
+        - ``{{h,a}}_departures_count`` — number of players transferred out
+        - ``{{h,a}}_net_spend_meur`` — net spend in millions of euros
+        - ``{{h,a}}_squad_churn_pct`` — % of squad changed (in+out)/squad size
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Match DataFrame indexed chronologically.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of **df** with transfer feature columns added.
+    """
+    if not config.extended_features.enabled:
+        return df
+
+    _transfers_csv = config.paths.external / "transfers.csv"
+    has_transfers = _transfers_csv.exists()
+
+    if not has_transfers:
+        if config.player_info.warn_missing:
+            logger.info(
+                "Transfer features: %s not found — using neutral placeholders. "
+                "Save transfer data to enable squad-churn features.",
+                _transfers_csv,
+            )
+        # Neutral placeholders: no transfers = no squad disruption
+        for prefix in ["h_", "a_"]:
+            for col in ["signings_count", "departures_count", "net_spend_meur", "squad_churn_pct"]:
+                df[f"{prefix}{col}"] = 0.0
+        return df
+
+    try:
+        transfer_df = pd.read_csv(_transfers_csv)
+        logger.info("Loaded %d transfer records from %s", len(transfer_df), _transfers_csv)
+
+        # Normalise columns
+        col_map = {}
+        for c in transfer_df.columns:
+            cl = c.lower().strip()
+            if cl in ("team", "club", "team_name"):
+                col_map[c] = "team"
+            elif cl in ("signings", "players_in", "incoming", "arrivals"):
+                col_map[c] = "signings_count"
+            elif cl in ("departures", "players_out", "outgoing", "sales"):
+                col_map[c] = "departures_count"
+            elif cl in ("net_spend", "net_spend_eur", "net_spend_meur", "balance"):
+                col_map[c] = "net_spend_meur"
+            elif cl in ("season", "window", "transfer_window", "year"):
+                col_map[c] = "season"
+            elif cl in ("squad_size", "squad", "total_players"):
+                col_map[c] = "squad_size"
+        transfer_df.rename(columns=col_map, inplace=True)
+
+        # Compute squad churn %
+        if "signings_count" in transfer_df.columns and "departures_count" in transfer_df.columns:
+            total_changes = (
+                transfer_df["signings_count"].fillna(0).astype(float)
+                + transfer_df["departures_count"].fillna(0).astype(float)
+            )
+            squad_size = transfer_df.get("squad_size", pd.Series(25.0, index=transfer_df.index)).fillna(25.0)
+            transfer_df["squad_churn_pct"] = (total_changes / squad_size).clip(0, 1)
+        else:
+            transfer_df["squad_churn_pct"] = 0.0
+
+        # Ensure all expected columns exist
+        for col in ["signings_count", "departures_count", "net_spend_meur", "squad_churn_pct"]:
+            if col not in transfer_df.columns:
+                transfer_df[col] = 0.0
+
+        if "team" not in transfer_df.columns:
+            logger.warning("Transfer data missing 'team' column — using placeholders")
+            for prefix in ["h_", "a_"]:
+                for col in ["signings_count", "departures_count", "net_spend_meur", "squad_churn_pct"]:
+                    df[f"{prefix}{col}"] = 0.0
+            return df
+
+        # Build per-team transfer lookup (most recent season for each team)
+        if "season" in transfer_df.columns:
+            transfer_df = transfer_df.sort_values("season")
+            latest_per_team = transfer_df.groupby("team").last().reset_index()
+        else:
+            latest_per_team = transfer_df
+
+        # Merge home and away team transfer data
+        for prefix, team_col in [("h_", "home_team"), ("a_", "away_team")]:
+            merge_data = latest_per_team[["team", "signings_count", "departures_count",
+                                          "net_spend_meur", "squad_churn_pct"]].copy()
+            merge_data.columns = ["team"] + [f"{prefix}{c}" for c in
+                                              ["signings_count", "departures_count",
+                                               "net_spend_meur", "squad_churn_pct"]]
+            df = df.merge(merge_data, left_on=team_col, right_on="team", how="left")
+            df.drop(columns=["team"], inplace=True, errors="ignore")
+
+        # Fill NaN placeholders for teams with no transfer data
+        for prefix in ["h_", "a_"]:
+            for col in ["signings_count", "departures_count", "net_spend_meur", "squad_churn_pct"]:
+                full_col = f"{prefix}{col}"
+                if full_col in df.columns:
+                    df[full_col] = df[full_col].fillna(0.0)
+
+        logger.info("Added transfer features from %s", _transfers_csv)
+
+    except Exception as exc:
+        logger.error("Failed to load transfer data: %s — using placeholders", exc)
+        for prefix in ["h_", "a_"]:
+            for col in ["signings_count", "departures_count", "net_spend_meur", "squad_churn_pct"]:
+                df[f"{prefix}{col}"] = 0.0
+
+    return df
+
+
+# ═══════════════════════════════════════════════════════════
+#  0j.  Extended form features (multi-context, multi-window)
+# ═══════════════════════════════════════════════════════════
+
+
+
+def _add_extended_form_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Add extended team form features using the TeamFormTransformer.
+
+    Provides richer rolling form features than the basic ``_add_rolling_features``:
+    - More metrics: points, wins, draws, losses, goals, xG, shots, cards
+    - Per-venue context: overall, home, away
+    - Multiple windows: 3, 5, 10, 20 matches
+    - Auto-detection of optional stat columns (xG, shots, possession, cards)
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Match DataFrame with required columns.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of **df** with extended form feature columns added.
+    """
+    if not config.extended_features.enabled or not config.extended_features.include_extended_form:
+        return df
+
+    try:
+        if not _EXTENDED_FEATURES_AVAILABLE:
+            logger.warning(
+                "Extended form features require the feature framework modules."
+            )
+            return df
+
+        windows = config.extended_features.form_windows
+        transformer = TeamFormTransformer(
+            windows=list(windows),
+            contexts=["overall", "home", "away"],
+            include_xg=True,
+            include_shots=True,
+            include_possession=False,
+            include_cards=False,
+            league_specific=True,
+            sort_by_date=False,
+        )
+        transformer.init()
+        df = transformer.transform(df)
+
+        n_added = len([c for c in df.columns if c.startswith(("h_overall_", "a_overall_",
+                                                               "h_home_", "a_home_",
+                                                               "h_away_", "a_away_"))
+                       and "_avg" in c])
+        logger.info("Added %d extended form feature columns (windows=%s)", n_added, windows)
+
+    except Exception as exc:
+        logger.error("Failed to compute extended form features: %s", exc)
+
     return df
 
 

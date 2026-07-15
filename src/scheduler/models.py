@@ -245,6 +245,32 @@ class ScheduleConfig:
                     parallel_group="maintenance",
                     dependencies=["backup_database"],
                 ),
+                # ── Daily pipeline tasks ─────────────────────
+                Task(
+                    name="daily_data_pipeline",
+                    description="Fetch new match data from all sources, clean & merge",
+                    timeout_seconds=600,
+                    retry_count=2,
+                ),
+                Task(
+                    name="daily_feature_computation",
+                    description="Compute all features via Feature Store",
+                    timeout_seconds=600,
+                    dependencies=["daily_data_pipeline"],
+                ),
+                Task(
+                    name="daily_model_retraining",
+                    description="Retrain models, validate, save best",
+                    timeout_seconds=1200,
+                    dependencies=["daily_feature_computation"],
+                    retry_count=1,
+                ),
+                Task(
+                    name="daily_predictions",
+                    description="Load fixtures, generate predictions with best model",
+                    timeout_seconds=300,
+                    dependencies=["daily_model_retraining"],
+                ),
             ],
         )
 

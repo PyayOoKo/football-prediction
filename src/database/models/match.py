@@ -31,6 +31,7 @@ from src.database.base import Base
 if TYPE_CHECKING:
     from src.database.models.betting_result import BettingResult
     from src.database.models.closing_line_value import ClosingLineValue
+    from src.database.models.closing_odds import ClosingOdds
     from src.database.models.competition import Competition
     from src.database.models.expected_value_bet import ExpectedValueBet
     from src.database.models.lineup import Lineup
@@ -185,6 +186,9 @@ class Match(Base):
     )
     closing_line_values: Mapped[list[ClosingLineValue]] = relationship(
         "ClosingLineValue", back_populates="match", cascade="all, delete-orphan"
+    )
+    closing_odds: Mapped[list[ClosingOdds]] = relationship(
+        "ClosingOdds", back_populates="match", cascade="all, delete-orphan"
     )
     betting_results: Mapped[list[BettingResult]] = relationship(
         "BettingResult", back_populates="match", cascade="all, delete-orphan"

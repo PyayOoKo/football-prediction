@@ -11,6 +11,7 @@ import json
 import logging
 import shutil
 import subprocess
+import subprocess
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -474,6 +475,199 @@ def backup_database(cfg: ScheduleConfig) -> TaskResult:
         result.error = str(exc)
 
     result.duration_seconds = time.perf_counter() - start
+    result.completed_at = datetime.now(timezone.utc)
+    return result
+
+
+
+# ══════════════════════════════════════════════════════════
+#  7. DAILY DATA PIPELINE
+# ══════════════════════════════════════════════════════════
+
+
+def daily_data_pipeline(cfg: ScheduleConfig) -> TaskResult:
+    """Fetch new match data from all configured sources, clean and merge.
+
+    Delegates to ``scripts/daily_data_pipeline.py``.
+    """
+    result = TaskResult(task_name="daily_data_pipeline", status=TaskStatus.RUNNING)
+    result.started_at = datetime.now(timezone.utc)
+    start = time.perf_counter()
+
+    try:
+        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "daily_data_pipeline.py"
+        if not script_path.exists():
+            result.output = "Script not found: scripts/daily_data_pipeline.py"
+            result.status = TaskStatus.SKIPPED
+            result.duration_seconds = time.perf_counter() - start
+            result.completed_at = datetime.now(timezone.utc)
+            return result
+
+        proc = subprocess.run(
+            [sys.executable, str(script_path), "--quiet"],
+            capture_output=True, text=True, check=False, timeout=600,
+        )
+
+        result.output = proc.stdout.strip()[:500] or "Completed"
+        result.duration_seconds = time.perf_counter() - start
+
+        if proc.returncode == 0:
+            result.status = TaskStatus.SUCCESS
+        else:
+            result.status = TaskStatus.FAILED
+            result.error = proc.stderr.strip()[:500] or f"Exit code {proc.returncode}"
+
+    except subprocess.TimeoutExpired:
+        result.status = TaskStatus.FAILED
+        result.error = "Timed out after 600s"
+    except Exception as exc:
+        result.status = TaskStatus.FAILED
+        result.error = str(exc)
+
+    result.completed_at = datetime.now(timezone.utc)
+    return result
+
+
+# ══════════════════════════════════════════════════════════
+#  8. DAILY FEATURE COMPUTATION
+# ══════════════════════════════════════════════════════════
+
+
+def daily_feature_computation(cfg: ScheduleConfig) -> TaskResult:
+    """Load new matches and compute all features via Feature Store.
+
+    Delegates to ``scripts/daily_feature_computation.py``.
+    """
+    result = TaskResult(task_name="daily_feature_computation", status=TaskStatus.RUNNING)
+    result.started_at = datetime.now(timezone.utc)
+    start = time.perf_counter()
+
+    try:
+        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "daily_feature_computation.py"
+        if not script_path.exists():
+            result.output = "Script not found: scripts/daily_feature_computation.py"
+            result.status = TaskStatus.SKIPPED
+            result.duration_seconds = time.perf_counter() - start
+            result.completed_at = datetime.now(timezone.utc)
+            return result
+
+        proc = subprocess.run(
+            [sys.executable, str(script_path), "--quiet"],
+            capture_output=True, text=True, check=False, timeout=600,
+        )
+
+        result.output = proc.stdout.strip()[:500] or "Completed"
+        result.duration_seconds = time.perf_counter() - start
+
+        if proc.returncode == 0:
+            result.status = TaskStatus.SUCCESS
+        else:
+            result.status = TaskStatus.FAILED
+            result.error = proc.stderr.strip()[:500] or f"Exit code {proc.returncode}"
+
+    except subprocess.TimeoutExpired:
+        result.status = TaskStatus.FAILED
+        result.error = "Timed out after 600s"
+    except Exception as exc:
+        result.status = TaskStatus.FAILED
+        result.error = str(exc)
+
+    result.completed_at = datetime.now(timezone.utc)
+    return result
+
+
+# ══════════════════════════════════════════════════════════
+#  9. DAILY MODEL RETRAINING
+# ══════════════════════════════════════════════════════════
+
+
+def daily_model_retraining(cfg: ScheduleConfig) -> TaskResult:
+    """Check for new data, retrain models, validate, and save the best.
+
+    Delegates to ``scripts/daily_model_retraining.py``.
+    """
+    result = TaskResult(task_name="daily_model_retraining", status=TaskStatus.RUNNING)
+    result.started_at = datetime.now(timezone.utc)
+    start = time.perf_counter()
+
+    try:
+        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "daily_model_retraining.py"
+        if not script_path.exists():
+            result.output = "Script not found: scripts/daily_model_retraining.py"
+            result.status = TaskStatus.SKIPPED
+            result.duration_seconds = time.perf_counter() - start
+            result.completed_at = datetime.now(timezone.utc)
+            return result
+
+        proc = subprocess.run(
+            [sys.executable, str(script_path), "--quiet"],
+            capture_output=True, text=True, check=False, timeout=1200,
+        )
+
+        result.output = proc.stdout.strip()[:500] or "Completed"
+        result.duration_seconds = time.perf_counter() - start
+
+        if proc.returncode == 0:
+            result.status = TaskStatus.SUCCESS
+        else:
+            result.status = TaskStatus.FAILED
+            result.error = proc.stderr.strip()[:500] or f"Exit code {proc.returncode}"
+
+    except subprocess.TimeoutExpired:
+        result.status = TaskStatus.FAILED
+        result.error = "Timed out after 1200s"
+    except Exception as exc:
+        result.status = TaskStatus.FAILED
+        result.error = str(exc)
+
+    result.completed_at = datetime.now(timezone.utc)
+    return result
+
+
+# ══════════════════════════════════════════════════════════
+#  10. DAILY PREDICTIONS
+# ══════════════════════════════════════════════════════════
+
+
+def daily_predictions(cfg: ScheduleConfig) -> TaskResult:
+    """Load upcoming fixtures and generate predictions using best model.
+
+    Delegates to ``scripts/daily_predictions.py``.
+    """
+    result = TaskResult(task_name="daily_predictions", status=TaskStatus.RUNNING)
+    result.started_at = datetime.now(timezone.utc)
+    start = time.perf_counter()
+
+    try:
+        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "daily_predictions.py"
+        if not script_path.exists():
+            result.output = "Script not found: scripts/daily_predictions.py"
+            result.status = TaskStatus.SKIPPED
+            result.duration_seconds = time.perf_counter() - start
+            result.completed_at = datetime.now(timezone.utc)
+            return result
+
+        proc = subprocess.run(
+            [sys.executable, str(script_path), "--quiet"],
+            capture_output=True, text=True, check=False, timeout=300,
+        )
+
+        result.output = proc.stdout.strip()[:500] or "Completed"
+        result.duration_seconds = time.perf_counter() - start
+
+        if proc.returncode == 0:
+            result.status = TaskStatus.SUCCESS
+        else:
+            result.status = TaskStatus.FAILED
+            result.error = proc.stderr.strip()[:500] or f"Exit code {proc.returncode}"
+
+    except subprocess.TimeoutExpired:
+        result.status = TaskStatus.FAILED
+        result.error = "Timed out after 300s"
+    except Exception as exc:
+        result.status = TaskStatus.FAILED
+        result.error = str(exc)
+
     result.completed_at = datetime.now(timezone.utc)
     return result
 

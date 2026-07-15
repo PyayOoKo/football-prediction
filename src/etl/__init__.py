@@ -41,6 +41,14 @@ from src.etl.transform import DataTransformer
 from src.etl.store import DataStore, DatabaseStore, FileStore
 from src.etl.tracker import JobTracker, JobState
 from src.etl.progress import ProgressReporter
+from src.etl.extractors import (
+    TransferExtractor,
+    WeatherExtractor,
+    RefereeExtractor,
+    StatsBombExtractor,
+    EXTRACTOR_REGISTRY,
+    get_extractor,
+)
 
 __all__ = [
     "ETLConfig",
@@ -63,4 +71,10 @@ __all__ = [
     "JobTracker",
     "JobState",
     "ProgressReporter",
+    "TransferExtractor",
+    "WeatherExtractor",
+    "RefereeExtractor",
+    "StatsBombExtractor",
+    "EXTRACTOR_REGISTRY",
+    "get_extractor",
 ]

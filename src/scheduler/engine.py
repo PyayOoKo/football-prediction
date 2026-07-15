@@ -50,6 +50,10 @@ class TaskEngine:
         from src.scheduler.tasks import (
             backup_database,
             clean_data,
+            daily_data_pipeline,
+            daily_feature_computation,
+            daily_model_retraining,
+            daily_predictions,
             download_fixtures,
             generate_logs,
             update_database,
@@ -62,6 +66,10 @@ class TaskEngine:
         self.register("update_database", update_database)
         self.register("backup_database", backup_database)
         self.register("generate_logs", generate_logs)
+        self.register("daily_data_pipeline", daily_data_pipeline)
+        self.register("daily_feature_computation", daily_feature_computation)
+        self.register("daily_model_retraining", daily_model_retraining)
+        self.register("daily_predictions", daily_predictions)
 
         # Register any custom tasks
         if task_map:

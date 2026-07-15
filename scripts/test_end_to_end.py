@@ -233,7 +233,7 @@ def main() -> int:
     print("=" * 70)
     for step, dur in timings.items():
         print(f"  {step:<20s}: {dur:>7.2f}s")
-    print(f"  {'─' * 28}")
+    print(f"  {'-' * 28}")
     print(f"  {'total':<20s}: {total_time:>7.2f}s")
     print(f"\n  Model:       logistic_regression")
     print(f"  Test acc:    {metrics.get('accuracy', float('nan')):.2%}")

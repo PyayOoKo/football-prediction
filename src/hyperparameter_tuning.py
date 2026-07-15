@@ -46,6 +46,13 @@ from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from config import HyperTuneConfig, config
 from src.time_series_cv import create_time_series_folds
 
+try:
+    import optuna
+    _HAS_OPTUNA = True
+except ImportError:
+    _HAS_OPTUNA = False
+    optuna = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
 
 # ── Model type identifiers ──────────────────────────────
@@ -450,6 +457,86 @@ def _evaluate(
 
 
 # ═══════════════════════════════════════════════════════════
+#  Standalone convenience function
+# ═══════════════════════════════════════════════════════════
+
+
+def tune_hyperparameters(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    model_type: ModelType = "xgboost",
+    n_folds: int = 5,
+    n_iter: int = 50,
+    verbose: bool = False,
+) -> dict[str, Any]:
+    """Run hyper-parameter search for a single model type using time-series CV.
+
+    Convenience wrapper around the private ``_optimise_*`` functions.
+    All search procedures use ``TimeSeriesSplit`` (expanding window) to
+    prevent future information from leaking into training folds.
+
+    Parameters
+    ----------
+    X_train : pd.DataFrame
+        Training feature matrix (chronologically sorted).
+    y_train : pd.Series
+        Training targets.
+    model_type : ModelType
+        One of ``logistic_regression``, ``random_forest``, ``xgboost``,
+        ``lightgbm``.
+    n_folds : int
+        Number of time-series CV folds (default 5).
+    n_iter : int
+        Number of random search iterations (only used for RF, XGB, LGBM;
+        LR uses exact GridSearch).
+    verbose : bool
+        Whether to print progress (default False).
+
+    Returns
+    -------
+    dict[str, Any]
+        Keys: ``best_params`` (dict of optimal hyper-parameters),
+        ``cv_log_loss`` (best CV log-loss).
+
+    Example
+    -------
+    >>> from src.hyperparameter_tuning import tune_hyperparameters
+    >>> best = tune_hyperparameters(X_train, y_train, model_type="xgboost")
+    >>> print(best["best_params"])
+    {"n_estimators": 500, "max_depth": 6, "learning_rate": 0.05, ...}
+    """
+    _check_model_type(model_type)
+
+    optim_fn = {
+        "logistic_regression": lambda: _optimise_lr(X_train, y_train, n_folds, verbose),
+        "random_forest": lambda: _optimise_rf(X_train, y_train, n_folds, n_iter, verbose),
+        "xgboost": lambda: _optimise_xgb(X_train, y_train, n_folds, n_iter, verbose),
+        "lightgbm": lambda: _optimise_lgbm(X_train, y_train, n_folds, n_iter, verbose),
+    }
+
+    if verbose:
+        print(f"  Tuning {model_type}...")
+    best_params, cv_loss = optim_fn[model_type]()
+    if verbose:
+        print(f"    Best CV log-loss: {cv_loss:.4f}")
+        print(f"    Best params: {best_params}")
+
+    return {"best_params": best_params, "cv_log_loss": cv_loss}
+
+
+# ═══════════════════════════════════════════════════════════
+#  Validation
+# ═══════════════════════════════════════════════════════════
+
+
+def _check_model_type(model_type: str) -> None:
+    """Raise ValueError if model_type is unknown."""
+    valid = {"logistic_regression", "random_forest", "xgboost", "lightgbm"}
+    if model_type not in valid:
+        raise ValueError(f"Unknown model_type '{model_type}'. Must be one of {valid}")
+
+
+# ═══════════════════════════════════════════════════════════
 #  Main orchestrator
 # ═══════════════════════════════════════════════════════════
 
@@ -841,3 +928,207 @@ def _get_params(model: Any) -> dict[str, Any]:
         return model.get_params()
     except Exception:
         return {}
+
+
+# ═══════════════════════════════════════════════════════════
+#  Optuna Tuner — Bayesian optimisation
+# ═══════════════════════════════════════════════════════════
+
+
+class OptunaTuner:
+    """Bayesian hyper-parameter optimisation via Optuna.
+
+    Converges to good parameters faster than RandomizedSearchCV,
+    especially for large search spaces (XGBoost, LightGBM, CatBoost).
+
+    Uses TPE (Tree-structured Parzen Estimator) sampler with
+    ``Hyperband`` pruner for early stopping of poor trials.
+
+    Parameters
+    ----------
+    n_trials : int
+        Number of Optuna trials (default 100). Higher = better params,
+        slower search.
+    timeout_seconds : int | None
+        Time limit for the search (default None = no limit).
+    cv_folds : int
+        Time-series CV folds (default 5).
+    return_study : bool
+        Return the full Optuna study object (default False).
+    seed : int
+        Random seed (default 42).
+    """
+
+    def __init__(
+        self,
+        n_trials: int = 100,
+        timeout_seconds: int | None = None,
+        cv_folds: int = 5,
+        return_study: bool = False,
+        seed: int = 42,
+    ) -> None:
+        self.n_trials = n_trials
+        self.timeout_seconds = timeout_seconds
+        self.cv_folds = cv_folds
+        self.return_study = return_study
+        self.seed = seed
+
+        if not _HAS_OPTUNA:
+            logger.warning(
+                "Optuna not installed. Install with: pip install optuna\n"
+                "Falling back to RandomizedSearchCV."
+            )
+
+    def tune(
+        self,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        model_type: str = "xgboost",
+        verbose: bool = False,
+    ) -> dict[str, Any]:
+        """Run Bayesian hyper-parameter search for a given model type.
+
+        Parameters
+        ----------
+        X_train, y_train : training data.
+        model_type : one of ``xgboost``, ``lightgbm``, ``random_forest``,
+            ``logistic_regression``, ``catboost``.
+        verbose : print progress.
+
+        Returns
+        -------
+        dict with keys: ``best_params``, ``best_value`` (CV log-loss),
+            ``n_trials``, ``study`` (if return_study=True).
+        """
+        if not _HAS_OPTUNA:
+            # Fallback to regular scikit-learn tuner (already in scope)
+            logger.info("Optuna not available — falling back to RandomizedSearchCV")
+            result = tune_hyperparameters(
+                X_train, y_train,
+                model_type=model_type,  # type: ignore[arg-type]
+                n_folds=self.cv_folds,
+                n_iter=self.n_trials,
+                verbose=verbose,
+            )
+            return {
+                "best_params": result["best_params"],
+                "best_value": result["cv_log_loss"],
+                "n_trials": self.n_trials,
+                "method": "random_search_fallback",
+            }
+
+        ts_cv = create_time_series_folds(n_splits=self.cv_folds)
+
+        def objective(trial: optuna.Trial) -> float:
+            """Optuna objective: return validation log-loss for given params."""
+            params = self._suggest_params(trial, model_type)
+            model = _build_with_params(model_type, params)
+            losses: list[float] = []
+            for train_idx, val_idx in ts_cv.split(X_train, y_train):
+                X_tr, X_vl = X_train.iloc[train_idx], X_train.iloc[val_idx]
+                y_tr, y_vl = y_train.iloc[train_idx], y_train.iloc[val_idx]
+                try:
+                    if _needs_impute(model_type):
+                        model.fit(_impute(X_tr), y_tr)
+                        probs = model.predict_proba(_impute(X_vl))
+                    else:
+                        model.fit(X_tr, y_tr)
+                        probs = model.predict_proba(X_vl)
+                    losses.append(float(log_loss(y_vl, probs)))
+                except Exception:
+                    return 1.0  # Penalty for failed trial
+            return float(np.mean(losses)) if losses else 1.0
+
+        logger.info(
+            "Optuna tuning %s — %d trials, %d-fold CV",
+            model_type, self.n_trials, self.cv_folds,
+        )
+
+        sampler = optuna.samplers.TPESampler(seed=self.seed)
+        pruner = optuna.pruners.HyperbandPruner(
+            min_resource=1, max_resource=self.n_trials, reduction_factor=3,
+        )
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=sampler,
+            pruner=pruner,
+            study_name=f"tune_{model_type}",
+        )
+        study.optimize(
+            objective,
+            n_trials=self.n_trials,
+            timeout=self.timeout_seconds,
+            show_progress_bar=verbose,
+        )
+
+        if verbose:
+            print(f"\n  Optuna complete — best log-loss: {study.best_value:.4f}")
+            print(f"  Best params: {study.best_params}")
+
+        result: dict[str, Any] = {
+            "best_params": study.best_params,
+            "best_value": study.best_value,
+            "n_trials": len(study.trials),
+            "method": "optuna_tpe",
+        }
+        if self.return_study:
+            result["study"] = study
+
+        return result
+
+    @staticmethod
+    def _suggest_params(trial: optuna.Trial, model_type: str) -> dict[str, Any]:
+        """Suggest hyper-parameters for a given model type."""
+        if model_type == "xgboost":
+            return {
+                "n_estimators": trial.suggest_int("n_estimators", 100, 1000, step=50),
+                "max_depth": trial.suggest_int("max_depth", 3, 12),
+                "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.3, log=True),
+                "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+                "reg_lambda": trial.suggest_float("reg_lambda", 0.001, 10.0, log=True),
+                "reg_alpha": trial.suggest_float("reg_alpha", 0.0, 1.0),
+                "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+                "gamma": trial.suggest_float("gamma", 0.0, 0.5),
+            }
+        elif model_type == "lightgbm":
+            return {
+                "n_estimators": trial.suggest_int("n_estimators", 100, 800, step=50),
+                "max_depth": trial.suggest_int("max_depth", 3, 12),
+                "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.3, log=True),
+                "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+                "reg_lambda": trial.suggest_float("reg_lambda", 0.001, 10.0, log=True),
+                "reg_alpha": trial.suggest_float("reg_alpha", 0.0, 1.0),
+                "num_leaves": trial.suggest_int("num_leaves", 15, 255, step=8),
+                "min_child_samples": trial.suggest_int("min_child_samples", 5, 100),
+                "min_child_weight": trial.suggest_float("min_child_weight", 0.001, 10.0, log=True),
+            }
+        elif model_type == "random_forest":
+            return {
+                "n_estimators": trial.suggest_int("n_estimators", 100, 800, step=50),
+                "max_depth": trial.suggest_int("max_depth", 4, 20),
+                "min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 20),
+                "min_samples_split": trial.suggest_int("min_samples_split", 2, 10),
+                "max_features": trial.suggest_categorical(
+                    "max_features", ["sqrt", "log2", None]
+                ),
+            }
+        elif model_type == "logistic_regression":
+            return {
+                "C": trial.suggest_float("C", 0.01, 10.0, log=True),
+                "solver": trial.suggest_categorical(
+                    "solver", ["lbfgs", "liblinear", "newton-cg"]
+                ),
+                "max_iter": trial.suggest_int("max_iter", 1000, 5000, step=500),
+            }
+        elif model_type == "catboost":
+            return {
+                "iterations": trial.suggest_int("iterations", 100, 800, step=50),
+                "depth": trial.suggest_int("depth", 3, 10),
+                "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.3, log=True),
+                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 0.001, 10.0, log=True),
+                "border_count": trial.suggest_int("border_count", 32, 255),
+            }
+        else:
+            raise ValueError(f"Unsupported model_type: {model_type}")
