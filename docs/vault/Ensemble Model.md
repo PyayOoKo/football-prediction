@@ -61,14 +61,14 @@ graph LR
 
 | Model | Type | File | Speed | When to Use |
 |-------|------|------|-------|-------------|
-| **XGBoost** | Gradient boosted trees | `src/train.py` | Fast | Default / primary |
+| **LightGBM** | Leaf-wise GBDT | `src/train.py` | Fast | **Default** (best backtest: +12.4% ROI) |
 | **Logistic Regression** | Linear classifier | `src/train.py` | Fastest | Baseline / calibration |
 | **Poisson** | Goal-based generative | `src/poisson_model.py` | Medium | Goals prediction |
 | **Dixon-Coles** | MLE with tau correction | `src/dixon_coles.py` | Slow | Small datasets |
 | **Random Forest** | Bagged trees | `src/train.py` | Medium | Feature importance |
-| **LightGBM** | Leaf-wise GBDT | `src/train.py` | Fast | Large data |
+| **XGBoost** | Gradient boosted trees | `src/train.py` | Fast | Legacy / fallback (-11.2% ROI) |
 | **Neural Network** | PyTorch MLP | `src/train.py` | Slow | Research |
-| **Ensemble (default)** | Weighted average | `src/ensemble.py` | Fast ✓ | **Default** |
+| **Ensemble** | Weighted average | `src/ensemble.py` | Fast ✓ | Multi-model blending |
 
 ---
 

@@ -163,12 +163,19 @@ class TrainConfig:
         "xgboost",
         "lightgbm",
         "neural_network",
-    ] = "xgboost"
+    ] = "lightgbm"
+
+    # Logistic Regression
+    C: float = 1.0
+    solver: str = "lbfgs"
+    max_iter: int = 2000
 
     # Random forest / tree-specific
     n_estimators: int = 300
     max_depth: int = 8
     min_samples_leaf: int = 10
+    min_samples_split: int = 2
+    max_features: str | None = "sqrt"
 
     # XGBoost / LightGBM
     learning_rate: float = 0.05
@@ -176,6 +183,10 @@ class TrainConfig:
     colsample_bytree: float = 0.8
     reg_lambda: float = 1.0
     reg_alpha: float = 0.1
+    gamma: float = 0.0
+    min_child_weight: float = 1.0
+    num_leaves: int = 31
+    min_child_samples: int = 10
 
     # Neural-network specific
     hidden_layers: tuple[int, ...] = (128, 64, 32)
@@ -253,8 +264,12 @@ class ValueBetConfig:
     # Fraction of full Kelly to use (0.25 = 25% Kelly — conservative)
     kelly_fraction: float = 0.25
 
-    # Minimum EV threshold to flag as a value bet
-    min_ev: float = 0.0
+    # Minimum EV threshold to flag as a value bet (raised from 0.0 to 0.05
+    # so only significant edges are bet on — avoids low-confidence bets)
+    min_ev: float = 0.05
+
+    # Maximum single stake as fraction of bankroll (cap to avoid over-betting)
+    max_stake_pct: float = 0.10
 
 
 # ── Odds Processing ────────────────────────────────────
@@ -503,6 +518,86 @@ class BacktestConfig:
 
 
 # ── Evaluation ──────────────────────────────────────────
+# ── Weather Features (data collection) ────────────
+@dataclass
+class WeatherCollectorConfig:
+    """Settings for the OpenWeatherMap API collector."""
+    enabled: bool = False
+    api_key_env: str = "OPENWEATHER_API_KEY"
+    cache_ttl: int = 86400  # 24 hours
+    request_delay: float = 1.0  # seconds between calls (free tier limit)
+    output_file: str = "weather.csv"
+
+
+# ── Referee Data Collection ───────────────────────
+@dataclass
+class RefereeCollectorConfig:
+    """Settings for the referee statistics collector."""
+    enabled: bool = False
+    delay: float = 2.0  # polite delay between pages
+    output_file: str = "referees.csv"
+
+
+# ── Transfer Data Collection ──────────────────────
+@dataclass
+class TransferCollectorConfig:
+    """Settings for the Transfermarkt transfer scraper."""
+    enabled: bool = False
+    delay: float = 1.5
+    output_file: str = "transfers.csv"
+    max_windows: int = 5  # max transfer windows per team
+
+
+# ── StatsBomb Data Collection ─────────────────────
+@dataclass
+class StatsBombCollectorConfig:
+    """Settings for the StatsBomb open data reader."""
+    enabled: bool = False
+    repo_url: str = "https://raw.githubusercontent.com/statsbomb/open-data/master/data"
+    competitions: tuple[str, ...] = ("World Cup", "Champions League", "Premier League")
+    output_dir: str = "data/scrapers/statsbomb"
+
+
+# ── Weather Features ──────────────────────────────
+@dataclass
+class WeatherConfig:
+    """Settings for weather-based features."""
+    enabled: bool = False
+    default_temp: float = 15.0
+    placeholder_value: float = 0.0
+    warn_missing: bool = True
+
+
+# ── Referee Features ──────────────────────────────
+@dataclass
+class RefereeConfig:
+    """Settings for referee-based features."""
+    enabled: bool = False
+    window: int = 20
+    placeholder_value: float = 0.0
+    warn_missing: bool = True
+
+
+# ── Schedule / Congestion Features ────────────────
+@dataclass
+class ScheduleConfig:
+    """Settings for schedule/congestion features (travel, fatigue, rest)."""
+    enabled: bool = True
+    include_travel_distance: bool = True
+    include_fatigue: bool = True
+
+
+# ── Extended Feature Flags ────────────────────────
+@dataclass
+class ExtendedFeaturesConfig:
+    """Toggle advanced/extended feature sets."""
+    enabled: bool = False
+    include_extended_h2h: bool = True
+    include_extended_form: bool = True
+    h2h_windows: tuple[int, ...] = (3, 5, 10)
+    form_windows: tuple[int, ...] = (3, 5, 10, 20)
+
+
 @dataclass
 class EvalConfig:
     """Evaluation metrics and visualisation settings."""
@@ -514,6 +609,7 @@ class EvalConfig:
         "f1",
         "roc_auc",
         "log_loss",
+        "brier_score",
     )
     plot_confusion_matrix: bool = True
     plot_feature_importance: bool = True
@@ -592,6 +688,14 @@ class Config:
     confidence: ConfidenceConfig = field(default_factory=ConfidenceConfig)
     backtesting: BacktestConfig = field(default_factory=BacktestConfig)
     eval: EvalConfig = field(default_factory=EvalConfig)
+    weather_collector: WeatherCollectorConfig = field(default_factory=WeatherCollectorConfig)
+    referee_collector: RefereeCollectorConfig = field(default_factory=RefereeCollectorConfig)
+    transfer_collector: TransferCollectorConfig = field(default_factory=TransferCollectorConfig)
+    statsbomb_collector: StatsBombCollectorConfig = field(default_factory=StatsBombCollectorConfig)
+    weather: WeatherConfig = field(default_factory=WeatherConfig)
+    referee: RefereeConfig = field(default_factory=RefereeConfig)
+    schedule: ScheduleConfig = field(default_factory=ScheduleConfig)
+    extended_features: ExtendedFeaturesConfig = field(default_factory=ExtendedFeaturesConfig)
 
     # Global toggle
     verbose: bool = True

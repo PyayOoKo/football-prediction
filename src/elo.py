@@ -108,6 +108,7 @@ class EloSystem:
         regress_factor: float = 1 / 3,
         use_goal_margin: bool = True,
         max_goal_margin: int = 5,
+        draw_k: float = 0.25,
     ) -> None:
         self.k = k
         self.home_advantage = home_advantage
@@ -116,6 +117,7 @@ class EloSystem:
         self.regress_factor = regress_factor
         self.use_goal_margin = use_goal_margin
         self.max_goal_margin = max_goal_margin
+        self.draw_k = draw_k
 
         # Internal rating store {team_name: rating}
         self._ratings: dict[str, float] = {}
@@ -463,6 +465,227 @@ class EloSystem:
         return df
 
 
+    # ── Probability conversion ───────────────────────────────
+
+    def _expected_to_probs(self, E_home: float) -> tuple[float, float, float]:
+        """Convert Elo expected score to 3-way outcome probabilities.
+
+        Parameters
+        ----------
+        E_home : float
+            Home team's expected score from ``expected_score()`` (0 to 1).
+
+        Returns
+        -------
+        tuple[float, float, float]
+            ``(away_win_prob, draw_prob, home_win_prob)``
+        """
+        E_away = 1.0 - E_home
+        diff = abs(E_home - E_away)
+        p_draw = self.draw_k * (1.0 - diff)
+        p_home = E_home - p_draw / 2.0
+        p_away = 1.0 - E_home - p_draw / 2.0
+        return p_away, p_draw, p_home
+
+    # ── sklearn-compatible predict_proba ─────────────────────
+
+    def predict_proba(
+        self,
+        df: pd.DataFrame,
+        home_team_col: str = "home_team",
+        away_team_col: str = "away_team",
+    ) -> np.ndarray:
+        """Return match outcome probabilities as a (n, 3) array.
+
+        Columns are ``[away_win_prob, draw_prob, home_win_prob]``,
+        compatible with ``sklearn.metrics`` functions.
+
+        **Does not mutate Elo ratings** — uses current ratings read-only.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Match data with home/away team columns.
+        home_team_col, away_team_col : str
+            Column names for team names.
+
+        Returns
+        -------
+        np.ndarray
+            Shape ``(n, 3)``, columns: ``[away, draw, home]``.
+        """
+        n = len(df)
+        probs = np.zeros((n, 3))
+        home_arr = df[home_team_col].values
+        away_arr = df[away_team_col].values
+
+        for i in range(n):
+            home = home_arr[i]
+            away = away_arr[i]
+
+            R_home = self._ratings.get(home, float(self.initial_rating))
+            R_away = self._ratings.get(away, float(self.initial_rating))
+
+            E_home = self.expected_score(R_home, R_away)
+            p_away, p_draw, p_home = self._expected_to_probs(E_home)
+            probs[i] = [p_away, p_draw, p_home]
+
+        return probs
+
+    # ── Batch prediction ────────────────────────────────────
+
+    def predict_matches(
+        self,
+        df: pd.DataFrame,
+        home_team_col: str = "home_team",
+        away_team_col: str = "away_team",
+    ) -> pd.DataFrame:
+        """Predict outcomes for all fixtures in a DataFrame (read-only).
+
+        Uses current Elo ratings without updating them. Returns a DataFrame
+        with probability columns matching the Poisson/DC convention.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Fixtures with home_team, away_team columns.
+        home_team_col, away_team_col : str
+            Column names.
+
+        Returns
+        -------
+        pd.DataFrame
+            One row per match with home/away win prob, draw prob, BTTS, O/U.
+        """
+        n = len(df)
+        records: list[dict[str, Any]] = []
+
+        for i in range(n):
+            home = df[home_team_col].iloc[i]
+            away = df[away_team_col].iloc[i]
+
+            R_home = self._ratings.get(home, float(self.initial_rating))
+            R_away = self._ratings.get(away, float(self.initial_rating))
+            elo_diff = R_home - R_away
+
+            E_home = self.expected_score(R_home, R_away)
+            p_away, p_draw, p_home = self._expected_to_probs(E_home)
+
+            # Estimate expected goals from Elo difference (approximate)
+            # Higher Elo difference → higher expected goals for the stronger team
+            exp_home_goals = 1.0 + (elo_diff / 400.0)  # rough approximation
+            exp_away_goals = 2.0 - exp_home_goals
+            if exp_away_goals < 0.1:
+                exp_away_goals = 0.1
+
+            # BTTS probability (rough estimate from expected goals)
+            p_h0 = np.exp(-exp_home_goals)
+            p_a0 = np.exp(-exp_away_goals)
+            btts_prob = 1.0 - p_h0 - p_a0 + (p_h0 * p_a0)
+
+            # Over 2.5 (rough estimate)
+            over_prob = 1.0 - p_h0 * p_a0  # approximation
+
+            records.append({
+                "home_team": home,
+                "away_team": away,
+                "expected_home_goals": round(exp_home_goals, 4),
+                "expected_away_goals": round(exp_away_goals, 4),
+                "home_win_prob": round(p_home, 4),
+                "draw_prob": round(p_draw, 4),
+                "away_win_prob": round(p_away, 4),
+                "Home_Elo": round(R_home, 1),
+                "Away_Elo": round(R_away, 1),
+                "Elo_Difference": round(elo_diff, 1),
+                "over_2_5_prob": round(over_prob, 4),
+                "under_2_5_prob": round(1.0 - over_prob, 4),
+                "btts_prob": round(btts_prob, 4),
+                "btts_no_prob": round(1.0 - btts_prob, 4),
+            })
+
+        return pd.DataFrame(records)
+
+    # ── Evaluation ─────────────────────────────────────────
+
+    def evaluate(
+        self,
+        df_test: pd.DataFrame,
+        home_team_col: str = "home_team",
+        away_team_col: str = "away_team",
+        home_goals_col: str = "home_goals",
+        away_goals_col: str = "away_goals",
+        over_under_threshold: float = 2.5,
+    ) -> dict[str, Any]:
+        """Evaluate Elo model on test data (read-only).
+
+        Uses current ratings to predict test matches, then computes:
+        - Brier score, log loss, accuracy, BTTS, Over/Under.
+
+        Parameters
+        ----------
+        df_test : pd.DataFrame
+            Test match data with actual results.
+        over_under_threshold : float
+            Threshold for Over/Under (default 2.5).
+
+        Returns
+        -------
+        dict[str, Any]
+            Dictionary of metric names to values.
+        """
+        from sklearn.metrics import log_loss as sk_log_loss
+
+        actual_hg = df_test[home_goals_col].values.astype(float)
+        actual_ag = df_test[away_goals_col].values.astype(float)
+        actual_result = df_test["result"].map({"A": 0, "D": 1, "H": 2}).values
+
+        probs = self.predict_proba(df_test, home_team_col=home_team_col, away_team_col=away_team_col)
+        pred_labels = np.argmax(probs, axis=1)
+
+        # 1X2 accuracy
+        accuracy = float(np.mean(pred_labels == actual_result))
+
+        # Log loss
+        ll = sk_log_loss(actual_result, probs)
+
+        # Multi-class Brier
+        y_onehot = np.zeros((len(actual_result), 3))
+        for i, v in enumerate(actual_result):
+            if not np.isnan(v) and 0 <= v <= 2:
+                y_onehot[i, int(v)] = 1
+        brier = float(np.mean(np.sum((probs - y_onehot) ** 2, axis=1)))
+
+        # BTTS — use Elo-derived probabilities from predict_matches
+        preds_df = self.predict_matches(df_test, home_team_col=home_team_col, away_team_col=away_team_col)
+        actual_btts = ((actual_hg > 0) & (actual_ag > 0)).astype(float)
+        pred_btts_probs = preds_df["btts_prob"].values
+        pred_btts = (pred_btts_probs > 0.5).astype(float)
+        btts_accuracy = float(np.mean(pred_btts == actual_btts)) if len(actual_btts) > 0 else 0.0
+        btts_brier = float(np.mean((pred_btts_probs - actual_btts) ** 2)) if len(actual_btts) > 0 else 0.0
+
+        # Over/Under
+        actual_total = actual_hg + actual_ag
+        actual_ou = (actual_total > over_under_threshold).astype(float)
+        ou_col = f"over_{over_under_threshold:.1f}_prob".replace(".", "_")
+        pred_ou_probs = preds_df.get(ou_col, pd.Series([0.5] * len(df_test))).values
+        pred_ou = (pred_ou_probs > 0.5).astype(float)
+        ou_accuracy = float(np.mean(pred_ou == actual_ou)) if len(actual_ou) > 0 else 0.0
+        ou_brier = float(np.mean((pred_ou_probs - actual_ou) ** 2)) if len(actual_ou) > 0 else 0.0
+        ou_key = f"over_under_{over_under_threshold:.1f}_accuracy".replace(".", "_")
+        ou_brier_key = f"over_under_{over_under_threshold:.1f}_brier".replace(".", "_")
+
+        return {
+            "accuracy": round(accuracy, 4),
+            "log_loss": round(ll, 4),
+            "brier_score": round(brier, 4),
+            "btts_accuracy": round(btts_accuracy, 4),
+            "btts_brier": round(btts_brier, 4),
+            ou_key: round(ou_accuracy, 4),
+            ou_brier_key: round(ou_brier, 4),
+            "n_test": len(df_test),
+        }
+
+
 # ═══════════════════════════════════════════════════════════
 #  Convenience function (for feature_engineering integration)
 # ═══════════════════════════════════════════════════════════
@@ -477,6 +700,7 @@ def add_elo_features(
     regress_factor: float = 1 / 3,
     use_goal_margin: bool = True,
     max_goal_margin: int = 5,
+    draw_k: float = 0.25,
     home_col: str = "home_team",
     away_col: str = "away_team",
     result_col: str = "result",
@@ -548,6 +772,7 @@ def add_elo_features(
         regress_factor=regress_factor,
         use_goal_margin=use_goal_margin,
         max_goal_margin=max_goal_margin,
+        draw_k=draw_k,
     )
 
     df_result = elo.process_matches(
@@ -567,10 +792,11 @@ def add_elo_features(
         set(df[home_col].unique()) | set(df[away_col].unique())
     )
     logger.info(
-        "Elo features added: %d teams, K=%d, home_adv=%d, host_nations=%s",
+        "Elo features added: %d teams, K=%d, home_adv=%d, draw_k=%.2f, host_nations=%s",
         n_teams,
         k,
         home_advantage,
+        draw_k,
         bool(host_nations),
     )
 

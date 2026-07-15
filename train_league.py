@@ -17,7 +17,7 @@ import pandas as pd
 from config import config
 
 # ── Configure for league data ──────────────────────────
-config.train.model_type = "xgboost"
+config.train.model_type = "lightgbm"
 config.features.include_h2h = True
 config.features.include_league_position = True
 config.elo.home_advantage = 100
@@ -25,14 +25,16 @@ config.elo.k = 32
 config.elo.regress_to_mean = True
 config.odds.compute_consensus = True
 
-# Good default params (tuned on large football datasets - reduced for speed)
-config.train.n_estimators = 200
-config.train.max_depth = 5
+# Good default params (tuned on large datasets — LightGBM, best backtest performer)
+config.train.n_estimators = 300
+config.train.max_depth = 8
 config.train.learning_rate = 0.05
-config.train.subsample = 0.7
-config.train.colsample_bytree = 0.7
+config.train.subsample = 0.8
+config.train.colsample_bytree = 0.8
 config.train.reg_lambda = 2.0
 config.train.reg_alpha = 0.1
+config.train.num_leaves = 31
+config.train.min_child_samples = 10
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_PATH = PROJECT_ROOT / "data" / "processed" / "results_clean.csv"
@@ -73,32 +75,23 @@ def main() -> int:
           f"Val: {len(splits['X_val']):,}  |  "
           f"Test: {len(splits['X_test']):,}")
 
-    # ── 4. Train XGBoost (no tuning — using good defaults) ──
-    import xgboost as xgb
+    # ── 4. Train model (LightGBM, best backtest performer) ──
 
-    print(f"\n  Training XGBoost (n_estimators={config.train.n_estimators}, "
+    print(f"\n  Training LightGBM (n_estimators={config.train.n_estimators}, "
           f"max_depth={config.train.max_depth}, lr={config.train.learning_rate}) ...")
 
-    model = xgb.XGBClassifier(
-        objective="multi:softprob",
-        eval_metric="mlogloss",
-        n_estimators=config.train.n_estimators,
-        max_depth=config.train.max_depth,
-        learning_rate=config.train.learning_rate,
-        subsample=config.train.subsample,
-        colsample_bytree=config.train.colsample_bytree,
-        reg_lambda=config.train.reg_lambda,
-        reg_alpha=config.train.reg_alpha,
-        random_state=config.train.seed,
-        n_jobs=-1,
-        early_stopping_rounds=15,
-    )
+    from src.train import train_model
 
-    model.fit(
+    model, history = train_model(
         splits["X_train"], splits["y_train"],
-        eval_set=[(splits["X_val"], splits["y_val"])],
-        verbose=True,
+        splits["X_val"], splits["y_val"],
     )
+    train_loss = history.get("train_loss", [None])[0]
+    val_loss = history.get("val_loss", [None])[0]
+    if train_loss is not None:
+        print(f"  [*] Train log-loss: {train_loss:.4f}")
+    if val_loss is not None:
+        print(f"  [*] Val log-loss:   {val_loss:.4f}")
 
     # ── 5. Evaluate ─────────────────────────────────────
     from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
@@ -154,7 +147,7 @@ def main() -> int:
     # ── 6. Save model ───────────────────────────────────
     from src.train import save_model
 
-    model_path = save_model(model, "league_xgboost.joblib")
+    model_path = save_model(model, "league_lightgbm.joblib")
     print(f"\n  [*] Model saved: {model_path}")
 
     # ── Summary ─────────────────────────────────────────

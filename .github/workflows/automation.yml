@@ -1,0 +1,401 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Football Prediction — Daily Automation Pipeline
+#  Runs daily on schedule + on-demand dispatch.
+#
+#  Pipeline stages (sequential, each depends on previous):
+#   1. Daily Data Pipeline     — Fetch all match data
+#   2. Daily Feature Pipeline  — Compute all features
+#   3. Daily Model Retraining  — Retrain & validate models
+#   4. Daily Predictions       — Generate predictions
+#   5. Monitoring & Reporting  — Generate metrics & alert if failed
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Daily Automation
+
+on:
+  schedule:
+    # 06:00 UTC daily = ~07:00 CET / 08:00 CEST
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      skip_download:
+        description: "Skip data download"
+        type: boolean
+        default: false
+      skip_features:
+        description: "Skip feature computation"
+        type: boolean
+        default: false
+      skip_training:
+        description: "Skip model retraining"
+        type: boolean
+        default: false
+      force_retrain:
+        description: "Force model retraining (ignore threshold)"
+        type: boolean
+        default: false
+
+# ── Cancel if a newer run is triggered ──────────────
+concurrency:
+  group: ${{ github.workflow }}-daily
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  PYTHONUNBUFFERED: "1"
+  PIP_CACHE_DIR: ~/.cache/pip
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  1. DAILY DATA PIPELINE
+  # ══════════════════════════════════════════════════════════════════════════════
+  data_pipeline:
+    name: "📥 Daily Data Pipeline"
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Restore data cache
+        uses: actions/cache@v4
+        with:
+          path: data/
+          key: football-data-${{ github.run_id }}
+          restore-keys: |
+            football-data-
+
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run daily data pipeline
+        id: data
+        env:
+          THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY || '' }}
+        run: |
+          echo "::group::Daily Data Pipeline"
+          START=$(date +%s)
+          python scripts/daily_data_pipeline.py --quiet
+          EXIT_CODE=$?
+          END=$(date +%s)
+          echo "duration=$((END - START))" >> $GITHUB_OUTPUT
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "❌ Data pipeline failed"
+          else
+            echo "✅ Data pipeline succeeded"
+          fi
+          echo "::endgroup::"
+
+      - name: Upload data artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-pipeline-results
+          path: |
+            data/raw/
+            data/processed/
+            reports/
+          retention-days: 7
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  2. DAILY FEATURE COMPUTATION
+  # ══════════════════════════════════════════════════════════════════════════════
+  feature_pipeline:
+    name: "⚙️ Daily Feature Computation"
+    runs-on: ubuntu-22.04
+    needs: data_pipeline
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download data artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: data-pipeline-results
+          path: .
+
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run daily feature computation
+        id: features
+        run: |
+          echo "::group::Daily Feature Computation"
+          START=$(date +%s)
+          python scripts/daily_feature_computation.py --quiet
+          EXIT_CODE=$?
+          END=$(date +%s)
+          echo "duration=$((END - START))" >> $GITHUB_OUTPUT
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+      - name: Upload feature artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-pipeline-results
+          path: |
+            data/features/
+            data/processed/
+            reports/
+          retention-days: 7
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  3. DAILY MODEL RETRAINING
+  # ══════════════════════════════════════════════════════════════════════════════
+  retraining:
+    name: "🧠 Daily Model Retraining"
+    runs-on: ubuntu-22.04
+    needs: feature_pipeline
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download feature artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: feature-pipeline-results
+          path: .
+
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run model retraining
+        id: retrain
+        run: |
+          echo "::group::Daily Model Retraining"
+          FORCE_FLAG="${{ inputs.force_retrain && '--force' || '' }}"
+          START=$(date +%s)
+          python scripts/daily_model_retraining.py --quiet $FORCE_FLAG
+          EXIT_CODE=$?
+          END=$(date +%s)
+          echo "duration=$((END - START))" >> $GITHUB_OUTPUT
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+      - name: Upload model artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-pipeline-results
+          path: |
+            models/
+            reports/retraining/
+          retention-days: 30
+          compression-level: 6
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  4. DAILY PREDICTIONS
+  # ══════════════════════════════════════════════════════════════════════════════
+  predictions:
+    name: "🔮 Daily Predictions"
+    runs-on: ubuntu-22.04
+    needs: retraining
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download model artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: model-pipeline-results
+          path: .
+
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run daily predictions
+        id: predict
+        run: |
+          echo "::group::Daily Predictions"
+          START=$(date +%s)
+          python scripts/daily_predictions.py --quiet
+          EXIT_CODE=$?
+          END=$(date +%s)
+          echo "duration=$((END - START))" >> $GITHUB_OUTPUT
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+      - name: Upload prediction artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prediction-results
+          path: |
+            reports/predictions_worldcup/
+            reports/predictions/
+          retention-days: 90
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  5. MONITORING & REPORTING
+  # ══════════════════════════════════════════════════════════════════════════════
+  monitoring:
+    name: "📊 Monitoring & Reporting"
+    runs-on: ubuntu-22.04
+    needs: [data_pipeline, feature_pipeline, retraining, predictions]
+    if: always()
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/artifacts
+
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate monitoring report
+        id: monitor
+        run: |
+          echo "::group::Monitoring Report"
+          python << 'PYEOF'
+          from src.monitoring.pipeline_health import PipelineHealth
+          health = PipelineHealth()
+          status = health.generate_health_report()
+          print(f"Health Score: {status.health_score:.3f}")
+          print(f"Status: {status.status}")
+          print(f"Task Success Rate: {status.task_success_rate:.2%}")
+          print(f"Avg Execution Time: {status.avg_execution_time:.1f}s")
+          print(f"System: {status.system_health}")
+          print(f"Data Quality: {status.data_quality_health}")
+          print(f"Recent Alerts: {status.alert_count}")
+          with open("/tmp/pipeline-health.json", "w") as f:
+              import json
+              json.dump(status.to_dict(), f, indent=2)
+          print("::endgroup::")
+          PYEOF
+
+      - name: Upload health report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-health-report
+          path: /tmp/pipeline-health.json
+          retention-days: 90
+
+      - name: Check pipeline status
+        id: check
+        run: |
+          echo "::group::Status Check"
+          FAILED=$(python -c "
+          import json
+          with open('/tmp/pipeline-health.json') as f:
+              h = json.load(f)
+          print(h['status'])
+          ")
+          echo "pipeline_status=$FAILED" >> $GITHUB_OUTPUT
+
+          if [ "$FAILED" = "critical" ]; then
+            echo "❌ Pipeline health is CRITICAL"
+            exit 1
+          elif [ "$FAILED" = "degraded" ]; then
+            echo "⚠️ Pipeline health is DEGRADED"
+          else
+            echo "✅ Pipeline health is HEALTHY"
+          fi
+          echo "::endgroup::"
+
+      - name: Send notification on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK || '' }}
+          SLACK_CHANNEL: ci-failures
+          SLACK_COLOR: danger
+          SLACK_TITLE: "🚨 Daily Automation Pipeline Failed"
+          SLACK_MESSAGE: |
+            *Repository:* ${{ github.repository }}
+            *Branch:* ${{ github.ref }}
+            *Run:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  #  6. SUMMARY
+  # ══════════════════════════════════════════════════════════════════════════════
+  summary:
+    name: "📋 Daily Summary"
+    runs-on: ubuntu-22.04
+    needs: [data_pipeline, feature_pipeline, retraining, predictions, monitoring]
+    if: always()
+    timeout-minutes: 5
+
+    steps:
+      - name: Generate run summary
+        run: |
+          echo "## 📊 Daily Automation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+
+          STATUS_DATA='${{ toJSON(needs) }}'
+          python << 'PYEOF'
+          import json, sys
+          data = json.loads("""${{ toJSON(needs) }}""")
+          for job_name in ["data_pipeline", "feature_pipeline", "retraining", "predictions", "monitoring"]:
+              job = data.get(job_name, {})
+              result = job.get("result", "skipped")
+              emoji = {"success": "✅", "failure": "❌", "cancelled": "⏭️", "skipped": "⏭️"}.get(result, "❓")
+              print(f"| {emoji} {job_name} | {result} |")
+          PYEOF
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}_" >> $GITHUB_STEP_SUMMARY

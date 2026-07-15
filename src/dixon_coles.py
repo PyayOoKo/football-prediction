@@ -850,11 +850,137 @@ class DixonColesModel:
                     "draw_prob": result.draw_prob,
                     "away_win_prob": result.away_win_prob,
                     "most_likely_score": result.most_likely_score,
+                    "over_2_5_prob": result.over_2_5_prob,
+                    "under_2_5_prob": result.under_2_5_prob,
+                    "btts_prob": result.btts_prob,
+                    "btts_no_prob": result.btts_no_prob,
                 })
             except Exception as e:
                 logger.warning("Prediction failed for %s vs %s: %s", home, away, e)
 
         return pd.DataFrame(records)
+
+    # ── sklearn-compatible predict_proba ─────────────────
+
+    def predict_proba(
+        self,
+        df: pd.DataFrame,
+        home_team_col: str = "home_team",
+        away_team_col: str = "away_team",
+    ) -> np.ndarray:
+        """Return match outcome probabilities as a (n, 3) array.
+
+        Columns are [away_win_prob, draw_prob, home_win_prob],
+        compatible with sklearn.metrics functions.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Match data with home/away team columns.
+        home_team_col, away_team_col : str
+            Column names for team names.
+
+        Returns
+        -------
+        np.ndarray
+            Shape (n, 3), columns: [away, draw, home].
+        """
+        preds_df = self.predict_matches(df, home_team_col=home_team_col, away_team_col=away_team_col)
+        n = len(preds_df)
+        probs = np.zeros((n, 3))
+        if "away_win_prob" in preds_df.columns:
+            probs[:, 0] = preds_df["away_win_prob"].values
+        if "draw_prob" in preds_df.columns:
+            probs[:, 1] = preds_df["draw_prob"].values
+        if "home_win_prob" in preds_df.columns:
+            probs[:, 2] = preds_df["home_win_prob"].values
+        row_sums = probs.sum(axis=1)
+        row_sums = np.where(row_sums > 0, row_sums, 1.0)
+        probs = probs / row_sums[:, np.newaxis]
+        return probs
+
+    # ── Evaluation ───────────────────────────────────────
+
+    def evaluate(
+        self,
+        df_test: pd.DataFrame,
+        home_team_col: str = "home_team",
+        away_team_col: str = "away_team",
+        home_goals_col: str = "home_goals",
+        away_goals_col: str = "away_goals",
+        over_under_threshold: float = 2.5,
+    ) -> dict[str, Any]:
+        """Evaluate the Dixon-Coles model on test data.
+
+        Computes: Brier score, log loss, accuracy, BTTS, O/U.
+
+        Parameters
+        ----------
+        df_test : pd.DataFrame
+            Test match data with actual results.
+        over_under_threshold : float
+            Threshold for Over/Under evaluation (default 2.5).
+
+        Returns
+        -------
+        dict[str, Any]
+            Dictionary of metric names to values.
+        """
+        if not self._fitted:
+            raise RuntimeError("Model must be fitted before evaluating.")
+
+        from sklearn.metrics import log_loss as sk_log_loss
+
+        actual_hg = df_test[home_goals_col].values.astype(float)
+        actual_ag = df_test[away_goals_col].values.astype(float)
+        actual_result = df_test["result"].map({"A": 0, "D": 1, "H": 2}).values
+
+        preds_df = self.predict_matches(df_test, home_team_col=home_team_col, away_team_col=away_team_col)
+
+        probs = np.column_stack([
+            preds_df["away_win_prob"].values,
+            preds_df["draw_prob"].values,
+            preds_df["home_win_prob"].values,
+        ])
+        pred_labels = np.argmax(probs, axis=1)
+
+        accuracy = float(np.mean(pred_labels == actual_result))
+        ll = sk_log_loss(actual_result, probs)
+
+        y_onehot = np.zeros((len(actual_result), 3))
+        for i, v in enumerate(actual_result):
+            if not np.isnan(v) and 0 <= v <= 2:
+                y_onehot[i, int(v)] = 1
+        brier = float(np.mean(np.sum((probs - y_onehot) ** 2, axis=1)))
+
+        # BTTS
+        actual_btts = ((actual_hg > 0) & (actual_ag > 0)).astype(float)
+        pred_btts_probs = preds_df["btts_prob"].values
+        pred_btts = (pred_btts_probs > 0.5).astype(float)
+        btts_accuracy = float(np.mean(pred_btts == actual_btts)) if len(actual_btts) > 0 else 0.0
+        btts_brier = float(np.mean((pred_btts_probs - actual_btts) ** 2)) if len(actual_btts) > 0 else 0.0
+
+        # Over/Under
+        actual_total = actual_hg + actual_ag
+        actual_ou = (actual_total > over_under_threshold).astype(float)
+        ou_col = f"over_{over_under_threshold:.1f}_prob".replace(".", "_")
+        pred_ou_probs = preds_df.get(ou_col, pd.Series([0.5] * len(df_test))).values
+        pred_ou = (pred_ou_probs > 0.5).astype(float)
+        ou_accuracy = float(np.mean(pred_ou == actual_ou)) if len(actual_ou) > 0 else 0.0
+        ou_brier = float(np.mean((pred_ou_probs - actual_ou) ** 2)) if len(actual_ou) > 0 else 0.0
+        ou_key = f"over_under_{over_under_threshold:.1f}_accuracy".replace(".", "_")
+        ou_brier_key = f"over_under_{over_under_threshold:.1f}_brier".replace(".", "_")
+
+        return {
+            "accuracy": round(accuracy, 4),
+            "log_loss": round(ll, 4),
+            "brier_score": round(brier, 4),
+            "btts_accuracy": round(btts_accuracy, 4),
+            "btts_brier": round(btts_brier, 4),
+            ou_key: round(ou_accuracy, 4),
+            ou_brier_key: round(ou_brier, 4),
+            "n_test": len(df_test),
+        }
 
     # ── Feature engineering integration ───────────────────
 

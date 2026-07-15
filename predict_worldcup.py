@@ -15,10 +15,14 @@ config.xg.warn_missing = False
 config.xg.compute_xpts = True
 config.elo.regress_to_mean = True
 config.elo.home_advantage = 50
-config.train.model_type = "xgboost"
+config.train.model_type = "lightgbm"
 config.train.n_estimators = 300
-config.train.max_depth = 5
+config.train.max_depth = 8
 config.train.learning_rate = 0.05
+config.train.num_leaves = 31
+config.train.min_child_samples = 10
+config.train.subsample = 0.8
+config.train.colsample_bytree = 0.8
 
 import pandas as pd
 import numpy as np
@@ -50,13 +54,13 @@ X, y = build_features(df_completed, is_training=True)
 print(f"Feature matrix: {X.shape}")
 splits = train_val_test_split(X, y)
 
-print("Training XGBoost...")
+print("Training LightGBM...")
 model, history = train_model(splits['X_train'], splits['y_train'], splits['X_val'], splits['y_val'])
 print(f"Train loss: {history.get('train_loss',[None])[0]:.4f} | Val loss: {history.get('val_loss',[None])[0]:.4f} | Val acc: {history.get('val_accuracy',[None])[0]:.4f}")
 y_pred = model.predict(splits['X_test'])
 acc = accuracy_score(splits['y_test'], y_pred)
 print(f"Test accuracy: {acc:.4f}")
-save_model(model, 'worldcup_xgboost.joblib')
+save_model(model, 'worldcup_lightgbm.joblib')
 
 # Predict original order
 df_predictable['_pred_id'] = np.arange(len(df_predictable))

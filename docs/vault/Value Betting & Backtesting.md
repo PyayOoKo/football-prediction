@@ -60,6 +60,7 @@ graph LR
 | **Fair Probability** | `fair = IP / (1 + margin)` | 47.6% / 1.033 = 46.1% |
 | **Expected Value** | `EV = (model × odds) - 1` | (0.52 × 2.10) - 1 = +9.2% |
 | **Kelly Stake** | `k = EV / (odds - 1) × fraction` | 9.2% / 1.10 × 0.25 = 2.1% |
+| **Max Stake Cap** | `min(kelly, max_stake_pct)` | min(11.9%, 10%) = 10% |
 
 ### API
 
@@ -72,10 +73,15 @@ bets = compute_value_bets(
     team_matches=[("Arsenal", "Chelsea"), ("Liverpool", "Man City")],
     bankroll=1000.0,
     kelly_fraction=0.25,
-    min_ev=0.0,
+    min_ev=0.05,       # Raised from 0.0 — filters low-confidence bets
 )
 
 good_bets = bets[bets["positive_ev"]]
+
+# Or use config defaults (now min_ev=0.05, max_stake_pct=0.10):
+from config import config
+config.value_betting.min_ev = 0.05       # Only bet on 5%+ edges
+config.value_betting.max_stake_pct = 0.10 # Cap single bet at 10% of bankroll
 ```
 
 ---
@@ -149,7 +155,7 @@ engine = BacktestEngine(
     model=model,
     initial_bankroll=1000.0,
     kelly_fraction=0.25,
-    min_ev=0.0,
+    min_ev=0.05,           # Was 0.0 — now stricter
 )
 
 metrics = engine.run(X_test, y_test, odds_df=odds_df)

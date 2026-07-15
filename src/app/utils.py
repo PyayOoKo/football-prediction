@@ -33,9 +33,11 @@ def load_model(file_name: str | None = None) -> Any | None:
         # Explicit file specified
         return _load_from_file(file_name)
 
-    # Try ensemble model first (modern), then XGBoost, then league
+    # Try ensemble model first, then LightGBM (best backtest performer), then fallbacks
     candidates = [
         ("ensemble_model.joblib", _try_load_ensemble),
+        ("worldcup_lightgbm.joblib", _try_load_xgb),
+        ("league_lightgbm.joblib", _try_load_xgb),
         ("xgboost_model.joblib", _try_load_xgb),
         ("worldcup_xgboost.joblib", _try_load_xgb),
         ("league_xgboost.joblib", _try_load_xgb),

@@ -73,7 +73,7 @@ logger = logging.getLogger("train_worldcup")
 
 WORLDCUP_CSV = Path("data/raw/worldcup_all.csv")
 PREDICTIONS_DIR = Path("reports/predictions_worldcup")
-MODEL_SAVE_NAME = "worldcup_xgboost.joblib"
+MODEL_SAVE_NAME = "worldcup_lightgbm.joblib"
 LABEL_MAP = {0: "Away Win", 1: "Draw", 2: "Home Win"}
 RESULT_TO_TARGET = {"H": 2, "D": 1, "A": 0}
 
@@ -87,8 +87,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Train and predict on 2026 World Cup data",
     )
     parser.add_argument(
-        "--model", default="xgb", choices=["xgb", "lr", "rf"],
-        help="Model type (default: xgb)",
+        "--model", default="lgb", choices=["lgb", "xgb", "lr", "rf"],
+        help="Model type (default: lgb — LightGBM, best backtest performer)",
     )
     parser.add_argument(
         "--skip-train", action="store_true",
@@ -113,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
     t0 = time.time()
 
     # Map model type
-    model_type_map = {"xgb": "xgboost", "lr": "logistic_regression", "rf": "random_forest"}
+    model_type_map = {"lgb": "lightgbm", "xgb": "xgboost", "lr": "logistic_regression", "rf": "random_forest"}
     config.train.model_type = model_type_map[args.model]
 
     print("=" * 72)
@@ -171,7 +171,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  [TIME] Split: {time.time() - _t_split:.1f}s")
 
     # ── 4. Hyper-parameter tuning (lightweight for small data) ──
-    if not args.skip_train and config.train.model_type == "xgboost":
+    if not args.skip_train:
         _t_tune = time.time()
         from src.train import tune_hyperparameters
 
@@ -180,6 +180,7 @@ def main(argv: list[str] | None = None) -> int:
             best_params = tune_hyperparameters(
                 splits["X_train"], splits["y_train"],
                 n_folds=args.cv_folds, n_iter=20, verbose=False,
+                model_type=config.train.model_type,
             )
             print(f"  [*] Best params: {best_params}")
             print(f"  [TIME] Hyper-parameter tuning: {time.time() - _t_tune:.1f}s")

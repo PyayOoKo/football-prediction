@@ -1,0 +1,1 @@
+"""Football Prediction REST API."""

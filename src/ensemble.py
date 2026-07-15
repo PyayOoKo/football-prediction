@@ -13,20 +13,28 @@ that can take 2-5 minutes to train, this 3-model ensemble trains in
 4. **Weight grid search** - with 3 models and step 0.10, only ~66
    combinations to evaluate (vs ~1001 for 5 models)
 
+The module also provides a lightweight ``WeightedEnsemble`` class for
+combining pre-trained (and optionally calibrated) models via fixed or
+optimised weighted averaging.
+
 Usage
 -----
 ::
 
-    from src.ensemble import EnsembleModel
+    from src.ensemble import EnsembleModel, WeightedEnsemble
 
+    # Full training pipeline (trains sub-models internally)
     ensemble = EnsembleModel()
     result = ensemble.fit(X_train, y_train, X_val, y_val, df_train, df_val)
-
-    # Predict
     probs = ensemble.predict_proba(X_test, df_test)
 
-    # Evaluate
-    metrics = ensemble.evaluate(X_test, y_test, df_test)
+    # Lightweight ensemble of pre-trained models
+    weighted = WeightedEnsemble([
+        (xgb_model, 0.5),
+        (lr_model, 0.3),
+        (poisson_model, 0.2),
+    ])
+    probs = weighted.predict_proba(X_test, df_test)
 """
 
 from __future__ import annotations
@@ -51,6 +59,1056 @@ _MODEL_NAMES = ["xgboost", "logistic_regression", "poisson"]
 
 # Default weight grid search step
 _GRID_STEP = 0.10
+
+
+# ═══════════════════════════════════════════════════════════
+#  Weighted Ensemble — combine pre-trained models
+# ═══════════════════════════════════════════════════════════
+
+
+class WeightedEnsemble:
+    """Lightweight ensemble combining pre-trained models via weighted averaging.
+
+    Unlike ``EnsembleModel`` (which trains sub-models internally), this class
+    accepts a list of already-trained ``(model, weight)`` tuples and averages
+    their predictions.  It supports both sklearn-compatible models (Phase 4)
+    and statistical models with ``predict_matches()`` (Phase 3).
+
+    Parameters
+    ----------
+    models_and_weights : list[tuple[Any, float]] | None
+        List of ``(model, weight)`` tuples.  Weights are normalised to sum
+        to 1.0.  If ``None``, start empty and weights can be learned via
+        ``fit()``.
+    name : str
+        Optional name for the ensemble (used in logging / reports).
+
+    Examples
+    --------
+    ::
+
+        # Pre-trained Phase 4 models
+        ensemble = WeightedEnsemble([
+            (xgb_model, 0.5),
+            (lr_model, 0.3),
+            (rf_model, 0.2),
+        ])
+        probs = ensemble.predict_proba(X_test)
+
+        # Mixed Phase 3 + Phase 4 models
+        ensemble = WeightedEnsemble([
+            (xgb_model, 0.4),
+            (poisson_model, 0.3),
+            (elo_model, 0.3),
+        ])
+        probs = ensemble.predict_proba(X_feat, df_raw=df_raw)
+
+        # Learn weights from validation data
+        ensemble = WeightedEnsemble(name="optimised")
+        ensemble.add_model(xgb_model)
+        ensemble.add_model(lr_model, weight=0.0)  # weight learned by fit()
+        ensemble.fit(X_val, y_val, df_val=df_val)
+    """
+
+    def __init__(
+        self,
+        models_and_weights: list[tuple[Any, float]] | None = None,
+        name: str = "WeightedEnsemble",
+    ) -> None:
+        self.name = name
+        # Internal storage: list of (model, weight, model_type)
+        self._members: list[tuple[Any, float, str]] = []
+
+        if models_and_weights is not None:
+            # Add all models first, then normalise ONCE to preserve intended ratios
+            for model, weight in models_and_weights:
+                mtype = self._detect_model_type(model)
+                if mtype == "unknown":
+                    logger.warning(
+                        "Model %s has neither predict_proba nor predict_matches.",
+                        self._model_name(model),
+                    )
+                self._members.append((model, float(weight), mtype))
+            self._normalise_weights()
+
+        self._fitted: bool = len(self._members) > 0
+        self._n_classes: int = 3
+
+    # ── Properties ────────────────────────────────────────
+
+    @property
+    def members(self) -> list[tuple[Any, float, str]]:
+        """Return a copy of ensemble members ``[(model, weight, type), ...]``."""
+        return list(self._members)
+
+    @property
+    def weights(self) -> dict[str, float]:
+        """Return ``{model_name: weight}`` for all members.
+
+        Note: duplicate model types (e.g. two ``LogisticRegression`` instances)
+        produce only the last entry in the dict.  The internal ``_members``
+        list always stores separate weights per model.
+        """
+        return {
+            self._model_name(m): w
+            for m, w, _ in self._members
+        }
+
+    @property
+    def trained(self) -> bool:
+        """Whether the ensemble has at least one member."""
+        return len(self._members) > 0
+
+    @property
+    def weight_summary(self) -> str:
+        """Human-readable weight summary."""
+        parts = []
+        for model, weight, mtype in self._members:
+            name = self._model_name(model)
+            parts.append(f"  {name} ({mtype}): {weight:.3f}")
+        return "Weights:\n" + "\n".join(parts)
+
+    # ── Member management ────────────────────────────────
+
+    @staticmethod
+    def _model_name(model: Any) -> str:
+        """Return a readable name for a model."""
+        raw = type(model).__name__
+        if raw == "XGBClassifier":
+            return "XGBoost"
+        if raw == "LGBMClassifier":
+            return "LightGBM"
+        if raw == "CalibratedTemperatureWrapper":
+            return "CalibratedTemp"
+        if raw == "CalibratedStatsModel":
+            return "CalibratedStats"
+        return raw
+
+    @staticmethod
+    def _detect_model_type(model: Any) -> str:
+        """Detect whether a model is Phase 4 (sklearn) or Phase 3 (stats).
+
+        Prioritises ``predict_matches`` over ``predict_proba`` because many
+        Phase 3 models (e.g. ``PoissonModel``, ``DixonColesModel``) also have
+        a ``predict_proba`` method that takes a **raw DataFrame** (not a feature
+        matrix), which would break when passed an ML feature matrix.
+
+        Returns
+        -------
+        str
+            ``"phase4"`` if the model has ``predict_proba`` only,
+            ``"phase3"`` if it has ``predict_matches``,
+            ``"unknown"`` otherwise.
+        """
+        # Check predict_matches first — this is the more specific Phase 3 interface
+        if hasattr(model, "predict_matches"):
+            return "phase3"
+        if hasattr(model, "predict_proba"):
+            return "phase4"
+        return "unknown"
+
+    def add_model(
+        self,
+        model: Any,
+        weight: float = 1.0,
+    ) -> WeightedEnsemble:
+        """Add a model to the ensemble.
+
+        Parameters
+        ----------
+        model : Any
+            Trained model (Phase 4 or Phase 3).
+        weight : float
+            Initial weight (will be normalised with all other weights
+            on the next ``fit()`` or ``set_weights()`` call).
+            Default 1.0.
+
+        Returns
+        -------
+        WeightedEnsemble
+            Self, for method chaining.
+        """
+        mtype = self._detect_model_type(model)
+        if mtype == "unknown":
+            logger.warning(
+                "Model %s has neither predict_proba nor predict_matches.",
+                self._model_name(model),
+            )
+        self._members.append((model, float(weight), mtype))
+        self._normalise_weights()
+        self._fitted = True
+        return self
+
+    def _normalise_weights(self) -> None:
+        """Normalise all member weights to sum to 1.0."""
+        total = sum(w for _, w, _ in self._members)
+        if total <= 0:
+            # Equal weights as fallback
+            for i in range(len(self._members)):
+                member = list(self._members[i])
+                member[1] = 1.0 / max(len(self._members), 1)
+                self._members[i] = tuple(member)
+        else:
+            for i in range(len(self._members)):
+                member = list(self._members[i])
+                member[1] /= total
+                self._members[i] = tuple(member)
+
+    def set_weights(self, weights: dict[str, float]) -> WeightedEnsemble:
+        """Explicitly set weights by model name (type name).
+
+        Parameters
+        ----------
+        weights : dict[str, float]
+            Mapping from model type name (e.g. ``"XGBoost"``, ``"PoissonModel"``)
+            to unnormalised weight.  Unspecified models get weight 0.
+
+        Returns
+        -------
+        WeightedEnsemble
+            Self, for method chaining.
+        """
+        for i in range(len(self._members)):
+            model, _, mtype = self._members[i]
+            name = self._model_name(model)
+            member = list(self._members[i])
+            member[1] = weights.get(name, 0.0)
+            self._members[i] = tuple(member)
+        self._normalise_weights()
+        return self
+
+    # ── Prediction ────────────────────────────────────────
+
+    def _predict_single(
+        self,
+        model: Any,
+        mtype: str,
+        X: pd.DataFrame,
+        df_raw: pd.DataFrame | None,
+    ) -> np.ndarray:
+        """Get (n, 3) probability array from a single model.
+
+        Handles:
+        - Phase 4: ``model.predict_proba(X)`` directly
+        - Phase 3: ``model.predict_matches(df_raw)`` → extract probs
+        - Unknown: zeros (fallback)
+        """
+        n = len(X) if hasattr(X, "__len__") else 0
+
+        if mtype == "phase4":
+            try:
+                probs = model.predict_proba(X)
+                return np.asarray(probs, dtype=np.float64)
+            except Exception:
+                try:
+                    # Fallback: fill NaN and retry
+                    col_means = X.mean().fillna(0) if hasattr(X, "mean") else 0
+                    X_clean = X.fillna(col_means) if hasattr(X, "fillna") else X
+                    probs = model.predict_proba(X_clean)
+                    return np.asarray(probs, dtype=np.float64)
+                except Exception as e:
+                    logger.warning(
+                        "predict_proba failed for %s: %s",
+                        self._model_name(model), e,
+                    )
+                    return np.full((n, self._n_classes), 1.0 / self._n_classes)
+
+        if mtype == "phase3":
+            if df_raw is None or df_raw.empty:
+                logger.warning(
+                    "Model %s needs raw match data (df_raw) for predict_matches "
+                    "but none provided — returning uniform probs.",
+                    self._model_name(model),
+                )
+                return np.full((n, self._n_classes), 1.0 / self._n_classes)
+            try:
+                preds_df = model.predict_matches(df_raw)
+                probs = np.column_stack([
+                    preds_df["away_win_prob"].values,
+                    preds_df["draw_prob"].values,
+                    preds_df["home_win_prob"].values,
+                ])
+                return np.asarray(probs, dtype=np.float64)
+            except Exception as e:
+                logger.warning(
+                    "predict_matches failed for %s: %s",
+                    self._model_name(model), e,
+                )
+                return np.full((n, self._n_classes), 1.0 / self._n_classes)
+
+        # Unknown type
+        logger.warning(
+            "Model %s has unsupported type '%s' — returning uniform probs.",
+            self._model_name(model), mtype,
+        )
+        return np.full((n, self._n_classes), 1.0 / self._n_classes)
+
+    def predict_proba(
+        self,
+        X: pd.DataFrame,
+        df_raw: pd.DataFrame | None = None,
+    ) -> np.ndarray:
+        """Predict match outcome probabilities via weighted averaging.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Feature matrix (for Phase 4 ML models).
+        df_raw : pd.DataFrame, optional
+            Raw match data (for Phase 3 statistical models).
+            Required if any ensemble member is Phase 3.
+
+        Returns
+        -------
+        np.ndarray
+            Probability array of shape ``(n, 3)`` with columns
+            ``[away_prob, draw_prob, home_prob]``.  Rows sum to 1.0.
+        """
+        if not self.trained:
+            raise RuntimeError(
+                "WeightedEnsemble must have at least one model before predicting."
+            )
+
+        n = len(X) if hasattr(X, "__len__") else 0
+        if n == 0:
+            return np.zeros((0, self._n_classes))
+
+        weighted = np.zeros((n, self._n_classes))
+
+        for model, weight, mtype in self._members:
+            if weight <= 0:
+                continue
+            probs = self._predict_single(model, mtype, X, df_raw)
+            if probs.shape != (n, self._n_classes):
+                logger.warning(
+                    "Model %s returned probs shape %s, expected (%d, %d) — skipping.",
+                    self._model_name(model), probs.shape, n, self._n_classes,
+                )
+                continue
+            weighted += weight * probs
+
+        # Renormalise to sum to 1.0
+        row_sums = weighted.sum(axis=1, keepdims=True)
+        row_sums = np.where(row_sums > 0, row_sums, 1.0)
+        return weighted / row_sums
+
+    def predict(
+        self,
+        X: pd.DataFrame,
+        df_raw: pd.DataFrame | None = None,
+    ) -> np.ndarray:
+        """Predict hard class labels (0=Away, 1=Draw, 2=Home)."""
+        probs = self.predict_proba(X, df_raw=df_raw)
+        return np.argmax(probs, axis=1)
+
+    # ── Optional fitting: learn weights ───────────────────
+
+    def fit(
+        self,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+        df_val: pd.DataFrame | None = None,
+        weight_grid_step: float = 0.05,
+        max_weight: float = 1.0,
+    ) -> dict[str, Any]:
+        """Optimise ensemble weights to minimise validation log-loss.
+
+        Uses a coarse-to-fine grid search over weight combinations.
+        At least one model must already be added to the ensemble.
+        Existing weights are used as a starting point.
+
+        Parameters
+        ----------
+        X_val : pd.DataFrame
+            Validation feature matrix.
+        y_val : pd.Series
+            Validation target labels.
+        df_val : pd.DataFrame, optional
+            Raw validation match data (for Phase 3 models).
+        weight_grid_step : float
+            Grid resolution for weight search (default 0.05).
+            Lower = more granular but slower.
+        max_weight : float
+            Maximum weight for any single model (default 1.0).
+            Set to < 1.0 to prevent a single model from dominating.
+
+        Returns
+        -------
+        dict[str, Any]
+            ``{"best_weights", "best_log_loss", "individual_log_losses"}``
+        """
+        if len(self._members) < 2:
+            logger.warning(
+                "Fit requires at least 2 models; got %d. Using equal weights.",
+                len(self._members),
+            )
+            self._normalise_weights()
+            return {"best_weights": self.weights, "best_log_loss": float("inf")}
+
+        n_models = len(self._members)
+        step = max(weight_grid_step, 0.02)  # Prevent excessively fine grids
+
+        # Get individual predictions once
+        logger.info(
+            "Fitting WeightedEnsemble '%s' — %d models, grid step=%.2f",
+            self.name, n_models, step,
+        )
+        preds_list: list[np.ndarray] = []
+        individual_losses: dict[str, float] = {}
+
+        for model, weight, mtype in self._members:
+            probs = self._predict_single(model, mtype, X_val, df_val)
+            name = self._model_name(model)
+            preds_list.append(probs)
+            try:
+                loss = float(log_loss(y_val, probs))
+                individual_losses[name] = loss
+                logger.debug("  %s: log-loss = %.4f", name, loss)
+            except Exception:
+                individual_losses[name] = float("inf")
+
+        if not preds_list:
+            return {"best_weights": {}, "best_log_loss": float("inf")}
+
+        # ── Grid search (coarse-to-fine) ──
+        MAX_COMBINATIONS = 100_000
+        n_fine = int(round(max_weight / step))
+        n_bins = max(2, min(n_fine, int(MAX_COMBINATIONS ** (1.0 / max(n_models, 1))) - 1))
+        if n_bins < n_fine:
+            logger.warning(
+                "Full grid would evaluate %d combos (%d models, step=%.3f) — "
+                "capping to %d bins (≈%d combos)",
+                (n_fine + 1) ** n_models, n_models, step,
+                n_bins, (n_bins + 1) ** n_models,
+            )
+
+        best_loss = float("inf")
+        best_weights: list[float] = [0.0] * n_models
+        seen: set[tuple[float, ...]] = set()
+        total_combinations = 0
+
+        for raw in itertools.product(range(n_bins + 1), repeat=n_models):
+            total = sum(raw)
+            if total == 0:
+                continue
+            norm = tuple(r / total for r in raw)
+            if norm in seen:
+                continue
+            seen.add(norm)
+            total_combinations += 1
+
+            # Weighted average
+            weighted = np.zeros_like(preds_list[0])
+            for i, probs in enumerate(preds_list):
+                weighted += norm[i] * probs
+
+            # Renormalise
+            row_sums = weighted.sum(axis=1, keepdims=True)
+            row_sums = np.where(row_sums > 0, row_sums, 1.0)
+            weighted = weighted / row_sums
+
+            try:
+                loss = float(log_loss(y_val, weighted))
+            except Exception:
+                continue
+
+            if loss < best_loss:
+                best_loss = loss
+                best_weights = list(norm)
+
+        # ── Apply best weights ──
+        for i in range(n_models):
+            member = list(self._members[i])
+            member[1] = best_weights[i]
+            self._members[i] = tuple(member)
+
+        self._fitted = True
+        logger.info(
+            "WeightedEnsemble '%s' fitted — val log-loss: %.4f "
+            "(evaluated %d combinations)",
+            self.name, best_loss, total_combinations,
+        )
+
+        return {
+            "best_weights": self.weights,
+            "best_log_loss": best_loss,
+            "individual_log_losses": individual_losses,
+            "combinations_evaluated": total_combinations,
+        }
+
+    # ── Evaluation ────────────────────────────────────────
+
+    def evaluate(
+        self,
+        X_test: pd.DataFrame,
+        y_test: pd.Series,
+        df_test: pd.DataFrame | None = None,
+    ) -> dict[str, Any]:
+        """Evaluate the ensemble on test data.
+
+        Returns
+        -------
+        dict[str, Any]
+            ``{"ensemble_log_loss", "ensemble_accuracy", "individual_log_losses",
+            "improvement_over_best_single", "best_single_model"}``
+        """
+        if not self.trained:
+            raise RuntimeError("Ensemble must be fitted before evaluating.")
+
+        # Individual predictions
+        individual_losses: dict[str, float] = {}
+        for model, weight, mtype in self._members:
+            name = self._model_name(model)
+            probs = self._predict_single(model, mtype, X_test, df_test)
+            try:
+                loss = float(log_loss(y_test, probs))
+            except Exception:
+                loss = float("inf")
+            individual_losses[name] = loss
+
+        # Ensemble prediction
+        ensemble_probs = self.predict_proba(X_test, df_raw=df_test)
+        ensemble_loss = float(log_loss(y_test, ensemble_probs))
+        ensemble_preds = np.argmax(ensemble_probs, axis=1)
+        accuracy = float(np.mean(ensemble_preds == y_test.values))
+
+        # Comparison with best single model
+        best_single_name = min(individual_losses, key=individual_losses.get)
+        best_single_loss = individual_losses[best_single_name]
+        improvement = best_single_loss - ensemble_loss
+
+        report: dict[str, Any] = {
+            "ensemble_log_loss": ensemble_loss,
+            "ensemble_accuracy": accuracy,
+            "individual_log_losses": individual_losses,
+            "improvement_over_best_single": improvement,
+            "best_single_model": best_single_name,
+        }
+
+        logger.info(
+            "WeightedEnsemble '%s' test log-loss: %.4f "
+            "(best single: %.4f, Delta=%.4f)",
+            self.name, ensemble_loss, best_single_loss, improvement,
+        )
+
+        return report
+
+    # ── Save / Load ───────────────────────────────────────
+
+    def save(self, path: str | None = None) -> str:
+        """Save the ensemble (members + weights) via joblib.
+
+        Parameters
+        ----------
+        path : str, optional
+            Output path.  Default: ``models/weighted_ensemble.joblib``.
+
+        Returns
+        -------
+        str
+            Path to the saved file.
+        """
+        import joblib
+
+        if path is None:
+            path = str(config.paths.models / "weighted_ensemble.joblib")
+
+        payload = {
+            "name": self.name,
+            "members": self._members,
+            "n_classes": self._n_classes,
+        }
+        joblib.dump(payload, path)
+        logger.info("WeightedEnsemble '%s' saved to %s", self.name, path)
+        return path
+
+    @classmethod
+    def load(cls, path: str) -> WeightedEnsemble:
+        """Load a saved weighted ensemble from disk.
+
+        Parameters
+        ----------
+        path : str
+            Path to the saved ensemble file.
+
+        Returns
+        -------
+        WeightedEnsemble
+            Loaded ensemble with all models and weights restored.
+        """
+        import joblib
+
+        payload = joblib.load(path)
+        ensemble = cls(name=payload["name"])
+        ensemble._members = payload["members"]
+        ensemble._n_classes = payload.get("n_classes", 3)
+        ensemble._fitted = True
+        logger.info("WeightedEnsemble '%s' loaded from %s", ensemble.name, path)
+        return ensemble
+
+
+# ============================================================
+#  Original Ensemble Model (trains sub-models internally)
+# ============================================================
+
+
+# ═══════════════════════════════════════════════════════════
+#  Stacking Ensemble — meta-learner combines base models
+# ═══════════════════════════════════════════════════════════
+
+
+class StackingEnsemble:
+    """Stacking ensemble with a logistic regression meta-learner.
+
+    Unlike ``WeightedEnsemble`` (which uses fixed weight averaging) and
+    ``EnsembleModel`` (which uses grid-search weights), this class trains
+    a **meta-learner** (LogisticRegression) on the base models' out-of-fold
+    predictions to learn optimal combination weights.
+
+    This is more powerful than weighted averaging because:
+    - The meta-learner can assign **non-uniform** weights per class
+    - It learns the **correlation** between model errors
+    - It can handle **non-convex** trade-offs between models
+
+    Parameters
+    ----------
+    model_names : tuple[str, ...]
+        Names of base models to include (default: all available).
+    meta_learner : Any, optional
+        sklearn-compatible classifier for the meta-level.
+        Default: ``LogisticRegression(multi_class='multinomial', C=1.0)``.
+    use_cv_predictions : bool
+        If True, use out-of-fold predictions from 3-fold CV to train the
+        meta-learner (avoids overfitting). If False, use training set
+        predictions directly (faster but may overfit). Default True.
+    name : str
+        Optional name for the ensemble.
+
+    Example
+    -------
+    ::
+
+        stacking = StackingEnsemble(
+            model_names=("xgboost", "lightgbm", "logistic_regression")
+        )
+        result = stacking.fit(X_train, y_train, X_val, y_val)
+        probs = stacking.predict_proba(X_test)
+        print(stacking.weight_summary)
+    """
+
+    def __init__(
+        self,
+        model_names: tuple[str, ...] | None = None,
+        meta_learner: Any = None,
+        use_cv_predictions: bool = True,
+        name: str = "StackingEnsemble",
+    ) -> None:
+        self.name = name
+        self.model_names = model_names or (
+            "xgboost", "lightgbm", "logistic_regression",
+            "random_forest", "catboost",
+        )
+        self.use_cv_predictions = use_cv_predictions
+
+        # Base models (populated by fit)
+        self.base_models: dict[str, Any] = {}
+
+        # Meta-learner (default: multinomial logistic regression)
+        self._meta: Any = meta_learner or LogisticRegression(
+            multi_class="multinomial",
+            solver="lbfgs",
+            max_iter=2000,
+            C=1.0,
+            random_state=config.train.seed,
+            class_weight="balanced",
+        )
+
+        # Training metrics
+        self._fitted: bool = False
+        self._train_log_loss: float | None = None
+        self._val_log_loss: float | None = None
+
+    # ── Properties ────────────────────────────────────────
+
+    @property
+    def trained(self) -> bool:
+        return self._fitted
+
+    @property
+    def weight_summary(self) -> str:
+        """Show meta-learner coefficients as weight-like interpretation.
+
+        For a multinomial LR with 3 classes, returns the mean absolute
+        coefficient per base model as a proxy for importance.
+        """
+        if not self._fitted or not hasattr(self._meta, "coef_"):
+            return "Not fitted"
+
+        coefs = self._meta.coef_  # shape (n_classes, n_base_models)
+        model_names = list(self.base_models.keys())
+
+        # Mean absolute coefficient as importance proxy
+        importances = np.mean(np.abs(coefs), axis=0)
+        total = importances.sum()
+        if total > 0:
+            importances = importances / total
+
+        parts = [f"  {name}: {imp:.3f}" for name, imp in zip(model_names, importances)]
+        return "Meta-learner importance:\n" + "\n".join(parts)
+
+    # ── Fit ───────────────────────────────────────────────
+
+    def fit(
+        self,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame | None = None,
+        y_val: pd.Series | None = None,
+    ) -> dict[str, Any]:
+        """Train the stacking ensemble.
+
+        Steps:
+        1. Train each base model on training data.
+        2. Generate base model predictions (OOF or direct).
+        3. Train the meta-learner on base model predictions.
+        4. Evaluate on validation set if provided.
+
+        Parameters
+        ----------
+        X_train, y_train : training data
+        X_val, y_val : optional validation data
+
+        Returns
+        -------
+        dict with keys: ``base_log_losses``, ``meta_log_loss``, ``val_log_loss``
+        """
+        logger.info("Fitting %s with %d base models", self.name, len(self.model_names))
+        col_means = X_train.mean().fillna(0)
+
+        # 1. Train base models
+        self._train_base_models(X_train, y_train)
+
+        # 2. Generate meta-features (predictions from base models)
+        if self.use_cv_predictions and len(X_train) >= 50:
+            meta_train = self._oof_predictions(X_train, y_train)
+        else:
+            meta_train = self._direct_predictions(X_train, self.base_models)
+
+        # 3. Train meta-learner
+        logger.info("Training meta-learner on %d meta-features", meta_train.shape[1])
+        X_meta = X_train.copy() if hasattr(X_train, "copy") else X_train
+        # Get meta-features
+        meta_probs = self._get_meta_features(
+            X_train, self.base_models, meta_train,
+        )
+        self._meta.fit(meta_probs, y_train)
+
+        # Training log-loss
+        train_probs = self._meta.predict_proba(meta_probs)
+        self._train_log_loss = float(log_loss(y_train, train_probs))
+
+        # 4. Validation evaluation
+        val_metrics: dict[str, Any] = {}
+        if X_val is not None and y_val is not None:
+            val_meta = self._get_meta_features(
+                X_val, self.base_models, None,
+            )
+            val_probs = self._meta.predict_proba(val_meta)
+            self._val_log_loss = float(log_loss(y_val, val_probs))
+            val_accuracy = float(np.mean(np.argmax(val_probs, axis=1) == y_val.values))
+            val_metrics = {"val_log_loss": self._val_log_loss, "val_accuracy": val_accuracy}
+
+        self._fitted = True
+
+        logger.info(
+            "%s fitted — train log-loss: %.4f%s",
+            self.name, self._train_log_loss,
+            f", val log-loss: {self._val_log_loss:.4f}" if self._val_log_loss else "",
+        )
+
+        return {
+            "base_log_losses": self._evaluate_base_models(X_train, y_train),
+            "meta_log_loss": self._train_log_loss,
+            **val_metrics,
+        }
+
+    def _train_base_models(
+        self, X_train: pd.DataFrame, y_train: pd.Series,
+    ) -> None:
+        """Train all base models."""
+        col_means = X_train.mean().fillna(0)
+        X_clean = X_train.fillna(col_means)
+
+        for name in self.model_names:
+            if name == "xgboost":
+                try:
+                    import xgboost as xgb
+                    model = xgb.XGBClassifier(
+                        objective="multi:softprob", eval_metric="mlogloss",
+                        n_estimators=100, max_depth=5, learning_rate=0.05,
+                        subsample=0.8, colsample_bytree=0.8,
+                        random_state=config.train.seed, n_jobs=-1,
+                    )
+                    model.fit(X_train, y_train)
+                except ImportError:
+                    logger.warning("xgboost not installed — skipping")
+                    continue
+
+            elif name == "lightgbm":
+                try:
+                    import lightgbm as lgb
+                    model = lgb.LGBMClassifier(
+                        objective="multiclass", metric="multi_logloss",
+                        n_estimators=100, max_depth=5, learning_rate=0.05,
+                        subsample=0.8, colsample_bytree=0.8,
+                        num_leaves=31, random_state=config.train.seed,
+                        n_jobs=-1, verbose=-1,
+                    )
+                    model.fit(X_train, y_train)
+                except ImportError:
+                    logger.warning("lightgbm not installed — skipping")
+                    continue
+
+            elif name == "catboost":
+                try:
+                    from catboost import CatBoostClassifier
+                    model = CatBoostClassifier(
+                        iterations=100, depth=5, learning_rate=0.05,
+                        l2_leaf_reg=3.0, random_seed=config.train.seed,
+                        loss_function="MultiClass", verbose=False,
+                        allow_writing_files=False,
+                    )
+                    model.fit(X_train, y_train)
+                except ImportError:
+                    logger.warning("catboost not installed — skipping")
+                    continue
+
+            elif name == "logistic_regression":
+                model = LogisticRegression(
+                    solver="lbfgs", max_iter=2000,
+                    random_state=config.train.seed,
+                    class_weight="balanced", C=1.0, n_jobs=-1,
+                )
+                model.fit(X_clean, y_train)
+
+            elif name == "random_forest":
+                from sklearn.ensemble import RandomForestClassifier
+                model = RandomForestClassifier(
+                    n_estimators=100, max_depth=8,
+                    min_samples_leaf=10, random_state=config.train.seed,
+                    class_weight="balanced_subsample", n_jobs=-1,
+                )
+                model.fit(X_clean, y_train)
+
+            else:
+                logger.warning("Unknown model '%s' — skipping", name)
+                continue
+
+            self.base_models[name] = model
+            logger.debug("  Trained base model: %s", name)
+
+    def _oof_predictions(
+        self, X: pd.DataFrame, y: pd.Series,
+    ) -> dict[str, np.ndarray]:
+        """Generate out-of-fold (OOF) predictions for meta-training.
+
+        Uses 3-fold TimeSeriesSplit to avoid target leakage.
+        """
+        from src.time_series_cv import create_time_series_folds
+        from sklearn.model_selection import cross_val_predict
+
+        oof: dict[str, np.ndarray] = {}
+
+        for name in list(self.base_models.keys()):
+            model = self.base_models[name]
+            col_means = X.mean().fillna(0)
+
+            try:
+                ts_cv = create_time_series_folds(n_splits=3)
+                if name in ("xgboost", "lightgbm", "catboost"):
+                    probs = cross_val_predict(
+                        model.__class__(**model.get_params()),
+                        X, y, cv=ts_cv, method="predict_proba",
+                        n_jobs=1,  # 1 job to avoid pickling issues with custom classes
+                    )
+                else:
+                    probs = cross_val_predict(
+                        model.__class__(**model.get_params()),
+                        X.fillna(col_means), y,
+                        cv=ts_cv, method="predict_proba", n_jobs=1,
+                    )
+                oof[name] = probs
+                logger.debug("  OOF predictions for %s: shape %s", name, probs.shape)
+            except Exception as exc:
+                logger.warning(
+                    "OOF predictions failed for %s: %s — using direct", name, exc,
+                )
+                # Fallback to direct predictions
+                if name in ("xgboost", "lightgbm", "catboost"):
+                    oof[name] = model.predict_proba(X)
+                else:
+                    oof[name] = model.predict_proba(X.fillna(col_means))
+
+        return oof
+
+    def _direct_predictions(
+        self, X: pd.DataFrame, models: dict[str, Any],
+    ) -> dict[str, np.ndarray]:
+        """Generate direct (non-OOF) predictions."""
+        col_means = X.mean().fillna(0)
+        X_clean = X.fillna(col_means)
+
+        preds: dict[str, np.ndarray] = {}
+        for name, model in models.items():
+            if name in ("xgboost", "lightgbm", "catboost"):
+                preds[name] = model.predict_proba(X)
+            else:
+                preds[name] = model.predict_proba(X_clean)
+        return preds
+
+    def _get_meta_features(
+        self,
+        X: pd.DataFrame,
+        models: dict[str, Any],
+        oof_preds: dict[str, np.ndarray] | None,
+    ) -> np.ndarray:
+        """Stack base model probabilities as meta-features.
+
+        Concatenates all base model probability arrays column-wise.
+        For ``n`` models each outputting ``k=3`` class probs, this produces
+        an ``(N, n*k)`` feature matrix for the meta-learner.
+        """
+        preds = oof_preds if oof_preds is not None else self._direct_predictions(X, models)
+        if not preds:
+            raise RuntimeError("No base model predictions available")
+
+        meta_list = [preds[name] for name in sorted(preds.keys())]
+        return np.column_stack(meta_list)
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        """Predict using the stacked ensemble.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Feature matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Probability array of shape ``(n, 3)``.
+        """
+        if not self._fitted:
+            raise RuntimeError("StackingEnsemble must be fitted before predicting.")
+
+        meta = self._get_meta_features(X, self.base_models, None)
+        return self._meta.predict_proba(meta)
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        probs = self.predict_proba(X)
+        return np.argmax(probs, axis=1)
+
+    def _evaluate_base_models(
+        self, X: pd.DataFrame, y: pd.Series,
+    ) -> dict[str, float]:
+        """Compute log-loss for each base model on training data."""
+        losses: dict[str, float] = {}
+        col_means = X.mean().fillna(0)
+        X_clean = X.fillna(col_means)
+
+        for name, model in self.base_models.items():
+            try:
+                if name in ("xgboost", "lightgbm", "catboost"):
+                    probs = model.predict_proba(X)
+                else:
+                    probs = model.predict_proba(X_clean)
+                losses[name] = float(log_loss(y, probs))
+            except Exception:
+                losses[name] = float("inf")
+
+        return losses
+
+    def evaluate(
+        self, X_test: pd.DataFrame, y_test: pd.Series,
+    ) -> dict[str, Any]:
+        """Evaluate the stacking ensemble on test data.
+
+        Returns
+        -------
+        dict with keys: ``ensemble_log_loss``, ``ensemble_accuracy``,
+        ``individual_log_losses``, ``improvement_over_best_single``.
+        """
+        if not self._fitted:
+            raise RuntimeError("StackingEnsemble must be fitted before evaluating.")
+
+        # Individual base model losses
+        individual_losses: dict[str, float] = {}
+        col_means = X_test.mean().fillna(0)
+        X_clean = X_test.fillna(col_means)
+
+        for name, model in self.base_models.items():
+            try:
+                if name in ("xgboost", "lightgbm", "catboost"):
+                    probs = model.predict_proba(X_test)
+                else:
+                    probs = model.predict_proba(X_clean)
+                individual_losses[name] = float(log_loss(y_test, probs))
+            except Exception:
+                individual_losses[name] = float("inf")
+
+        # Ensemble prediction
+        ensemble_probs = self.predict_proba(X_test)
+        ensemble_loss = float(log_loss(y_test, ensemble_probs))
+        ensemble_preds = np.argmax(ensemble_probs, axis=1)
+        accuracy = float(np.mean(ensemble_preds == y_test.values))
+
+        best_single = min(individual_losses, key=individual_losses.get)
+        improvement = individual_losses[best_single] - ensemble_loss
+
+        report = {
+            "ensemble_log_loss": ensemble_loss,
+            "ensemble_accuracy": accuracy,
+            "individual_log_losses": individual_losses,
+            "improvement_over_best_single": improvement,
+            "best_single_model": best_single,
+        }
+
+        logger.info(
+            "%s test log-loss: %.4f (best single: %.4f, Δ=%.4f)",
+            self.name, ensemble_loss, individual_losses[best_single], improvement,
+        )
+        return report
+
+    def save(self, path: str | None = None) -> str:
+        """Save the stacking ensemble via joblib."""
+        import joblib
+        if path is None:
+            path = str(config.paths.models / "stacking_ensemble.joblib")
+
+        payload = {
+            "base_models": self.base_models,
+            "meta": self._meta,
+            "model_names": self.model_names,
+            "name": self.name,
+            "fitted": self._fitted,
+        }
+        joblib.dump(payload, path)
+        logger.info("%s saved to %s", self.name, path)
+        return path
+
+    @classmethod
+    def load(cls, path: str) -> StackingEnsemble:
+        """Load a saved stacking ensemble from disk."""
+        import joblib
+        payload = joblib.load(path)
+        ensemble = cls(
+            model_names=payload["model_names"],
+            name=payload["name"],
+        )
+        ensemble.base_models = payload["base_models"]
+        ensemble._meta = payload["meta"]
+        ensemble._fitted = payload["fitted"]
+        return ensemble
 
 
 # ============================================================

@@ -341,6 +341,9 @@ def _build_model() -> Any:
             verbose=-1,
         )
 
+    if cfg.model_type == "neural_network":
+        return None  # _train_neural_net builds the network internally
+
     raise NotImplementedError(f"_build_model for '{cfg.model_type}' is not yet implemented.")
 
 
@@ -391,7 +394,6 @@ def _train_gbdt(
         model.fit(
             X_train, y_train,
             eval_set=eval_set,
-            verbose=False,
         )
     else:
         model.set_params(eval_metric="mlogloss", early_stopping_rounds=10)
@@ -590,6 +592,7 @@ class TorchWrapper:
         self.net.eval()
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
+        import torch
         X_clean = X.fillna(0) if hasattr(X, "fillna") else X
         X_t = torch.tensor(
             X_clean.values if hasattr(X_clean, "values") else X_clean,
@@ -600,6 +603,7 @@ class TorchWrapper:
             return torch.argmax(outputs, dim=1).cpu().numpy()
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        import torch
         X_clean = X.fillna(0) if hasattr(X, "fillna") else X
         X_t = torch.tensor(
             X_clean.values if hasattr(X_clean, "values") else X_clean,

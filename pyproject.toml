@@ -1,25 +1,32 @@
 [build-system]
-requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta:__legacy__"
 
 [project]
 name = "football-prediction"
-version = "0.1.0"
-description = "A machine learning pipeline for predicting football match outcomes."
+version = "2.0.0"
+description = "AI-powered football match outcome prediction, value betting, and bankroll management."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
+keywords = ["football", "soccer", "prediction", "machine-learning", "betting", "sports-analytics"]
 authors = [
-    { name = "Your Name", email = "your.email@example.com" },
+    { name = "Football Prediction Team", email = "dev@football-prediction.local" },
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
+    "Intended Audience :: Financial and Insurance Industry",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Games/Entertainment :: Sports",
+    "Topic :: Office/Business :: Financial",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
 ]
+
 dependencies = [
     # ── Core data science ───────────────────────────────
     "numpy>=1.26.0",
@@ -39,24 +46,35 @@ dependencies = [
     # ── Visualisation ───────────────────────────────────
     "matplotlib>=3.8.0",
     "seaborn>=0.13.0",
+    "plotly>=5.20.0",
+
+    # ── Dashboard ───────────────────────────────────────
+    "streamlit>=1.35.0",
+
+    # ── Desktop app ─────────────────────────────────────
+    "customtkinter>=5.2.0",
 
     # ── Utilities ───────────────────────────────────────
     "python-dotenv>=1.0.0",
     "pyyaml>=6.0.1",
     "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
     "tqdm>=4.66.0",
     "requests>=2.31.0",
     "httpx>=0.27.0",
+    "joblib>=1.3.0",
 
-    # ── Dashboard & API (used at runtime) ───────────────
-    "streamlit>=1.35.0",
+    # ─── Web scraping & data collection ────────────────
+    "beautifulsoup4>=4.12.0",
+    "lxml>=5.1.0",
 
-    # ── Notifications ───────────────────────────────────
+    # ── Notifications / templating ────────────────────
     "jinja2>=3.1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
+    # Development tools
     "jupyter>=1.0.0",
     "notebook>=7.0.0",
     "ipykernel>=6.29.0",
@@ -77,18 +95,18 @@ dev = [
 api = [
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.29.0",
+    "python-multipart>=0.0.9",
     "slowapi>=0.1.9",
+]
+deep = [
+    "torch>=2.2.0",
 ]
 docs = [
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.5.0",
     "mkdocstrings[python]>=0.25.0",
 ]
-deep = [
-    "torch>=2.2.0",
-]
 notify = [
-    # Slack/email notifications
     "httpx>=0.27.0",
 ]
 all = [
@@ -96,19 +114,35 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/football-prediction"
-Repository = "https://github.com/yourusername/football-prediction"
-Issues = "https://github.com/yourusername/football-prediction/issues"
-Documentation = "https://yourusername.github.io/football-prediction"
-Changelog = "https://github.com/yourusername/football-prediction/releases"
+Homepage = "https://github.com/football-prediction/football-prediction"
+Repository = "https://github.com/football-prediction/football-prediction"
+Issues = "https://github.com/football-prediction/football-prediction/issues"
+Documentation = "https://football-prediction.readthedocs.io"
+Changelog = "https://github.com/football-prediction/football-prediction/releases"
 
 [project.scripts]
+# ── Core CLI (all subcommands: train, predict, dashboard, api, etc.) ──
 football-predict = "src.cli:main"
-football-train = "src.train:main"
-football-pipeline = "run_pipeline:main"
+
+# ── Application launchers ────────────────────────────────
+# Use subcommands for all functionality:
+#   football-predict train         — Train a model
+#   football-predict predict       — Generate predictions
+#   football-predict dashboard     — Launch the Streamlit dashboard
+#   football-predict api           — Start the REST API
+#   football-predict desktop       — Launch the desktop app
+#
+# Or launch directly:
+#   python -m streamlit run dashboard/app.py   — Monitoring dashboard
+#   python -m uvicorn api.main:app             — REST API server
 
 [tool.setuptools.packages.find]
-include = ["src", "src.*", "app", "app.*"]
+include = [
+    "src", "src.*",
+    "app", "app.*",
+    "api", "api.*",
+    "dashboard", "dashboard.*",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

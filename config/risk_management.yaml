@@ -1,0 +1,76 @@
+# ═══════════════════════════════════════════════════════════════
+#  Risk Management Configuration
+# ═══════════════════════════════════════════════════════════════
+#  Controls all risk boundaries for the betting engine.
+#  Every parameter can be overridden at runtime via the RiskManager
+#  constructor; changes to this file are picked up on next load.
+
+risk_manager:
+  # ── General ──────────────────────────────────────────────
+  enabled: true                         # Master toggle
+  strict_mode: false                    # If true, halt on ANY limit breach
+
+  # ── Daily Loss Limit ────────────────────────────────────
+  # Stop betting for the day if total losses exceed X% of
+  # the starting bankroll for that day.
+  daily_loss:
+    enabled: true
+    max_loss_pct: 15.0                   # Stop if loss > 15% of starting bankroll
+    reset_at_midnight: true              # Reset counter every day at 00:00
+    max_loss_absolute: null              # Absolute currency cap (null = no limit)
+
+  # ── Drawdown Limit ──────────────────────────────────────
+  # Stop betting if the bankroll has fallen X% from its
+  # all-time peak.
+  drawdown:
+    enabled: true
+    max_drawdown_pct: 25.0               # Stop if drawdown > 25% from peak
+    cooldown_on_breach: true             # Wait N bets after a drawdown breach
+    cooldown_bets: 3                     # Number of bets to skip after breach
+
+  # ── Consecutive Losses ──────────────────────────────────
+  consecutive_losses:
+    enabled: true
+    max_consecutive: 6                   # Stop after 6 losses in a row
+    cooldown_bets: 2                     # Skip N bets after hitting the limit
+
+  # ── Bet Frequency Limits ────────────────────────────────
+  # Cap the number of bets placed within a rolling window.
+  frequency:
+    enabled: true
+    max_per_day: 10                      # Max 10 bets per calendar day
+    max_per_week: 40                     # Max 40 bets per rolling 7-day window
+    max_per_hour: 3                      # Max 3 bets per rolling 60-minute window
+    cooldown_minutes: 30                 # If limit hit, wait N minutes before next bet
+
+  # ── Stake Limits ────────────────────────────────────────
+  stake:
+    enabled: true
+    max_single_pct: 25.0                 # Max 25% of bankroll on a single bet
+    max_total_exposure_pct: 50.0         # Max 50% of bankroll across all open bets
+    min_odds: 1.50                       # Minimum decimal odds allowed
+    max_odds: 20.0                       # Maximum decimal odds allowed
+
+  # ── Diversification ─────────────────────────────────────
+  # Prevent over-exposure to any single league or team.
+  diversification:
+    enabled: true
+    max_per_league:
+      pct: 40.0                          # Max 40% of bankroll on a single league
+      absolute: null                     # Absolute cap per league (null = no limit)
+    max_per_team:
+      pct: 25.0                          # Max 25% of bankroll on a single team
+      absolute: null                     # Absolute cap per team (null = no limit)
+    max_bets_per_league: 5               # Max 5 concurrent bets on same league
+    max_bets_per_team: 2                 # Max 2 concurrent bets on same team
+    excluded_leagues: []                 # Leagues to never bet on (e.g. ["VL", "AM"])
+    excluded_teams: []                   # Teams to never bet on (e.g. ["AnyTeam FC"])
+    preferred_leagues: []                # Only bet on these leagues (empty = all allowed)
+
+  # ── Exposure Tracking ───────────────────────────────────
+  # Tracks total financial exposure across all open bets.
+  exposure:
+    enabled: true
+    track_open_bets: true                # Track total staked on open (unsettled) bets
+    max_open_bets: 15                    # Max number of open (unsettled) bets at once
+    max_open_bets_per_match: 1           # Max 1 open bet per match (avoid correlated risk)

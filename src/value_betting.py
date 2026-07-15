@@ -12,7 +12,7 @@ Core workflow::
         team_matches=[("Arsenal", "Chelsea"), ("Liverpool", "Man City")],
     )
 
-    # Positive EV bets only
+    # Positive EV bets only (min_ev now defaults to 0.05 from config)
     good_bets = bets[bets["positive_ev"]]
 
 Calculations explained
@@ -70,7 +70,7 @@ def compute_value_bets(
     team_matches: list[tuple[str, str]] | None = None,
     bankroll: float = 1000.0,
     kelly_fraction: float = 0.25,
-    min_ev: float = 0.0,
+    min_ev: float = 0.05,
 ) -> pd.DataFrame:
     """Compute value betting metrics for a set of fixtures.
 
@@ -90,7 +90,8 @@ def compute_value_bets(
         0.25 is conservative; 0.5 is aggressive; 1.0 is full Kelly.
     min_ev : float
         Minimum EV threshold. Only bets with EV >= *min_ev* are flagged
-        as ``positive_ev`` (default 0.0).
+        as ``positive_ev`` (default 0.05 — raised from 0.0 to avoid
+        low-confidence bets).
 
     Returns
     -------
@@ -154,6 +155,9 @@ def compute_value_bets(
             else:
                 full_kelly = 0.0
             kelly_pct = max(full_kelly * kelly_fraction, 0.0)
+            # Cap stake at 10% of bankroll to prevent over-betting
+            max_stake_pct = getattr(config.value_betting, 'max_stake_pct', 0.10)
+            kelly_pct = min(kelly_pct, max_stake_pct)
             kelly_stake = bankroll * kelly_pct
 
             # ── 6. Positive EV filter ─────────────────────
