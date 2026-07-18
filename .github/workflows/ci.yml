@@ -81,7 +81,7 @@ jobs:
 
       - name: Upload pip-audit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pip-audit-report
           path: pip-audit-report.md
@@ -272,7 +272,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report-${{ matrix.python-version }}-${{ matrix.test-suite }}
           path: coverage.xml
@@ -405,7 +405,7 @@ jobs:
           path: .github/badges/build.svg
 
       - name: Upload badge
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-badge
           path: .github/badges/build.svg
