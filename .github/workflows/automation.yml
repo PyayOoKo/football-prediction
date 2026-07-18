@@ -103,7 +103,7 @@ jobs:
 
       - name: Upload data artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: data-pipeline-results
           path: |
@@ -157,7 +157,7 @@ jobs:
 
       - name: Upload feature artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: feature-pipeline-results
           path: |
@@ -212,7 +212,7 @@ jobs:
 
       - name: Upload model artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: model-pipeline-results
           path: |
@@ -266,7 +266,7 @@ jobs:
 
       - name: Upload prediction artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: prediction-results
           path: |
@@ -327,7 +327,7 @@ jobs:
           PYEOF
 
       - name: Upload health report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pipeline-health-report
           path: /tmp/pipeline-health.json
