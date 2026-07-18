@@ -14,13 +14,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
-
-# Install the package itself (creates CLI entry points)
+# Install Python dependencies and package
 COPY . .
-RUN pip install --no-cache-dir --user . && \
+RUN pip install --no-cache-dir --user -e ".[api]" && \
     rm -rf /root/.cache/pip
 
 # ── Stage 2: Runtime ──────────────────────────────────

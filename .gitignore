@@ -11,6 +11,7 @@ build/
 # ── Virtual Environment ─────────────────────────────────
 venv/
 .venv/
+.venv_temp/
 env/
 ENV/
 
@@ -69,6 +70,9 @@ figures/
 # ── Docker ─────────────────────────────────────────────
 docker-compose.override.yml
 
+# ── Generated data / monitoring ────────────────────────
+data/monitoring/
+
 # ── Misc ────────────────────────────────────────────────
 .pytest_cache/
 .mypy_cache/
@@ -76,4 +80,6 @@ docker-compose.override.yml
 htmlcov/
 .coverage
 coverage.xml
+nul
+refresh.log
 

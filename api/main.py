@@ -22,31 +22,34 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 # Ensure project root is on sys.path
 _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from config import config
+# Load .env before any other imports that read env vars
+load_dotenv(dotenv_path=_project_root / ".env")
 
-from api.auth import optional_auth, rate_limiter, verify_api_key
+from api.auth import IS_DEV_MODE, rate_limiter, verify_api_key
 from api.models import (
     ErrorResponse,
     HealthResponse,
+    MatchPrediction,
     ModelInfo,
     ModelListResponse,
     OutcomeProbabilities,
-    PredictWithOddsRequest,
     PredictResponse,
-    MatchPrediction,
+    PredictWithOddsRequest,
 )
+from config import config
 
 logger = logging.getLogger(__name__)
+
 
 # ── Application state ──────────────────────────────────────
 class AppState:
@@ -55,6 +58,11 @@ class AppState:
     def __init__(self) -> None:
         self.model: Any = None
         self.model_name: str = "none"
+        self.model_type: str = "none"
+        self.model_path: str = ""
+        self.model_trained_at: str | None = None
+        self.model_feature_count: int = 0
+        self.model_feature_names: list[str] = []
         self.model_registry: Any = None
         self.start_time: float = time.time()
         self.feature_columns: list[str] = []
@@ -97,10 +105,34 @@ app = FastAPI(
 )
 
 # ── CORS ───────────────────────────────────────────────────
+# In production, specify explicit allowed origins.
+# Wildcard "*" with allow_credentials=True is invalid and rejected by browsers.
+_ALLOWED_ORIGINS = (
+    os.environ.get("API_ALLOWED_ORIGINS", "").split(",")
+    if os.environ.get("API_ALLOWED_ORIGINS")
+    else None
+)
+if _ALLOWED_ORIGINS:
+    _ALLOWED_ORIGINS = [o.strip() for o in _ALLOWED_ORIGINS if o.strip()]
+
+if _ALLOWED_ORIGINS:
+    _cors_origins = _ALLOWED_ORIGINS
+    _cors_credentials = True
+elif IS_DEV_MODE:
+    _cors_origins = ["*"]
+    _cors_credentials = False  # Cannot combine * with credentials
+    logger.warning("CORS: allow_origins=['*'] in dev mode (credentials disabled)")
+else:
+    _cors_origins = ["*"]  # Fallback — safe because credentials=False
+    _cors_credentials = False
+    logger.warning(
+        "CORS: No API_ALLOWED_ORIGINS set. Defaulting to '*'. Set API_ALLOWED_ORIGINS in production."
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -119,7 +151,10 @@ async def add_request_id(request: Request, call_next: Any) -> Any:
         return JSONResponse(
             status_code=429,
             content=ErrorResponse(
-                detail="Rate limit exceeded. Max 100 requests per 60 seconds per IP.",
+                detail=(
+                    f"Rate limit exceeded. Max {rate_limiter.max_requests} requests "
+                    f"per {rate_limiter.window_seconds} seconds per IP."
+                ),
                 status_code=429,
                 request_id=request_id,
             ).model_dump(),
@@ -136,7 +171,8 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     """Catch all unhandled exceptions and return a clean error response."""
     logger.error(
         "Unhandled %s: %s [request_id=%s]",
-        type(exc).__name__, exc,
+        type(exc).__name__,
+        exc,
         getattr(request.state, "request_id", "unknown"),
         exc_info=True,
     )
@@ -156,47 +192,125 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 
 def _load_model() -> None:
-    """Load the best available prediction model from disk."""
+    """Load the best available prediction model from disk.
+
+    Searches the models/ directory for the actual filenames produced by
+    the training service: {model_type}_model.joblib (e.g. lightgbm_model.joblib,
+    xgboost_model.joblib, random_forest_model.joblib, logistic_regression_model.joblib).
+    Falls back to any .joblib file in the models directory.
+
+    Validates that the loaded artifact has predict() and predict_proba().
+    Does NOT silently replace a missing model with fake predictions.
+    """
     try:
-        import joblib
 
-        model_paths = [
-            config.paths.models / "ensemble.pkl",
-            config.paths.models / "xgboost_model.pkl",
-            config.paths.models / "weighted_ensemble.joblib",
-            config.paths.models / "model.pkl",
-            Path("models/ensemble.pkl"),
-            Path("models/xgboost_model.pkl"),
+        model_dir = config.paths.models
+
+        # 1. Explicit configured model path (highest priority)
+        configured_path = getattr(config, "api_model_path", None)
+        if configured_path:
+            p = Path(configured_path)
+            if p.exists():
+                _try_load(p)
+                if state.model is not None:
+                    return
+
+        # 2. Search for filenames matching training service output patterns
+        training_patterns = [
+            "lightgbm_model.joblib",
+            "xgboost_model.joblib",
+            "random_forest_model.joblib",
+            "logistic_regression_model.joblib",
+            "worldcup_xgboost.joblib",
+            "worldcup_lightgbm.joblib",
         ]
+        for name in training_patterns:
+            p = model_dir / name
+            if p.exists():
+                _try_load(p)
+                if state.model is not None:
+                    return
 
-        for mp in model_paths:
-            if mp.exists():
-                state.model = joblib.load(mp)
-                state.model_name = mp.name
-                logger.info("Loaded model: %s", mp)
-                break
+        # 3. Fallback: most recently modified .joblib file
+        candidates = sorted(
+            model_dir.glob("*.joblib"),
+            key=lambda p: p.stat().st_mtime,
+        )
+        for mp in candidates:
+            _try_load(mp)
+            if state.model is not None:
+                return
 
         if state.model is None:
-            logger.warning("No trained model found. Predictions will use fallback.")
-
-        # Try to load the model registry
-        try:
-            from src.models.registry import ModelRegistry
-            state.model_registry = ModelRegistry(use_db=False)
-            # Register any models found on disk
-            for mp in model_paths:
-                if mp.exists():
-                    try:
-                        m = joblib.load(mp)
-                        if hasattr(m, "model_name"):
-                            state.model_registry.register(m, force=True)
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+            logger.warning(
+                "No trained model found in %s. "
+                "The API will return 503 Service Unavailable for /predict. "
+                "Train a model first via TrainingService.train().",
+                model_dir,
+            )
 
     except Exception as exc:
         logger.error("Failed to load model: %s", exc)
+
+
+def _try_load(path: Path) -> None:
+    """Try to load a model from *path*, capturing metadata into AppState."""
+    from datetime import datetime
+
+    import joblib
+
+    try:
+        model = joblib.load(path)
+        # Validate predict and predict_proba exist
+        if not hasattr(model, "predict") or not hasattr(model, "predict_proba"):
+            logger.warning("Skipping %s: missing predict() or predict_proba()", path)
+            return
+        # Validate they're callable
+        if not callable(model.predict) or not callable(model.predict_proba):
+            logger.warning(
+                "Skipping %s: predict() or predict_proba() not callable", path
+            )
+            return
+        state.model = model
+        state.model_name = path.name
+        state.model_type = type(model).__name__
+        state.model_path = str(path.absolute())
+
+        # Capture training timestamp from file modification time
+        try:
+            state.model_trained_at = datetime.fromtimestamp(
+                path.stat().st_mtime
+            ).isoformat()
+        except Exception:
+            state.model_trained_at = None
+
+        # Capture expected feature count
+        if hasattr(model, "n_features_in_"):
+            state.model_feature_count = int(model.n_features_in_)
+        elif hasattr(model, "_n_features"):
+            state.model_feature_count = int(model._n_features)
+        else:
+            state.model_feature_count = 0
+
+        # Capture feature names
+        if hasattr(model, "feature_names_in_"):
+            state.model_feature_names = list(model.feature_names_in_)
+        elif hasattr(model, "get_booster"):
+            try:
+                names = model.get_booster().feature_names
+                if names:
+                    state.model_feature_names = list(names)
+            except Exception:
+                pass
+
+        logger.info(
+            "Loaded model: %s (%s, %d features)",
+            path.name,
+            state.model_type,
+            state.model_feature_count,
+        )
+    except Exception as exc:
+        logger.warning("Failed to load model %s: %s", path, exc)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -209,33 +323,97 @@ def _predict_match(
     away_team: str,
     match_date: str | None = None,
 ) -> dict[str, Any]:
-    """Generate a prediction for a single match.
+    """Generate a prediction for a single match using the loaded model.
 
-    Strategy (in order of preference):
-    1. Loaded model + feature engineering pipeline → real predictions
-    2. Deterministic fallback based on team-name hashing → estimated probs
+    Raises HTTPException(503) if no valid model is loaded.
+    Never returns fake/fallback predictions in production.
 
-    Currently uses strategy 2 (deterministic fallback) because the
-    feature engineering pipeline requires real match data (DataFrame with
-    all expected columns) and the model must be trained on those features.
-
-    To enable real predictions in production:
-    1. Train a model with ``train_worldcup.py`` or ``run_combined_pipeline.py``
-    2. Load feature-engineered data into the API (via POST /predict with
-       a pre-processed DataFrame)
-    3. The model will automatically use the feature pipeline
-
-    Returns a dict with probabilities, confidence, and model info.
+    In development mode, if ``ALLOW_DEV_FALLBACK`` is set, returns a
+    simulated prediction clearly marked as such.
     """
-    # Try real predictions with feature engineering
-    if state.model is not None:
-        try:
-            return _predict_with_features(home_team, away_team)
-        except Exception as exc:
-            logger.debug("Feature-based prediction unavailable: %s", exc)
+    if state.model is None:
+        # In dev mode with explicit flag, allow simulated predictions
+        if IS_DEV_MODE and os.environ.get("ALLOW_DEV_FALLBACK", "").lower() in (
+            "true",
+            "1",
+        ):
+            return _simulated_prediction(home_team, away_team)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "No prediction model is loaded. Train a model first. "
+                f"Checked in: {config.paths.models}"
+            ),
+        )
 
-    # Deterministic fallback based on team names
-    return _fallback_prediction(home_team, away_team)
+    try:
+        return _predict_with_features(home_team, away_team)
+    except HTTPException:
+        raise  # Pass through alignment/validation errors cleanly
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Prediction pipeline failed: {exc}",
+        )
+
+
+def _validate_feature_alignment(feature_row: pd.DataFrame) -> None:
+    """Validate that the pipeline's feature columns match model expectations.
+
+    Checks both feature count and column names against the metadata
+    captured when the model was loaded.  Raises
+    ``HTTPException(503)`` with a clear diagnostic message on
+    mismatch.
+
+    Parameters
+    ----------
+    feature_row : pd.DataFrame
+        The feature row(s) produced by the pipeline.
+    """
+    if state.model is None:
+        return
+
+    actual_cols = set(feature_row.columns)
+    actual_count = len(feature_row.columns)
+
+    # 1. Feature count check
+    if state.model_feature_count > 0 and actual_count != state.model_feature_count:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                f"Feature count mismatch: model expects "
+                f"{state.model_feature_count} features, but pipeline produced "
+                f"{actual_count}. Model: {state.model_name}. "
+                "Retrain the model with the current pipeline."
+            ),
+        )
+
+    # 2. Feature name check (if model exposes them)
+    if state.model_feature_names:
+        expected = set(state.model_feature_names)
+        missing = expected - actual_cols
+        extra = actual_cols - expected
+
+        if missing or extra:
+            msg_parts = [f"Feature column mismatch for {state.model_name}:"]
+            if missing:
+                sorted_missing = sorted(missing)[:15]
+                msg_parts.append(f"{len(missing)} missing: {sorted_missing}")
+            if extra:
+                sorted_extra = sorted(extra)[:15]
+                msg_parts.append(f"{len(extra)} extra: {sorted_extra}")
+            msg_parts.append("Retrain the model to align with the current pipeline.")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=" | ".join(msg_parts),
+            )
+
+    # 3. Log success for debugging
+    logger.debug(
+        "Feature alignment OK: %d features match model '%s'",
+        actual_count,
+        state.model_name,
+    )
 
 
 def _predict_with_features(home_team: str, away_team: str) -> dict[str, Any]:
@@ -243,8 +421,10 @@ def _predict_with_features(home_team: str, away_team: str) -> dict[str, Any]:
 
     Attempts to use the existing feature engineering pipeline from
     ``src.feature_engineering`` to generate real feature vectors
-    from team names. Falls back gracefully if the pipeline is
-    unavailable.
+    from team names. Validates feature alignment before inference.
+
+    Raises HTTPException(503) with clear details on feature mismatch
+    or pipeline failure.
     """
     # Try to use the real feature engineering pipeline
     try:
@@ -274,6 +454,13 @@ def _predict_with_features(home_team: str, away_team: str) -> dict[str, Any]:
         df_ext = pd.concat([df, pd.DataFrame([synthetic])], ignore_index=True)
         X_full, _ = build_features(df_ext, is_training=False)
         feature_row = X_full.iloc[-1:]
+
+        # ── Feature alignment validation ───────────────────
+        _validate_feature_alignment(feature_row)
+
+        # Enforce training-time column ordering
+        if state.model_feature_names:
+            feature_row = feature_row[list(state.model_feature_names)]
 
         model = state.model
         probs = model.predict_proba(feature_row)[0]
@@ -315,7 +502,10 @@ def _predict_with_features(home_team: str, away_team: str) -> dict[str, Any]:
 
         logger.info(
             "Feature-based prediction: %s vs %s → %s (%.1f%%)",
-            home_team, away_team, labels[pred_idx], confidence * 100,
+            home_team,
+            away_team,
+            labels[pred_idx],
+            confidence * 100,
         )
 
         return {
@@ -331,42 +521,28 @@ def _predict_with_features(home_team: str, away_team: str) -> dict[str, Any]:
     except Exception as exc:
         logger.debug(
             "Feature pipeline failed for %s vs %s: %s. Using fallback.",
-            home_team, away_team, exc,
+            home_team,
+            away_team,
+            exc,
         )
         raise  # Re-raise to let _predict_match handle the fallback
 
 
-def _fallback_prediction(home_team: str, away_team: str) -> dict[str, Any]:
-    """Generate a deterministic fallback prediction using team name hashing."""
-    import hashlib
-    import random as rnd
+def _simulated_prediction(home_team: str, away_team: str) -> dict[str, Any]:
+    """Generate a simulated prediction for development/testing only.
 
-    seed = int(hashlib.md5(f"{home_team}|{away_team}".encode()).hexdigest()[:8], 16)
-    rng = rnd.Random(seed)
-
-    home_str = rng.uniform(0.30, 0.55)
-    away_str = rng.uniform(0.20, 0.45)
-    draw_str = rng.uniform(0.20, 0.35)
-    total = home_str + draw_str + away_str
-
-    probs = {
-        "away_win": round(away_str / total, 4),
-        "draw": round(draw_str / total, 4),
-        "home_win": round(home_str / total, 4),
-    }
-
-    outcome = max(probs, key=probs.get)
-    label_map = {
-        "home_win": "Home Win",
-        "draw": "Draw",
-        "away_win": "Away Win",
-    }
-
+    This is clearly marked as simulated and must NOT be used for
+    actual betting decisions. Only available in dev mode with
+    ALLOW_DEV_FALLBACK=true.
+    """
+    # Uniform probabilities — no real prediction
+    probs = {"home_win": 0.34, "draw": 0.33, "away_win": 0.33}
     return {
         "probabilities": probs,
-        "predicted_outcome": label_map[outcome],
-        "confidence": probs[outcome],
-        "model": "fallback_estimation",
+        "predicted_outcome": "Home Win",
+        "confidence": 0.34,
+        "model": "simulated-dev-mode",
+        "simulated": True,
     }
 
 
@@ -438,6 +614,10 @@ async def health_check() -> HealthResponse:
         status="healthy",
         version="2.0.0",
         model_loaded=state.model is not None,
+        model_name=state.model_name,
+        model_type=state.model_type,
+        model_features=state.model_feature_count,
+        model_trained_at=state.model_trained_at,
         uptime_seconds=round(time.time() - state.start_time, 2),
     )
 
@@ -451,21 +631,23 @@ async def health_check() -> HealthResponse:
     description="Returns a list of all loaded prediction models with metadata.",
 )
 async def list_models(
-    auth: str | None = Depends(optional_auth),
+    auth: str = Depends(verify_api_key),
 ) -> ModelListResponse:
     """List all available prediction models."""
     models_list: list[ModelInfo] = []
 
-    # If we have a loaded model
+    # If we have a loaded model (use state metadata)
     if state.model is not None:
         model_info = ModelInfo(
             name=state.model_name,
-            model_type=type(state.model).__name__,
+            model_type=state.model_type,
             version=getattr(state.model, "model_version", "0.1.0"),
-            fitted=getattr(state.model, "_fitted", True) or getattr(state.model, "trained", False),
+            fitted=getattr(state.model, "_fitted", True)
+            or getattr(state.model, "trained", False),
             calibrated=getattr(state.model, "_calibrated", False),
-            features=getattr(state.model, "n_features_in_", 0)
-            or getattr(state.model, "_n_features", 0),
+            features=state.model_feature_count,
+            model_path=state.model_path,
+            trained_at=state.model_trained_at,
         )
 
         # Get metrics
@@ -478,24 +660,28 @@ async def list_models(
         if metrics:
             model_info.metrics = metrics
 
-        # Try to add trained_at
-        if hasattr(state.model, "_fit_completed_at"):
-            model_info.trained_at = str(state.model._fit_completed_at)
-
         models_list.append(model_info)
 
     # If we have a registry, query it
     if state.model_registry is not None:
-        for name, model in getattr(state.model_registry, "_models", {}).items():
+        for reg_name, reg_model in getattr(state.model_registry, "_models", {}).items():
             # Avoid duplicates
-            if not any(m.name == name for m in models_list):
-                models_list.append(ModelInfo(
-                    name=name,
-                    model_type=getattr(model, "model_type", "unknown"),
-                    version=getattr(model, "model_version", "0.1.0"),
-                    fitted=getattr(model, "_fitted", False),
-                    calibrated=getattr(model, "_calibrated", False),
-                ))
+            if not any(m.name == reg_name for m in models_list):
+                models_list.append(
+                    ModelInfo(
+                        name=reg_name,
+                        model_type=getattr(reg_model, "model_type", "unknown"),
+                        version=getattr(reg_model, "model_version", "0.1.0"),
+                        fitted=getattr(reg_model, "_fitted", False),
+                        calibrated=getattr(reg_model, "_calibrated", False),
+                        features=(
+                            getattr(reg_model, "n_features_in_", 0)
+                            or getattr(reg_model, "_n_features", 0)
+                        ),
+                        model_path="",
+                        trained_at=(getattr(reg_model, "_fit_completed_at", None)),
+                    )
+                )
 
     return ModelListResponse(
         models=models_list,
@@ -523,8 +709,7 @@ async def list_models(
 async def predict(
     request: Request,
     body: PredictWithOddsRequest,
-    auth: str | None = Depends(optional_auth),
-    _rate_limit: None = None,  # Placeholder — rate limiting applied in middleware
+    auth: str = Depends(verify_api_key),
 ) -> PredictResponse:
     """Predict match outcomes for the given fixtures."""
     start_time = time.time()
@@ -567,16 +752,20 @@ async def predict(
                         "away_win": round(ip_away / ip_total, 4),
                     }
 
-        predictions.append(MatchPrediction(
-            fixture=fixture,
-            predicted_outcome=result["predicted_outcome"],
-            probabilities=probs,
-            confidence=result["confidence"],
-            model=result["model"],
-            expected_value=ev,
-            kelly_stake=kelly,
-            implied_probabilities=OutcomeProbabilities(**implied_probs) if implied_probs else None,
-        ))
+        predictions.append(
+            MatchPrediction(
+                fixture=fixture,
+                predicted_outcome=result["predicted_outcome"],
+                probabilities=probs,
+                confidence=result["confidence"],
+                model=result["model"],
+                expected_value=ev,
+                kelly_stake=kelly,
+                implied_probabilities=(
+                    OutcomeProbabilities(**implied_probs) if implied_probs else None
+                ),
+            )
+        )
 
     processing_time = round((time.time() - start_time) * 1000, 2)
 
@@ -585,6 +774,10 @@ async def predict(
         predictions=predictions,
         model_info={
             "name": state.model_name,
+            "type": state.model_type,
+            "path": state.model_path,
+            "feature_count": state.model_feature_count,
+            "trained_at": state.model_trained_at,
             "loaded": state.model is not None,
         },
         processing_time_ms=processing_time,
@@ -625,7 +818,8 @@ def main() -> None:
     print("=" * 60)
     print(f"\n  Server: http://{host}:{port}")
     print(f"  Docs:   http://{host}:{port}/docs")
-    print(f"  API Key: {os.environ.get('PREDICTION_API_KEY', 'dev-key-change-in-production')[:8]}...")
+    api_key_status = "configured" if os.environ.get("PREDICTION_API_KEY") else "not set"
+    print(f"  API Key: {api_key_status}")
     print("\n  Press Ctrl+C to stop.\n")
 
     uvicorn.run(

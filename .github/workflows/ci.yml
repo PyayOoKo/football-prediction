@@ -63,8 +63,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt
-          pip install pip-audit bandit
+          pip install -e ".[dev,api]"
 
       - name: Scan Python dependencies (pip-audit)
         id: pip_audit
@@ -73,11 +72,10 @@ jobs:
           echo "::group::pip-audit — vulnerability scan"
           pip-audit \
             --strict \
-            --require-hashes \
             --desc on \
             --format markdown \
             --output pip-audit-report.md \
-            -r requirements.txt || true
+            || true
           echo "::endgroup::"
           echo "report=pip-audit-report.md" >> $GITHUB_OUTPUT
 
@@ -143,7 +141,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt
+          pip install -e ".[dev,api]"
 
       - name: Check formatting (Black)
         run: |
@@ -240,8 +238,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt
-          pip install pytest-cov
+          pip install -e ".[dev,api]"
 
       - name: Run database migrations (Alembic)
         env:

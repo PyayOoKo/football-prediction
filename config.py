@@ -7,11 +7,18 @@ and model settings in one place for easy experimentation.
 Automatically loads ``.env`` file from the project root so
 environment variables like ``THE_ODDS_API_KEY`` are always
 available without manual setup.
+
+Environment validation
+----------------------
+- ``APP_ENV`` controls production/development mode.
+- In production mode, required secrets are validated at import time.
+- Secrets are never logged.
 """
 
 from __future__ import annotations
 
 import os
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -21,6 +28,29 @@ from dotenv import load_dotenv
 # Auto-load .env from project root — called once at import time
 # so env vars are available project-wide without manual setup.
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
+
+
+# ── Environment detection & validation ──────────────────
+APP_ENV = os.environ.get("APP_ENV", "production").lower()
+IS_PRODUCTION = APP_ENV == "production"
+
+_REQUIRED_IN_PRODUCTION = [
+    ("PREDICTION_API_KEY", "API authentication key"),
+    ("DATABASE_URL", "Database connection string"),
+]
+
+if IS_PRODUCTION:
+    missing = []
+    for var_name, description in _REQUIRED_IN_PRODUCTION:
+        if not os.environ.get(var_name):
+            missing.append(f"  {var_name} ({description})")
+    if missing:
+        warnings.warn(
+            "PRODUCTION MODE: Required environment variables are not set:\n"
+            + "\n".join(missing)
+            + "\nSet these in your .env file or environment before running.",
+            stacklevel=2,
+        )
 
 
 # ── Data collection ─────────────────────────────────────
@@ -94,8 +124,16 @@ class Paths:
 
     def __post_init__(self) -> None:
         """Ensure all essential directories exist."""
-        for d in (self.data, self.raw, self.processed, self.external,
-                  self.models, self.notebooks, self.src, self.app):
+        for d in (
+            self.data,
+            self.raw,
+            self.processed,
+            self.external,
+            self.models,
+            self.notebooks,
+            self.src,
+            self.app,
+        ):
             d.mkdir(parents=True, exist_ok=True)
 
 
@@ -345,6 +383,27 @@ class XgConfig:
     warn_missing: bool = True
 
 
+# ── Enhanced Player Features ──────────────────────────
+@dataclass
+class PlayerFeaturesConfig:
+    """Settings for the enhanced player features module.
+
+    Attributes
+    ----------
+    enabled : bool
+        Whether to run the enhanced player feature module (default False).
+        When enabled, generates 10+ squad-level features from player data.
+    rolling_windows : tuple[int, ...]
+        Rolling windows for form features (default (5, 10)).
+    warn_missing : bool
+        Log a warning when no player data is provided (default True).
+    """
+
+    enabled: bool = False
+    rolling_windows: tuple[int, ...] = (5, 10)
+    warn_missing: bool = True
+
+
 # ── Poisson Model ─────────────────────────────────────
 @dataclass
 class PoissonConfig:
@@ -422,9 +481,7 @@ class HyperTuneConfig:
         Print progress during tuning (default True).
     """
 
-    model_types: tuple[str, ...] = (
-        "logistic_regression", "random_forest", "xgboost"
-    )
+    model_types: tuple[str, ...] = ("logistic_regression", "random_forest", "xgboost")
     n_iter_random: int = 50
     cv_folds: int = 5
     save_models: bool = True
@@ -454,6 +511,7 @@ class ConfidenceConfig:
     calibration_brier_default : float
         Fallback Brier score if none is provided (default 0.25 — moderate).
     """
+
     weight_spread: float = 0.40
     weight_agreement: float = 0.35
     weight_calibration: float = 0.25
@@ -484,9 +542,7 @@ class EnsembleConfig:
         contributes meaningfully based on its strengths.
     """
 
-    model_names: tuple[str, ...] = (
-        "xgboost", "logistic_regression", "poisson"
-    )
+    model_names: tuple[str, ...] = ("xgboost", "logistic_regression", "poisson")
     weight_grid_step: float = 0.10
     tune_base_models: bool = False
     model_weight_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
@@ -522,6 +578,7 @@ class BacktestConfig:
 @dataclass
 class WeatherCollectorConfig:
     """Settings for the OpenWeatherMap API collector."""
+
     enabled: bool = False
     api_key_env: str = "OPENWEATHER_API_KEY"
     cache_ttl: int = 86400  # 24 hours
@@ -533,6 +590,7 @@ class WeatherCollectorConfig:
 @dataclass
 class RefereeCollectorConfig:
     """Settings for the referee statistics collector."""
+
     enabled: bool = False
     delay: float = 2.0  # polite delay between pages
     output_file: str = "referees.csv"
@@ -542,6 +600,7 @@ class RefereeCollectorConfig:
 @dataclass
 class TransferCollectorConfig:
     """Settings for the Transfermarkt transfer scraper."""
+
     enabled: bool = False
     delay: float = 1.5
     output_file: str = "transfers.csv"
@@ -552,6 +611,7 @@ class TransferCollectorConfig:
 @dataclass
 class StatsBombCollectorConfig:
     """Settings for the StatsBomb open data reader."""
+
     enabled: bool = False
     repo_url: str = "https://raw.githubusercontent.com/statsbomb/open-data/master/data"
     competitions: tuple[str, ...] = ("World Cup", "Champions League", "Premier League")
@@ -562,6 +622,7 @@ class StatsBombCollectorConfig:
 @dataclass
 class WeatherConfig:
     """Settings for weather-based features."""
+
     enabled: bool = False
     default_temp: float = 15.0
     placeholder_value: float = 0.0
@@ -572,6 +633,7 @@ class WeatherConfig:
 @dataclass
 class RefereeConfig:
     """Settings for referee-based features."""
+
     enabled: bool = False
     window: int = 20
     placeholder_value: float = 0.0
@@ -582,6 +644,7 @@ class RefereeConfig:
 @dataclass
 class ScheduleConfig:
     """Settings for schedule/congestion features (travel, fatigue, rest)."""
+
     enabled: bool = True
     include_travel_distance: bool = True
     include_fatigue: bool = True
@@ -591,6 +654,7 @@ class ScheduleConfig:
 @dataclass
 class ExtendedFeaturesConfig:
     """Toggle advanced/extended feature sets."""
+
     enabled: bool = False
     include_extended_h2h: bool = True
     include_extended_form: bool = True
@@ -663,6 +727,73 @@ class DixonColesConfig:
     fit_intercept_only: bool = False
 
 
+# ── Feature Selection ────────────────────────────
+@dataclass
+class FeatureSelectionConfig:
+    """Settings for the feature selection module.
+
+    When enabled during training, reduces the feature set dimensionality
+    before model fitting, which can improve generalisation and speed.
+
+    Attributes
+    ----------
+    enabled : bool
+        Whether to run feature selection during training (default False).
+    method : str
+        Selection method. One of ``"mutual_info"``, ``"rfe"``, ``"l1"``,
+        ``"threshold"``. Default ``"mutual_info"`` (fastest).
+    n_features : int
+        Number of features to keep (default 30). Ignored for ``"threshold"``.
+    importance_threshold : float
+        Minimum importance score to keep a feature, for ``"threshold"``
+        method (default 0.01).
+    correlation_threshold : float
+        Drop feature pairs with Pearson correlation above this threshold
+        before selection (default 0.95). Set to 1.0 to skip.
+    drop_redundant_first : bool
+        Whether to remove highly-correlated features before selection
+        (default True).
+    """
+
+    enabled: bool = False
+    method: Literal["mutual_info", "rfe", "l1", "threshold"] = "mutual_info"
+    n_features: int = 30
+    importance_threshold: float = 0.01
+    correlation_threshold: float = 0.95
+    drop_redundant_first: bool = True
+
+
+# ── World Cup paths ──────────────────────────────
+@dataclass
+class WorldCupConfig:
+    """Paths for World Cup data, predictions, and model artifacts.
+
+    Previously hardcoded in ``train_worldcup.py`` and two dozen other
+    scripts. Centralising here means a single change propagates
+    everywhere.
+
+    Attributes
+    ----------
+    data_path : str
+        Path to the combined World Cup CSV, relative to project root.
+        Default: ``"data/raw/worldcup_all.csv"``.
+    predictions_dir : str
+        Directory for prediction output CSVs, relative to project root.
+        Default: ``"reports/predictions_worldcup"``.
+    predictions_file : str
+        Filename for the main predictions CSV.
+        Default: ``"worldcup_predictions.csv"``.
+    model_save_name : str
+        Filename for the trained World Cup model (stored in ``models/``).
+        Default: ``"worldcup_lightgbm.joblib"``.
+    """
+
+    data_path: str = "data/raw/worldcup_all.csv"
+    predictions_dir: str = "reports/predictions_worldcup"
+    predictions_file: str = "worldcup_predictions.csv"
+    model_save_name: str = "worldcup_lightgbm.joblib"
+
+
 # ── Convenience singleton ───────────────────────────────
 @dataclass
 class Config:
@@ -680,6 +811,7 @@ class Config:
     odds: OddsConfig = field(default_factory=OddsConfig)
     player_info: PlayerInfoConfig = field(default_factory=PlayerInfoConfig)
     xg: XgConfig = field(default_factory=XgConfig)
+    player_features: PlayerFeaturesConfig = field(default_factory=PlayerFeaturesConfig)
     poisson: PoissonConfig = field(default_factory=PoissonConfig)
     dixon_coles: DixonColesConfig = field(default_factory=DixonColesConfig)
     elo: EloConfig = field(default_factory=EloConfig)
@@ -688,14 +820,28 @@ class Config:
     confidence: ConfidenceConfig = field(default_factory=ConfidenceConfig)
     backtesting: BacktestConfig = field(default_factory=BacktestConfig)
     eval: EvalConfig = field(default_factory=EvalConfig)
-    weather_collector: WeatherCollectorConfig = field(default_factory=WeatherCollectorConfig)
-    referee_collector: RefereeCollectorConfig = field(default_factory=RefereeCollectorConfig)
-    transfer_collector: TransferCollectorConfig = field(default_factory=TransferCollectorConfig)
-    statsbomb_collector: StatsBombCollectorConfig = field(default_factory=StatsBombCollectorConfig)
+    weather_collector: WeatherCollectorConfig = field(
+        default_factory=WeatherCollectorConfig
+    )
+    referee_collector: RefereeCollectorConfig = field(
+        default_factory=RefereeCollectorConfig
+    )
+    transfer_collector: TransferCollectorConfig = field(
+        default_factory=TransferCollectorConfig
+    )
+    statsbomb_collector: StatsBombCollectorConfig = field(
+        default_factory=StatsBombCollectorConfig
+    )
     weather: WeatherConfig = field(default_factory=WeatherConfig)
     referee: RefereeConfig = field(default_factory=RefereeConfig)
     schedule: ScheduleConfig = field(default_factory=ScheduleConfig)
-    extended_features: ExtendedFeaturesConfig = field(default_factory=ExtendedFeaturesConfig)
+    extended_features: ExtendedFeaturesConfig = field(
+        default_factory=ExtendedFeaturesConfig
+    )
+    worldcup: WorldCupConfig = field(default_factory=WorldCupConfig)
+    feature_selection: FeatureSelectionConfig = field(
+        default_factory=FeatureSelectionConfig
+    )
 
     # Global toggle
     verbose: bool = True

@@ -39,7 +39,7 @@ services:
       - ./models:/app/models
       - ./logs:/app/logs
     command: >
-      sh -c "alembic upgrade head && python -m src"
+      sh -c "alembic upgrade head && python -m uvicorn api.main:app --host 0.0.0.0 --port 8000"
 
   # ── Migration runner (one-off) ───────────────────────
   migrate:
