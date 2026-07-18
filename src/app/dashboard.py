@@ -12,7 +12,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from config import config
+from config import config as _global_config
 
 # Must be the first Streamlit command
 st.set_page_config(
@@ -155,7 +155,7 @@ with col2:
 
 with col3:
     if model is not None:
-        model_type = config.train.model_type.upper()
+        model_type = _global_config.train.model_type.upper()
         st.markdown(
             f'<div class="metric-card">'
             f'<div class="metric-value">{model_type}</div>'
@@ -264,10 +264,10 @@ with right_col:
     if model is not None:
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
         st.markdown("**Model Configuration**")
-        st.markdown(f"- Type: `{config.train.model_type}`")
-        st.markdown(f"- Estimators: `{config.train.n_estimators}`")
-        st.markdown(f"- Max depth: `{config.train.max_depth}`")
-        st.markdown(f"- Learning rate: `{config.train.learning_rate}`")
+        st.markdown(f"- Type: `{_global_config.train.model_type}`")
+        st.markdown(f"- Estimators: `{_global_config.train.n_estimators}`")
+        st.markdown(f"- Max depth: `{_global_config.train.max_depth}`")
+        st.markdown(f"- Learning rate: `{_global_config.train.learning_rate}`")
         st.markdown(f"- Features: rolling stats, H2H, league position")
         st.markdown("</div>", unsafe_allow_html=True)
 

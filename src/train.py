@@ -24,7 +24,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 from sklearn.model_selection import RandomizedSearchCV
 
-from config import config
+from config import config as _global_config
 from src.time_series_cv import create_time_series_folds
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,7 @@ def train_model(
     y_train: pd.Series,
     X_val: pd.DataFrame | None = None,
     y_val: pd.Series | None = None,
+    config: Any | None = None,
 ) -> tuple[Any, dict[str, list[float]]]:
     """Train a model on the provided data.
 
@@ -51,6 +52,9 @@ def train_model(
         Validation feature matrix.
     y_val : pd.Series, optional
         Validation target vector.
+    config : Config, optional
+        Config instance for dependency injection.  Defaults to the
+        global singleton ``config``.
 
     Returns
     -------
@@ -59,19 +63,20 @@ def train_model(
     history : dict[str, list[float]]
         Training history (loss, metrics).
     """
-    logger.info("Starting training with model_type='%s'", config.train.model_type)
+    cfg = config or _global_config
+    logger.info("Starting training with model_type='%s'", cfg.train.model_type)
 
-    model = _build_model()
+    model = _build_model(config=cfg)
     history: dict[str, list[float]] = {}
 
-    if config.train.model_type in {"logistic_regression", "random_forest"}:
+    if cfg.train.model_type in {"logistic_regression", "random_forest"}:
         model, history = _train_sklearn(model, X_train, y_train, X_val, y_val)
-    elif config.train.model_type in {"xgboost", "lightgbm"}:
-        model, history = _train_gbdt(model, X_train, y_train, X_val, y_val)
-    elif config.train.model_type == "neural_network":
-        model, history = _train_neural_net(model, X_train, y_train, X_val, y_val)
+    elif cfg.train.model_type in {"xgboost", "lightgbm"}:
+        model, history = _train_gbdt(model, X_train, y_train, X_val, y_val, config=cfg)
+    elif cfg.train.model_type == "neural_network":
+        model, history = _train_neural_net(model, X_train, y_train, X_val, y_val, config=cfg)
     else:
-        raise ValueError(f"Unknown model_type: {config.train.model_type}")
+        raise ValueError(f"Unknown model_type: {cfg.train.model_type}")
 
     logger.info("Training complete.")
     return model, history
@@ -83,6 +88,7 @@ def tune_hyperparameters(
     n_folds: int | None = None,
     n_iter: int = 80,
     verbose: bool = True,
+    config: Any | None = None,
 ) -> dict[str, Any]:
     """Randomised search cross-validation to find the best hyper-parameters.
 
@@ -106,6 +112,9 @@ def tune_hyperparameters(
         Number of random parameter samples to try (default 80).
     verbose : bool
         Print progress.
+    config : Config, optional
+        Config instance for dependency injection.  Defaults to the
+        global singleton ``config``.
 
     Returns
     -------
@@ -113,10 +122,11 @@ def tune_hyperparameters(
         Best hyper-parameters found by the search (does **not** mutate
         ``config`` — the caller must apply them).
     """
-    model_type = config.train.model_type
+    cfg = config or _global_config
+    model_type = cfg.train.model_type
     logger.info(
         "Hyper-parameter tuning '%s' — %s-fold CV, %d random samples",
-        model_type, n_folds or config.train.cv_folds, n_iter,
+        model_type, n_folds or cfg.train.cv_folds, n_iter,
     )
 
     if model_type == "logistic_regression":
@@ -126,11 +136,11 @@ def tune_hyperparameters(
         }
         base_model = LogisticRegression(
             max_iter=2000,
-            random_state=config.train.seed, class_weight="balanced",
+            random_state=cfg.train.seed, class_weight="balanced",
         )
         # Small grid — use exact search
         from sklearn.model_selection import GridSearchCV
-        cv = create_time_series_folds(n_splits=n_folds or config.train.cv_folds)
+        cv = create_time_series_folds(n_splits=n_folds or cfg.train.cv_folds)
         searcher = GridSearchCV(
             base_model, param_dist, cv=cv,
             scoring="neg_log_loss", n_jobs=-1, verbose=1 if verbose else 0,
@@ -150,15 +160,15 @@ def tune_hyperparameters(
         base_model = xgb.XGBClassifier(
             objective="multi:softprob",
             eval_metric="mlogloss",
-            random_state=config.train.seed,
+            random_state=cfg.train.seed,
             n_jobs=-1,
         )
-        cv = create_time_series_folds(n_splits=n_folds or config.train.cv_folds)
+        cv = create_time_series_folds(n_splits=n_folds or cfg.train.cv_folds)
         searcher = RandomizedSearchCV(
             base_model, param_dist, n_iter=n_iter,
             cv=cv,
             scoring="neg_log_loss", n_jobs=-1,
-            random_state=config.train.seed,
+            random_state=cfg.train.seed,
             verbose=1 if verbose else 0,
         )
     elif model_type == "lightgbm":
@@ -177,16 +187,16 @@ def tune_hyperparameters(
         base_model = lgb.LGBMClassifier(
             objective="multiclass",
             metric="multi_logloss",
-            random_state=config.train.seed,
+            random_state=cfg.train.seed,
             n_jobs=-1,
             verbose=-1,
         )
-        cv = create_time_series_folds(n_splits=n_folds or config.train.cv_folds)
+        cv = create_time_series_folds(n_splits=n_folds or cfg.train.cv_folds)
         searcher = RandomizedSearchCV(
             base_model, param_dist, n_iter=n_iter,
             cv=cv,
             scoring="neg_log_loss", n_jobs=-1,
-            random_state=config.train.seed,
+            random_state=cfg.train.seed,
             verbose=1 if verbose else 0,
         )
     elif model_type == "random_forest":
@@ -196,16 +206,16 @@ def tune_hyperparameters(
             "min_samples_leaf": [2, 5, 10, 20],
         }
         base_model = RandomForestClassifier(
-            random_state=config.train.seed,
+            random_state=cfg.train.seed,
             class_weight="balanced_subsample",
             n_jobs=-1,
         )
-        cv = create_time_series_folds(n_splits=n_folds or config.train.cv_folds)
+        cv = create_time_series_folds(n_splits=n_folds or cfg.train.cv_folds)
         searcher = RandomizedSearchCV(
             base_model, param_dist, n_iter=n_iter,
             cv=cv,
             scoring="neg_log_loss", n_jobs=-1,
-            random_state=config.train.seed,
+            random_state=cfg.train.seed,
             verbose=1 if verbose else 0,
         )
     else:
@@ -226,8 +236,17 @@ def tune_hyperparameters(
     return searcher.best_params_
 
 
-def save_model(model: Any, file_name: str | None = None) -> str:
-    """Serialise a trained model to ``models/`` via joblib.
+def save_model(
+    model: Any,
+    file_name: str | None = None,
+    config: Any | None = None,
+    **artifact_kwargs: Any,
+) -> str:
+    """Serialise a trained model as a ``ModelArtifact`` to ``models/``.
+
+    The artifact bundles the estimator with feature names, training
+    timestamp, model type, and other metadata so inference can validate
+    column alignment.
 
     Parameters
     ----------
@@ -235,57 +254,102 @@ def save_model(model: Any, file_name: str | None = None) -> str:
         Trained model object.
     file_name : str, optional
         Output file name.  Defaults to ``{model_type}_model.joblib``.
+    config : Config, optional
+        Config instance for dependency injection.  Defaults to the
+        global singleton ``config``.
+    **artifact_kwargs
+        Extra keyword arguments forwarded to ``ModelArtifact(...)``.
+        At minimum ``feature_names`` (list[str]) should be provided.
 
     Returns
     -------
     str
-        Path to the saved model file.
+        Path to the saved artifact file.
     """
+    from src.models.artifact import ModelArtifact
+
+    cfg = config or _global_config
     if file_name is None:
-        model_type = config.train.model_type
+        model_type = cfg.train.model_type
         file_name = f"{model_type}_model.joblib"
 
-    path = config.paths.models / file_name
+    path = cfg.paths.models / file_name
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    joblib.dump(model, path)
-    logger.info("Model saved to %s", path)
-    return str(path)
+    # Build artifact with metadata
+    artifact = ModelArtifact(
+        model=model,
+        feature_names=artifact_kwargs.pop("feature_names", []),
+        selected_feature_names=artifact_kwargs.pop("selected_feature_names", None),
+        model_type=artifact_kwargs.pop("model_type", cfg.train.model_type),
+        trained_at=artifact_kwargs.pop("trained_at", ""),
+        preprocessing_config={
+            "model_type": cfg.train.model_type,
+            "n_estimators": cfg.train.n_estimators,
+            "max_depth": cfg.train.max_depth,
+            "learning_rate": cfg.train.learning_rate,
+        },
+        **artifact_kwargs,
+    )
+    return artifact.save(str(path))
 
 
-def load_model(file_name: str) -> Any:
+def load_model(file_name: str, config: Any | None = None) -> Any:
     """Load a serialised model from ``models/``.
+
+    Supports both ``ModelArtifact`` (new) and raw joblib (legacy).
 
     Parameters
     ----------
     file_name : str
         File name within the ``models/`` directory.
+    config : Config, optional
+        Config instance for dependency injection.  Defaults to the
+        global singleton ``config``.
 
     Returns
     -------
     Any
-        Deserialised model object.
+        Deserialised model object — either a ``ModelArtifact`` or raw
+        estimator for legacy files.
     """
-    path = config.paths.models / file_name
+    from src.models.artifact import ModelArtifact
+
+    cfg = config or _global_config
+    path = cfg.paths.models / file_name
     if not path.exists():
         raise FileNotFoundError(f"Model not found: {path}")
-    model = joblib.load(path)
-    logger.info("Model loaded from %s", path)
-    return model
+
+    obj = joblib.load(path)
+    if isinstance(obj, ModelArtifact):
+        logger.info(
+            "Artifact v%s loaded from %s (%d features, %s)",
+            obj.artifact_version, path, obj.n_features, obj.model_type,
+        )
+        return obj
+
+    logger.info("Legacy model loaded from %s (not an artifact)", path)
+    return obj
 
 
 # ── Internal: model factory ─────────────────────────────
 
 
-def _build_model() -> Any:
+def _build_model(config: Any | None = None) -> Any:
     """Instantiate a fresh model per ``config.train.model_type``.
+
+    Parameters
+    ----------
+    config : Config, optional
+        Config instance for dependency injection.  Defaults to the
+        global singleton ``config``.
 
     Returns
     -------
     Any
         An untrained model instance.
     """
-    cfg = config.train
+    cfg = (config or _global_config).train
 
     if cfg.model_type == "logistic_regression":
         return LogisticRegression(
@@ -375,17 +439,40 @@ def _train_gbdt(
     y_train: pd.Series,
     X_val: pd.DataFrame | None,
     y_val: pd.Series | None,
+    config: Any | None = None,
 ) -> tuple[Any, dict[str, list[float]]]:
     """Train XGBoost / LightGBM with early stopping.
 
     XGBoost/LightGBM handle NaN natively — no imputation needed.
+
+    Parameters
+    ----------
+    model : Any
+        Model instance.
+    X_train : pd.DataFrame
+        Training feature matrix.
+    y_train : pd.Series
+        Training target vector.
+    X_val : pd.DataFrame, optional
+        Validation feature matrix.
+    y_val : pd.Series, optional
+        Validation target vector.
+    config : Config, optional
+        Config instance for dependency injection.  Defaults to the
+        global singleton ``config``.
+
+    Returns
+    -------
+    tuple[Any, dict[str, list[float]]]
+        Trained model and training history.
     """
     eval_set = [(X_train, y_train)]
     if X_val is not None and y_val is not None:
         eval_set.append((X_val, y_val))
 
     # Different parameter names for XGBoost vs LightGBM
-    is_lgbm = config.train.model_type == "lightgbm"
+    cfg = config or _global_config
+    is_lgbm = cfg.train.model_type == "lightgbm"
     if is_lgbm:
         model.set_params(
             metric="multi_logloss",
@@ -426,12 +513,34 @@ def _train_neural_net(
     y_train: pd.Series,
     X_val: pd.DataFrame | None,
     y_val: pd.Series | None,
+    config: Any | None = None,
 ) -> tuple[Any, dict[str, list[float]]]:
     """Train a feed-forward neural network (PyTorch).
 
     Architecture: ``input → 128 → ReLU → Dropout → 64 → ReLU → Dropout → 32 → ReLU → 3 (softmax)``
     Uses AdamW optimizer, reduces learning rate on plateau, early stopping.
     Returns a sklearn-compatible wrapper.
+
+    Parameters
+    ----------
+    model : Any
+        Model instance (unused — built internally).
+    X_train : pd.DataFrame
+        Training feature matrix.
+    y_train : pd.Series
+        Training target vector.
+    X_val : pd.DataFrame, optional
+        Validation feature matrix.
+    y_val : pd.Series, optional
+        Validation target vector.
+    config : Config, optional
+        Config instance for dependency injection.  Defaults to the
+        global singleton ``config``.
+
+    Returns
+    -------
+    tuple[Any, dict[str, list[float]]]
+        Trained model (TorchWrapper) and training history.
     """
     try:
         import torch
@@ -444,7 +553,7 @@ def _train_neural_net(
             "Install it with: pip install torch"
         )
 
-    cfg = config.train
+    cfg = (config or _global_config).train
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     n_features = X_train.shape[1]

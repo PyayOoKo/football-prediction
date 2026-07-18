@@ -64,7 +64,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import TimeSeriesSplit as SklearnTimeSeriesSplit
 
-from config import config
+from config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +152,7 @@ class TimeSeriesCrossValidator:
     def get_cv(
         n_splits: int | None = None,
         gap: int | None = None,
+        config: Any | None = None,
     ) -> SklearnTimeSeriesSplit:
         """Get a ``TimeSeriesSplit`` instance for use with scikit-learn CV.
 
@@ -163,6 +164,9 @@ class TimeSeriesCrossValidator:
             Number of CV folds.  Defaults to ``config.hyper_tune.cv_folds``.
         gap : int, optional
             Gap between train and val.  Defaults to 0.
+        config : Any, optional
+            Injected config object.  Falls back to global ``config`` when
+            ``None`` (default).
 
         Returns
         -------
@@ -170,8 +174,9 @@ class TimeSeriesCrossValidator:
             Ready to pass as ``cv=`` to ``GridSearchCV`` or
             ``RandomizedSearchCV``.
         """
+        cfg = config or _global_config
         if n_splits is None:
-            n_splits = config.hyper_tune.cv_folds
+            n_splits = cfg.hyper_tune.cv_folds
         if gap is None:
             gap = _DEFAULT_GAP
         return SklearnTimeSeriesSplit(n_splits=n_splits, gap=gap)
@@ -386,6 +391,7 @@ def time_series_train_val_test_split(
     X: pd.DataFrame,
     y: pd.Series,
     ratios: tuple[float, float, float] | None = None,
+    config: Any | None = None,
 ) -> dict[str, Any]:
     """Chronological train / validation / test split (no shuffle, no leakage).
 
@@ -405,14 +411,18 @@ def time_series_train_val_test_split(
         Target vector.
     ratios : tuple[float, float, float], optional
         (train, val, test) ratios.  Defaults to ``config.data.split_ratios``.
+    config : Any, optional
+        Injected config object.  Falls back to global ``config`` when
+        ``None`` (default).
 
     Returns
     -------
     dict[str, Any]
         ``X_train``, ``X_val``, ``X_test``, ``y_train``, ``y_val``, ``y_test``.
     """
+    cfg = config or _global_config
     if ratios is None:
-        ratios = config.data.split_ratios
+        ratios = cfg.data.split_ratios
 
     assert abs(sum(ratios) - 1.0) < 1e-6, "Split ratios must sum to 1.0"
 
@@ -438,6 +448,7 @@ def time_series_train_val_test_split(
 def create_time_series_folds(
     n_splits: int | None = None,
     gap: int | None = None,
+    config: Any | None = None,
 ) -> SklearnTimeSeriesSplit:
     """Shortcut to create a ``TimeSeriesSplit`` for use with CV.
 
@@ -448,8 +459,20 @@ def create_time_series_folds(
 
         cv = create_time_series_folds(n_splits=5)
         searcher = GridSearchCV(model, param_grid, cv=cv)
+
+    Parameters
+    ----------
+    n_splits : int, optional
+        Number of CV folds.  Defaults to ``config.hyper_tune.cv_folds``.
+    gap : int, optional
+        Gap between train and val.  Defaults to 0.
+    config : Any, optional
+        Injected config object.  Falls back to global ``config`` when
+        ``None`` (default).
     """
+    cfg = config or _global_config
     return TimeSeriesCrossValidator.get_cv(
-        n_splits=n_splits or config.hyper_tune.cv_folds,
+        n_splits=n_splits or cfg.hyper_tune.cv_folds,
         gap=gap or _DEFAULT_GAP,
+        config=cfg,
     )

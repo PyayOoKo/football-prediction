@@ -715,7 +715,6 @@ class StackingEnsemble:
 
         # Meta-learner (default: multinomial logistic regression)
         self._meta: Any = meta_learner or LogisticRegression(
-            multi_class="multinomial",
             solver="lbfgs",
             max_iter=2000,
             C=1.0,

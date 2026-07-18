@@ -29,6 +29,43 @@ class ImportTab(ctk.CTkFrame):
         self.on_data_loaded: Any = None  # Callback(dataframe, source_label)
         self._build_ui()
 
+    # ── Data pipeline integration ─────────────────────────
+
+    def _apply_data_pipeline(self, df: pd.DataFrame, source: str) -> pd.DataFrame:
+        """Run imported data through the standard cleaning + preprocessing pipeline.
+
+        Auto-detects source format (football-data.co.uk, football-data.org),
+        normalises team names, parses dates, and adds temporal features.
+        Returns a cleaned copy of **df**.
+        """
+        from src.data import DataCleaner, DataPreprocessor
+
+        df = df.copy()
+
+        # Auto-detect source format from column signatures
+        if "Div" in df.columns or "FTHG" in df.columns:
+            df = DataCleaner.football_data_co_uk(df)
+            logger.info("Applied football-data.co.uk cleaning to imported data")
+        elif "utcDate" in df.columns or "score.fullTime.home" in df.columns:
+            df = DataCleaner.football_data_org(df)
+            logger.info("Applied football-data.org cleaning to imported data")
+        else:
+            # Generic column normalisation: lowercase + strip
+            df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
+            logger.info("Applied generic column normalisation")
+
+        # Run the standard preprocessor
+        preprocessor = DataPreprocessor(
+            normalise_teams=config.data_collection.normalise_teams,
+            add_temporal_features=True,
+        )
+        df = preprocessor.fit_transform(df)
+        logger.info(
+            "Data pipeline applied: %d rows × %d cols (source=%s)",
+            len(df), len(df.columns), source,
+        )
+        return df
+
     # ── UI Build ─────────────────────────────────────────────
 
     def _build_ui(self) -> None:
@@ -76,7 +113,7 @@ class ImportTab(ctk.CTkFrame):
             font=ctk.CTkFont(size=12), text_color="gray",
         ).grid(row=1, column=0, columnspan=3, sticky="w", padx=20, pady=(0, 10))
 
-        self.csv_path_var = ctk.StringVar(value="data/raw/worldcup_all.csv")
+        self.csv_path_var = ctk.StringVar(value=self._default_csv_path())
         ctk.CTkEntry(
             card, textvariable=self.csv_path_var,
             placeholder_text="Path to CSV file...",
@@ -114,13 +151,16 @@ class ImportTab(ctk.CTkFrame):
             messagebox.showerror("Error", "Please select a CSV file first.")
             return
         try:
-            df = pd.read_csv(path)
-            df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
+            raw = pd.read_csv(path)
+            df = self._apply_data_pipeline(raw, f"CSV: {Path(path).name}")
             self.imported_data = df
             self._show_preview(df, f"CSV: {Path(path).name}")
             if self.on_data_loaded:
                 self.on_data_loaded(df, f"CSV: {Path(path).name}")
-            logger.info("Loaded CSV with %d rows × %d cols from %s", *df.shape, path)
+            logger.info(
+                "Loaded CSV with %d rows × %d cols from %s (pipeline applied)",
+                *raw.shape, path,
+            )
         except Exception as exc:
             messagebox.showerror("CSV Load Error", str(exc))
             logger.error("CSV load failed: %s", exc)
@@ -142,7 +182,7 @@ class ImportTab(ctk.CTkFrame):
             font=ctk.CTkFont(size=12), text_color="gray",
         ).grid(row=1, column=0, columnspan=3, sticky="w", padx=20, pady=(0, 10))
 
-        self.json_path_var = ctk.StringVar(value="reports/predictions_worldcup/worldcup_predictions.json")
+        self.json_path_var = ctk.StringVar(value=self._default_json_path())
         ctk.CTkEntry(
             card, textvariable=self.json_path_var,
             placeholder_text="Path to JSON file...",
@@ -189,13 +229,17 @@ class ImportTab(ctk.CTkFrame):
                         break
                 else:
                     data = [data]
-            df = pd.DataFrame(data)
-            df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
+            raw = pd.DataFrame(data)
+            # Apply data pipeline (handles column normalisation internally)
+            df = self._apply_data_pipeline(raw, f"JSON: {Path(path).name}")
             self.imported_data = df
             self._show_preview(df, f"JSON: {Path(path).name}")
             if self.on_data_loaded:
                 self.on_data_loaded(df, f"JSON: {Path(path).name}")
-            logger.info("Loaded JSON with %d rows × %d cols from %s", *df.shape, path)
+            logger.info(
+                "Loaded JSON with %d rows × %d cols from %s (pipeline applied)",
+                *raw.shape, path,
+            )
         except Exception as exc:
             messagebox.showerror("JSON Load Error", str(exc))
             logger.error("JSON load failed: %s", exc)
@@ -340,16 +384,17 @@ class ImportTab(ctk.CTkFrame):
         if not self.manual_fixtures:
             messagebox.showwarning("Warning", "Add at least one fixture first.")
             return
-        df = pd.DataFrame(self.manual_fixtures)
-        # Add placeholder columns
+        raw = pd.DataFrame(self.manual_fixtures)
+        # Add placeholder columns so the pipeline doesn't choke on missing columns
         for col in ["home_goals", "away_goals", "result"]:
-            if col not in df.columns:
-                df[col] = 0
+            if col not in raw.columns:
+                raw[col] = ""
+        df = self._apply_data_pipeline(raw, f"Manual ({len(raw)} fixtures)")
         self.imported_data = df
-        self._show_preview(df, f"Manual ({len(df)} fixtures)")
+        self._show_preview(df, f"Manual ({len(raw)} fixtures)")
         if self.on_data_loaded:
-            self.on_data_loaded(df, f"Manual ({len(df)} fixtures)")
-        logger.info("Loaded %d manual fixtures", len(df))
+            self.on_data_loaded(df, f"Manual ({len(raw)} fixtures)")
+        logger.info("Loaded %d manual fixtures (pipeline applied)", len(raw))
 
     # ── API Configuration ────────────────────────────────────
 
@@ -435,12 +480,13 @@ class ImportTab(ctk.CTkFrame):
                             "sport": sport,
                             "source": "The Odds API",
                         })
-            df = pd.DataFrame(rows)
+            raw = pd.DataFrame(rows)
+            df = self._apply_data_pipeline(raw, f"API: {sport}")
             self.imported_data = df
             self._show_preview(df, f"API: {sport}")
             if self.on_data_loaded:
                 self.on_data_loaded(df, f"API: {sport}")
-            logger.info("Fetched %d matches from API", len(df))
+            logger.info("Fetched %d matches from API (pipeline applied)", len(raw))
         except ImportError:
             messagebox.showerror("Error", "requests library not installed. Run: pip install requests")
         except Exception as exc:
@@ -510,3 +556,15 @@ class ImportTab(ctk.CTkFrame):
         if self.on_data_loaded:
             self.on_data_loaded(df, source)
         messagebox.showinfo("Data Loaded", f"{len(df)} rows loaded from {source}")
+
+    # ── Config-driven default paths ────────────────────────
+
+    @staticmethod
+    def _default_csv_path() -> str:
+        """Return the default WC data path from config.worldcup."""
+        return str(Path(config.worldcup.data_path))
+
+    @staticmethod
+    def _default_json_path() -> str:
+        """Return the default WC predictions JSON path from config.worldcup."""
+        return str(Path(config.worldcup.predictions_dir) / "worldcup_predictions.json")

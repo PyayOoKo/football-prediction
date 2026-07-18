@@ -217,8 +217,8 @@ def _handle_train(args: argparse.Namespace) -> int:
     logger.info("Training model...")
     try:
         if args.model_type:
-            from config import config
-            config.train.model_type = args.model_type
+            from config import config as _global_config
+            _global_config.train.model_type = args.model_type
 
         if args.tune:
             from src.preprocessing import load_preprocessed

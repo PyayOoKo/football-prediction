@@ -35,13 +35,15 @@ import pandas as pd
 
 from src.monitoring import Monitor
 
+from config import config
+
 logger = logging.getLogger("daily_predictions")
 
 # ── Paths ─────────────────────────────────────────────
 MODEL_DIR = _project_root / "models"
 RAW_DIR = _project_root / "data" / "raw"
 REPORT_DIR = _project_root / "reports" / "predictions"
-PREDICTIONS_DIR = _project_root / "reports" / "predictions_worldcup"
+PREDICTIONS_DIR = _project_root / config.worldcup.predictions_dir
 PROCESSED_DIR = _project_root / "data" / "processed"
 
 
@@ -93,7 +95,7 @@ def load_upcoming_fixtures() -> pd.DataFrame | None:
                 return upcoming
 
     # Check raw data for fixtures without results
-    raw_csv = RAW_DIR / "worldcup_all.csv"
+    raw_csv = _project_root / config.worldcup.data_path
     if raw_csv.exists():
         df = pd.read_csv(raw_csv, low_memory=False)
         if "result" in df.columns:

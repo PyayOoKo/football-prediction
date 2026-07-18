@@ -13,8 +13,6 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
-from config import config
-
 logger = logging.getLogger(__name__)
 
 # Columns that together identify a unique match (for dedup)

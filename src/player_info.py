@@ -159,7 +159,9 @@ def add_player_features(
     has_lineups = lineups_df is not None and not lineups_df.empty
 
     # ── Determine which features we can compute ───────────
-    has_avail = _has_columns(players_df, ["injured", "suspended"]) if has_players else False
+    has_avail = (
+        _has_columns(players_df, ["injured", "suspended"]) if has_players else False
+    )
     has_gk = _has_columns(players_df, ["position"]) if has_players else False
     has_scorer = _has_columns(players_df, ["goals_scored"]) if has_players else False
     has_age = _has_columns(players_df, ["age"]) if has_players else False
@@ -170,7 +172,8 @@ def add_player_features(
             "No players_df provided — "
             "injury/suspension/missing-player/age/value features will be "
             "filled with neutral placeholders (injured=0, suspended=0, "
-            "age=%.0f, value=0.0, rotation=0.0).", _DEFAULT_AGE,
+            "age=%.0f, value=0.0, rotation=0.0).",
+            _DEFAULT_AGE,
         )
 
     # ── Build per-match per-team feature dicts ────────────
@@ -179,15 +182,30 @@ def add_player_features(
     away_features: dict[int, dict[str, float]] = {}
 
     # Pre-process player squad data
-    squad_info = _build_squad_info(
-        players_df, has_avail, has_gk, has_scorer,
-        has_age, has_value, team_col,
-    ) if has_players else {}
+    squad_info = (
+        _build_squad_info(
+            players_df,
+            has_avail,
+            has_gk,
+            has_scorer,
+            has_age,
+            has_value,
+            team_col,
+        )
+        if has_players
+        else {}
+    )
 
     # Pre-process rotation data
-    rotation_info = _build_rotation_info(
-        lineups_df, date_col, team_col,
-    ) if has_lineups else {}
+    rotation_info = (
+        _build_rotation_info(
+            lineups_df,
+            date_col,
+            team_col,
+        )
+        if has_lineups
+        else {}
+    )
 
     has_rotation = bool(rotation_info)
 
@@ -217,7 +235,8 @@ def add_player_features(
         # Rotation index (needs lineup data)
         if has_rotation and home_team in rotation_info:
             home_f["rotation_index"] = _get_rotation(
-                rotation_info[home_team], match_date,
+                rotation_info[home_team],
+                match_date,
             )
         else:
             home_f["rotation_index"] = _DEFAULT_ROTATION
@@ -244,7 +263,8 @@ def add_player_features(
 
         if has_rotation and away_team in rotation_info:
             away_f["rotation_index"] = _get_rotation(
-                rotation_info[away_team], match_date,
+                rotation_info[away_team],
+                match_date,
             )
         else:
             away_f["rotation_index"] = _DEFAULT_ROTATION
@@ -256,15 +276,19 @@ def add_player_features(
     _merge_features(df, away_features, "a_")
 
     source = (
-        "real player data" if has_players
-        else "placeholders (no player data available)"
+        "real player data" if has_players else "placeholders (no player data available)"
     )
     logger.info(
         "Player info features added — %s columns from %s "
         "(injuries=%s, gk=%s, scorer=%s, age=%s, value=%s, rotation=%s)",
         len(home_features.get(0, {})),
         source,
-        has_avail, has_gk, has_scorer, has_age, has_value, has_rotation,
+        has_avail,
+        has_gk,
+        has_scorer,
+        has_age,
+        has_value,
+        has_rotation,
     )
 
     return df
@@ -303,8 +327,17 @@ def _build_squad_info(
     col_map: dict[str, str] = {}
     for c in df.columns:
         cl = c.lower().strip()
-        if cl in ("team", "player_name", "position", "age", "market_value",
-                   "is_starter", "injured", "suspended", "goals_scored"):
+        if cl in (
+            "team",
+            "player_name",
+            "position",
+            "age",
+            "market_value",
+            "is_starter",
+            "injured",
+            "suspended",
+            "goals_scored",
+        ):
             col_map[c] = cl
     df.rename(columns=col_map, inplace=True)
 
@@ -332,7 +365,9 @@ def _build_squad_info(
         injured = int(squad["injured"].sum()) if has_avail else 0
         suspended = int(squad["suspended"].sum()) if has_avail else 0
         avg_age = float(squad["age"].mean()) if has_age else _DEFAULT_AGE
-        squad_value = float(squad["market_value"].sum()) if has_value else _DEFAULT_VALUE
+        squad_value = (
+            float(squad["market_value"].sum()) if has_value else _DEFAULT_VALUE
+        )
 
         # Missing starting goalkeeper
         missing_gk = False
@@ -340,12 +375,12 @@ def _build_squad_info(
             gk_squad = squad[squad["position"].str.upper().str.contains("GK", na=False)]
             starters = gk_squad[gk_squad["is_starter"]]
             if not starters.empty:
-                missing_gk = bool(starters["injured"].any() or starters["suspended"].any())
+                missing_gk = bool(
+                    starters["injured"].any() or starters["suspended"].any()
+                )
             elif not gk_squad.empty:
                 # No designated starter — check if any GK is available
-                available_gk = gk_squad[
-                    ~gk_squad["injured"] & ~gk_squad["suspended"]
-                ]
+                available_gk = gk_squad[~gk_squad["injured"] & ~gk_squad["suspended"]]
                 missing_gk = len(available_gk) == 0
 
         # Missing top scorer
@@ -354,9 +389,7 @@ def _build_squad_info(
             # Top scorer = player with most goals this season
             top_scorer_idx = squad["goals_scored"].idxmax()
             top_scorer = squad.loc[top_scorer_idx]
-            missing_top_scorer = bool(
-                top_scorer["injured"] or top_scorer["suspended"]
-            )
+            missing_top_scorer = bool(top_scorer["injured"] or top_scorer["suspended"])
 
         squad_info[team] = {
             "injured_count": injured,
@@ -442,7 +475,11 @@ def _get_rotation(
     if not lineup_history:
         return _DEFAULT_ROTATION
 
-    match_dt = pd.Timestamp(match_date) if not isinstance(match_date, pd.Timestamp) else match_date
+    match_dt = (
+        pd.Timestamp(match_date)
+        if not isinstance(match_date, pd.Timestamp)
+        else match_date
+    )
     if pd.isna(match_dt):
         return _DEFAULT_ROTATION
 

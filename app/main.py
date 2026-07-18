@@ -86,6 +86,40 @@ class FootballApp(ctk.CTk):
         self.shared_data: pd.DataFrame | None = None
         self.shared_data_source: str = ""
 
+        # ── Auto-load default dataset via pipeline ───────────
+        self._auto_load_default_data()
+
+    # ── Startup data loading ────────────────────────────
+
+    def _auto_load_default_data(self) -> None:
+        """Pre-load the default match dataset on startup.
+
+        Uses ``load_and_prepare()`` from the services layer to run
+        the full data pipeline (loader → cleaner → preprocessor).
+        If no data is found, the app starts with an empty state
+        and the user can import data via the Import tab.
+        """
+        try:
+            from src.services import load_and_prepare
+
+            df = load_and_prepare(add_temporal=True)
+            if df is not None and len(df) > 0:
+                self.shared_data = df
+                self.shared_data_source = "Default dataset (auto-loaded)"
+                # Use _on_data_loaded so PredictionTab.get teams populated too
+                self._on_data_loaded(df, "Default dataset (auto-loaded)")
+                logger.info(
+                    "Auto-loaded default dataset: %d rows",
+                    len(df),
+                )
+            else:
+                logger.info("No default dataset found — app starts empty")
+        except Exception as exc:
+            logger.info(
+                "Default data auto-load skipped: %s — use Import tab to load data manually",
+                exc,
+            )
+
     # ── UI Components ────────────────────────────────────────
 
     def _build_header(self) -> None:

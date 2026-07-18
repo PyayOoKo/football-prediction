@@ -32,6 +32,8 @@ config.features.include_league_position = False
 config.odds.compute_consensus = False
 config.odds.warn_missing = False
 config.player_info.enabled = True
+config.player_features.enabled = True
+config.player_features.rolling_windows = (5, 10)
 config.xg.warn_missing = False
 # xG data is now available from StatsBomb for 2018 & 2022 World Cups
 # Player data loaded from data/external/players.csv (collect_player_data.py)
@@ -68,12 +70,17 @@ logger = logging.getLogger("train_worldcup")
 
 
 # ═══════════════════════════════════════════════════════════
-#  Constants
+#  Config-derived paths
 # ═══════════════════════════════════════════════════════════
 
-WORLDCUP_CSV = Path("data/raw/worldcup_all.csv")
-PREDICTIONS_DIR = Path("reports/predictions_worldcup")
-MODEL_SAVE_NAME = "worldcup_lightgbm.joblib"
+# These used to be hardcoded constants. They are now centralised in
+# config.worldcup so every script that needs them can use the same
+# single source of truth. Change them in one place (config.py or
+# at runtime via config.worldcup.* = ...) and everything follows.
+
+WORLDCUP_CSV = Path(config.worldcup.data_path)
+PREDICTIONS_DIR = Path(config.worldcup.predictions_dir)
+MODEL_SAVE_NAME = config.worldcup.model_save_name
 LABEL_MAP = {0: "Away Win", 1: "Draw", 2: "Home Win"}
 RESULT_TO_TARGET = {"H": 2, "D": 1, "A": 0}
 
@@ -180,7 +187,6 @@ def main(argv: list[str] | None = None) -> int:
             best_params = tune_hyperparameters(
                 splits["X_train"], splits["y_train"],
                 n_folds=args.cv_folds, n_iter=20, verbose=False,
-                model_type=config.train.model_type,
             )
             print(f"  [*] Best params: {best_params}")
             print(f"  [TIME] Hyper-parameter tuning: {time.time() - _t_tune:.1f}s")
@@ -397,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
 
             # Save to CSV
             PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
-            out_path = PREDICTIONS_DIR / "worldcup_predictions.csv"
+            out_path = PREDICTIONS_DIR / config.worldcup.predictions_file
             output.to_csv(out_path, index=False)
             print(f"\n  [*] Predictions saved to {out_path}")
 
@@ -483,7 +489,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Trained on: {X.shape[0]} matches x {X.shape[1]} features")
     print(f"  Test accuracy: {accuracy:.2%}")
     print(f"  Predictions: {len(df_predictable)} matches -> "
-          f"{PREDICTIONS_DIR / 'worldcup_predictions.csv'}")
+          f"{PREDICTIONS_DIR / config.worldcup.predictions_file}")
     print(f"{'=' * 72}")
     print()
 

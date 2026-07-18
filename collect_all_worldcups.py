@@ -24,6 +24,8 @@ from typing import Any
 import pandas as pd
 import requests
 
+from config import config
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -228,7 +230,7 @@ def main() -> int:
         print(f"  {season:>8} {row['total']:>8} {row['completed']:>12}")
 
     # ── Save ────────────────────────────────────────────
-    output_path = Path("data/raw/worldcup_all.csv")
+    output_path = Path(config.worldcup.data_path)
 
     if not args.no_save:
         output_path.parent.mkdir(parents=True, exist_ok=True)

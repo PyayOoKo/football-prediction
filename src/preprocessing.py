@@ -30,7 +30,7 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
-from config import config
+from config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -249,6 +249,7 @@ def run_preprocessing(
     input_path: str | Path | None = None,
     output_path: str | Path | None = None,
     save: bool = True,
+    config: Any | None = None,
 ) -> dict[str, Any]:
     """Execute the full preprocessing pipeline.
 
@@ -260,6 +261,9 @@ def run_preprocessing(
         Where to save the cleaned CSV.  Defaults to ``data/processed/results_clean.csv``.
     save : bool
         Whether to persist the cleaned dataset (default ``True``).
+    config : Any, optional
+        Injected config object.  Falls back to global ``config`` when
+        ``None`` (default).
 
     Returns
     -------
@@ -267,13 +271,15 @@ def run_preprocessing(
         Report with each stage's row counts plus a ``transformations`` list
         explaining every step taken.
     """
+    cfg = config or _global_config
+
     logger.info("=" * 60)
     logger.info("STARTING PREPROCESSING PIPELINE")
     logger.info("=" * 60)
 
     report: dict[str, Any] = {
-        "input_path": str(input_path or config.paths.raw / config.data_collection.output_file),
-        "output_path": str(output_path or config.paths.processed / "results_clean.csv"),
+        "input_path": str(input_path or cfg.paths.raw / cfg.data_collection.output_file),
+        "output_path": str(output_path or cfg.paths.processed / "results_clean.csv"),
         "stages": {},
         "transformations": [],
     }
@@ -293,7 +299,13 @@ def run_preprocessing(
 
     for step_name, step_fn in steps:
         stage_before = len(df) if not df.empty else 0
-        df, details = step_fn(df, input_path if step_name == "1. Load raw data" else None)
+        # Pass cfg to stage functions that accept it
+        if step_name == "1. Load raw data":
+            df, details = step_fn(df, input_path, cfg=cfg)
+        elif step_name == "5. Handle missing values":
+            df, details = step_fn(df, None, cfg=cfg)
+        else:
+            df, details = step_fn(df, None)
         stage_report = {
             "rows_before": stage_before,
             "rows_after": len(df),
@@ -308,7 +320,7 @@ def run_preprocessing(
 
     # ── Save ──────────────────────────────────────
     if save:
-        path = Path(str(output_path or config.paths.processed / "results_clean.csv"))
+        path = Path(str(output_path or cfg.paths.processed / "results_clean.csv"))
         path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(path, index=False)
         logger.info("  ✓ Saved to %s  (%d rows)", path, len(df))
@@ -332,10 +344,12 @@ def run_preprocessing(
 def _load_data(
     _empty: pd.DataFrame,
     input_path: str | Path | None,
+    cfg: Any | None = None,
 ) -> tuple[pd.DataFrame, str]:
     """Stage 1 — read raw CSV into a DataFrame."""
+    _cfg = cfg or _global_config
     path = Path(input_path) if input_path else (
-        config.paths.raw / config.data_collection.output_file
+        _cfg.paths.raw / _cfg.data_collection.output_file
     )
 
     if not path.exists():
@@ -517,6 +531,7 @@ def _remove_duplicates(
 def _handle_missing(
     df: pd.DataFrame,
     _: Any,
+    cfg: Any | None = None,
 ) -> tuple[pd.DataFrame, str]:
     """Stage 5 — handle missing values per configurable strategy.
 
@@ -539,16 +554,17 @@ def _handle_missing(
       (``config.data_collection.max_missing_pct``).
     - Team names are forward-filled if sporadically missing.
     """
+    _cfg = cfg or _global_config
     from src.data_collection.cleaners import handle_missing_values as _hmv
 
     before = len(df)
     df = _hmv(
         df,
-        strategy=config.data_collection.missing_strategy,
-        max_missing_pct=config.data_collection.max_missing_pct,
+        strategy=_cfg.data_collection.missing_strategy,
+        max_missing_pct=_cfg.data_collection.max_missing_pct,
     )
     detail = (
-        f"Strategy: '{config.data_collection.missing_strategy}', "
+        f"Strategy: '{_cfg.data_collection.missing_strategy}', "
         f"{len(df)} rows ({len(df) / before * 100:.1f}% kept)"
     )
     return df, detail

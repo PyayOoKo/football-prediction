@@ -159,9 +159,8 @@ class ModelFactory:
         -------
         BaseModel
         """
-        from config import config
-
-        names = model_names or list(config.ensemble.model_names)
+        from config import config as _global_config
+        names = model_names or list(_global_config.ensemble.model_names)
         return self.create(
             "ensemble",
             model_names=names,
@@ -178,9 +177,8 @@ class ModelFactory:
         -------
         BaseModel
         """
-        from config import config
-
-        model_type = config.train.model_type
+        from config import config as _global_config
+        model_type = _global_config.train.model_type
         try:
             return self.create(model_type, **kwargs)
         except ValueError:

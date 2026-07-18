@@ -43,7 +43,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from config import config
+from config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +89,7 @@ def collect_weather(
     api_key: str | None = None,
     use_cache: bool = True,
     output_path: str | None = None,
+    config: Any | None = None,
 ) -> pd.DataFrame:
     """Fetch historical weather data for a set of matches.
 
@@ -111,14 +112,15 @@ def collect_weather(
     pd.DataFrame
         Weather data with one row per match.
     """
-    key = api_key or os.environ.get(config.weather_collector.api_key_env) or ""
+    cfg = config or _global_config
+    key = api_key or os.environ.get(cfg.weather_collector.api_key_env) or ""
     if not key:
         logger.warning(
             "No OpenWeatherMap API key found. Set %s env var. "
             "Returning placeholder data.",
-            config.weather_collector.api_key_env,
+            cfg.weather_collector.api_key_env,
         )
-        return _build_placeholder_df(len(matches_df))
+        return _build_placeholder_df(len(matches_df), cfg=cfg)
 
     if lat_lon_map is None:
         lat_lon_map = _nat_team_coords
@@ -194,7 +196,7 @@ def collect_weather(
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 401:
                 logger.error("Invalid OWM API key — returning placeholder data")
-                return _build_placeholder_df(len(matches_df))
+                return _build_placeholder_df(len(matches_df), cfg=cfg)
             errors += 1
             if errors >= 3:
                 logger.warning(
@@ -211,14 +213,14 @@ def collect_weather(
     # Build final DataFrame
     if not records:
         logger.warning("No weather data fetched — returning placeholders")
-        return _build_placeholder_df(len(matches_df))
+        return _build_placeholder_df(len(matches_df), cfg=cfg)
 
     df = pd.DataFrame(records)
 
     # Fill any missing matches with placeholders
     if len(df) < len(matches_df):
         placeholders = _build_placeholder_df(
-            len(matches_df) - len(df)
+            len(matches_df) - len(df), cfg=cfg
         )
         df = pd.concat([df, placeholders], ignore_index=True)
 
@@ -333,8 +335,8 @@ def _parse_owm_response(
         "match_id": match_row.get("match_id", ""),
         "home_team": match_row.get("home_team", ""),
         "date": match_row.get("date", ""),
-        "temperature_celsius": current.get("temp", config.weather.default_temp),
-        "feels_like_celsius": current.get("feels_like", config.weather.default_temp),
+        "temperature_celsius": current.get("temp", _global_config.weather.default_temp),
+        "feels_like_celsius": current.get("feels_like", _global_config.weather.default_temp),
         "humidity_pct": float(current.get("humidity", 50)),
         "wind_speed_ms": float(current.get("wind_speed", 0)),
         "precipitation_mm": float(precip),
@@ -347,7 +349,7 @@ def _parse_owm_response(
 
 def _geocode_teams(team_names: list[str]) -> dict[str, tuple[float, float]]:
     """Look up GPS coordinates for unknown teams via OWM Geocoding API."""
-    api_key = os.environ.get(config.weather_collector.api_key_env, "")
+    api_key = os.environ.get(_global_config.weather_collector.api_key_env, "")
     if not api_key:
         return {name: (DEFAULT_LAT, DEFAULT_LON) for name in team_names}
 
@@ -374,14 +376,15 @@ def _geocode_teams(team_names: list[str]) -> dict[str, tuple[float, float]]:
     return results
 
 
-def _build_placeholder_df(n: int) -> pd.DataFrame:
+def _build_placeholder_df(n: int, config: Any | None = None) -> pd.DataFrame:
     """Build a DataFrame of placeholder weather values."""
+    _cfg = config or _global_config
     return pd.DataFrame([{
         "match_id": "",
         "home_team": "",
         "date": "",
-        "temperature_celsius": config.weather.default_temp,
-        "feels_like_celsius": config.weather.default_temp,
+        "temperature_celsius": _cfg.weather.default_temp,
+        "feels_like_celsius": _cfg.weather.default_temp,
         "humidity_pct": 50.0,
         "wind_speed_ms": 0.0,
         "precipitation_mm": 0.0,

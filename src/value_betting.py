@@ -53,7 +53,7 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
-from config import config
+from config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +71,7 @@ def compute_value_bets(
     bankroll: float = 1000.0,
     kelly_fraction: float = 0.25,
     min_ev: float = 0.05,
+    config: Any | None = None,
 ) -> pd.DataFrame:
     """Compute value betting metrics for a set of fixtures.
 
@@ -92,6 +93,9 @@ def compute_value_bets(
         Minimum EV threshold. Only bets with EV >= *min_ev* are flagged
         as ``positive_ev`` (default 0.05 — raised from 0.0 to avoid
         low-confidence bets).
+    config : Config, optional
+        Config instance for dependency injection. Defaults to the
+        global singleton ``config``.
 
     Returns
     -------
@@ -107,6 +111,7 @@ def compute_value_bets(
     >>> df = compute_value_bets(odds, model_probs)
     >>> df[df["positive_ev"]][["match", "outcome_label", "ev", "kelly_pct"]]
     """
+    cfg = config or _global_config
     odds = np.asarray(odds, dtype=float)
     model_probs = np.asarray(model_probs, dtype=float)
     n_matches = len(odds)
@@ -156,7 +161,7 @@ def compute_value_bets(
                 full_kelly = 0.0
             kelly_pct = max(full_kelly * kelly_fraction, 0.0)
             # Cap stake at 10% of bankroll to prevent over-betting
-            max_stake_pct = getattr(config.value_betting, 'max_stake_pct', 0.10)
+            max_stake_pct = getattr(cfg.value_betting, 'max_stake_pct', 0.10)
             kelly_pct = min(kelly_pct, max_stake_pct)
             kelly_stake = bankroll * kelly_pct
 

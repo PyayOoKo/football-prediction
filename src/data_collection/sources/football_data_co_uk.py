@@ -34,7 +34,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from config import config
+from config import config as _global_config
 from src.data_collection.cleaners import MATCH_KEY_COLS
 
 logger = logging.getLogger(__name__)
@@ -142,6 +142,7 @@ def download_bulk(
     leagues: list[str] | None = None,
     max_seasons: int = 10,
     include_current: bool = True,
+    config: Any | None = None,
 ) -> pd.DataFrame:
     """Download multiple recent seasons across one or more leagues.
 
@@ -154,14 +155,18 @@ def download_bulk(
     include_current : bool
         If ``True``, also fetch the current in-progress season from the
         ``/new/`` mirror (which is not yet on the archive page).
+    config : Any, optional
+        Injected config object.  Falls back to global ``config`` when
+        ``None`` (default).
 
     Returns
     -------
     pd.DataFrame
         Combined DataFrame of all downloaded seasons.
     """
+    cfg = config or _global_config
     if leagues is None:
-        leagues = [config.data_collection.leagues[0]]
+        leagues = [cfg.data_collection.leagues[0]]
 
     all_dfs: list[pd.DataFrame] = []
     seasons = _get_recent_seasons(max_seasons)

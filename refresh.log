@@ -1068,3 +1068,692 @@
 2026-07-13 20:00:08 | INFO    | --------------------------------------------------
 2026-07-13 20:00:08 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
 2026-07-13 20:03:42 | WARNING |   [stderr] 20:00:09 | World Cup data loaded: 7 tournaments (2002, 2006, 2010, 2014, 2018, 2022, 2026)
+2026-07-14 20:00:06 | INFO    | --------------------------------------------------
+2026-07-14 20:00:06 | INFO    | STEP 1: Download data
+2026-07-14 20:00:06 | INFO    | --------------------------------------------------
+2026-07-14 20:00:06 | INFO    | Downloading 2002 World Cup data ...
+2026-07-14 20:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-14 20:00:07 | INFO    | Downloading 2006 World Cup data ...
+2026-07-14 20:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-14 20:00:07 | INFO    | Downloading 2010 World Cup data ...
+2026-07-14 20:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-14 20:00:08 | INFO    | Downloading 2014 World Cup data ...
+2026-07-14 20:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-14 20:00:09 | INFO    | Downloading 2018 World Cup data ...
+2026-07-14 20:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-14 20:00:09 | INFO    | Downloading 2022 World Cup data ...
+2026-07-14 20:00:10 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-14 20:00:10 | INFO    | Downloading 2026 World Cup data ...
+2026-07-14 20:00:11 | INFO    |   104 matches (100 completed, 4 upcoming)
+2026-07-14 20:00:11 | INFO    | --------------------------------------------------
+2026-07-14 20:00:11 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-14 20:00:11 | INFO    | --------------------------------------------------
+2026-07-14 20:00:11 | INFO    |   Remaining placeholder match-ups: 2
+2026-07-14 20:00:11 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-14 20:00:11 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-14 20:00:11 | INFO    | 
+2026-07-14 20:00:11 | INFO    |   Total:     488 matches
+2026-07-14 20:00:11 | INFO    |   Completed: 484
+2026-07-14 20:00:11 | INFO    |   Upcoming:  4
+2026-07-14 20:00:11 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-14 20:00:11 | INFO    | --------------------------------------------------
+2026-07-14 20:00:11 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-14 20:00:11 | INFO    | --------------------------------------------------
+2026-07-14 20:00:11 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-14 20:00:11 | INFO    | --------------------------------------------------
+2026-07-14 20:00:11 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-14 20:00:11 | INFO    | --------------------------------------------------
+2026-07-14 20:00:11 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-15 02:00:07 | INFO    | --------------------------------------------------
+2026-07-15 02:00:07 | INFO    | STEP 1: Download data
+2026-07-15 02:00:07 | INFO    | --------------------------------------------------
+2026-07-15 02:00:07 | INFO    | Downloading 2002 World Cup data ...
+2026-07-15 02:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-15 02:00:07 | INFO    | Downloading 2006 World Cup data ...
+2026-07-15 02:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-15 02:00:08 | INFO    | Downloading 2010 World Cup data ...
+2026-07-15 02:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-15 02:00:09 | INFO    | Downloading 2014 World Cup data ...
+2026-07-15 02:00:10 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-15 02:00:10 | INFO    | Downloading 2018 World Cup data ...
+2026-07-15 02:00:11 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-15 02:00:11 | INFO    | Downloading 2022 World Cup data ...
+2026-07-15 02:00:12 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-15 02:00:12 | INFO    | Downloading 2026 World Cup data ...
+2026-07-15 02:00:13 | INFO    |   104 matches (100 completed, 4 upcoming)
+2026-07-15 02:00:13 | INFO    | --------------------------------------------------
+2026-07-15 02:00:13 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-15 02:00:13 | INFO    | --------------------------------------------------
+2026-07-15 02:00:13 | INFO    |   Remaining placeholder match-ups: 2
+2026-07-15 02:00:13 | INFO    |     2026-07-18 | Match for third place | L101 vs L102
+2026-07-15 02:00:13 | INFO    |     2026-07-19 | Final | W101 vs W102
+2026-07-15 02:00:13 | INFO    | 
+2026-07-15 02:00:13 | INFO    |   Total:     488 matches
+2026-07-15 02:00:13 | INFO    |   Completed: 484
+2026-07-15 02:00:13 | INFO    |   Upcoming:  4
+2026-07-15 02:00:13 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-15 02:00:13 | INFO    | --------------------------------------------------
+2026-07-15 02:00:13 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-15 02:00:13 | INFO    | --------------------------------------------------
+2026-07-15 02:00:13 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-15 02:00:13 | INFO    | --------------------------------------------------
+2026-07-15 02:00:13 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-15 02:00:13 | INFO    | --------------------------------------------------
+2026-07-15 02:00:13 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-15 02:20:13 | ERROR   |   Lineup collection timed out (20 min limit)
+2026-07-15 02:20:13 | INFO    | --------------------------------------------------
+2026-07-15 02:20:13 | INFO    | STEP 4: Train & Predict
+2026-07-15 02:20:13 | INFO    | --------------------------------------------------
+2026-07-15 02:20:13 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\train_worldcup.py
+2026-07-15 02:21:33 | INFO    |   ========================================================================
+2026-07-15 02:21:33 | INFO    |     WORLD CUP - TRAIN & PREDICT (Multi-Tournament)
+2026-07-15 02:21:33 | INFO    |     Model: XGBOOST
+2026-07-15 02:21:33 | INFO    |     Data:  data\raw\worldcup_all.csv
+2026-07-15 02:21:33 | INFO    |   ========================================================================
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     Loading data\raw\worldcup_all.csv ...
+2026-07-15 02:21:33 | INFO    |     [*] 488 rows x 15 cols
+2026-07-15 02:21:33 | INFO    |     [*] Completed: 484 matches
+2026-07-15 02:21:33 | INFO    |     [*] Upcoming:  4 matches
+2026-07-15 02:21:33 | INFO    |     [TIME] Load data: 0.1s
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     Building features ...
+2026-07-15 02:21:33 | INFO    |     [*] Feature matrix: 484 rows x 147 features
+2026-07-15 02:21:33 | INFO    |     [TIME] Build features (train): 32.1s
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     Splitting chronologically (70/15/15) ...
+2026-07-15 02:21:33 | INFO    |     [*] Train: 338  |  Val: 73  |  Test: 73
+2026-07-15 02:21:33 | INFO    |     [TIME] Split: 0.0s
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     Tuning hyper-parameters (3-fold time-series CV) ...
+2026-07-15 02:21:33 | INFO    |     [*] Best params: {'subsample': 0.7, 'reg_lambda': 1.0, 'reg_alpha': 1.0, 'n_estimators': 100, 'min_child_weight': 3, 'max_depth': 8, 'learning_rate': 0.03, 'colsample_bytree': 0.7}
+2026-07-15 02:21:33 | INFO    |     [TIME] Hyper-parameter tuning: 19.0s
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     Training xgboost ...
+2026-07-15 02:21:33 | INFO    |     [*] Train log-loss: 0.3329
+2026-07-15 02:21:33 | INFO    |     [*] Val log-loss:   0.8188
+2026-07-15 02:21:33 | INFO    |     [*] Val accuracy:   0.6712 (67.1%)
+2026-07-15 02:21:33 | INFO    |     [TIME] Train model: 1.3s
+2026-07-15 02:21:33 | INFO    |     [*] Model saved: models/worldcup_xgboost.joblib
+2026-07-15 02:21:33 | INFO    |     [TIME] Save model: 0.0s
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |   ========================================================================
+2026-07-15 02:21:33 | INFO    |     TEST SET RESULTS
+2026-07-15 02:21:33 | INFO    |   ========================================================================
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     Test accuracy: 0.7260 (72.6%)
+2026-07-15 02:21:33 | INFO    |     Correct: 53 / 73
+2026-07-15 02:21:33 | INFO    |     Naive baseline (always Home): 45.2%
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     Confusion matrix:
+2026-07-15 02:21:33 | INFO    |                      Away Win       Draw   Home Win
+2026-07-15 02:21:33 | INFO    |       ------------------------------------------
+2026-07-15 02:21:33 | INFO    |       Away Win        24         0         2
+2026-07-15 02:21:33 | INFO    |           Draw         2         0        12
+2026-07-15 02:21:33 | INFO    |       Home Win         4         0        29
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     Classification report:
+2026-07-15 02:21:33 | INFO    |                 precision    recall  f1-score   support
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |       Away Win      0.800     0.923     0.857        26
+2026-07-15 02:21:33 | INFO    |           Draw      0.000     0.000     0.000        14
+2026-07-15 02:21:33 | INFO    |       Home Win      0.674     0.879     0.763        33
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |       accuracy                          0.726        73
+2026-07-15 02:21:33 | INFO    |      macro avg      0.491     0.601     0.540        73
+2026-07-15 02:21:33 | INFO    |   weighted avg      0.590     0.726     0.650        73
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |   ---------------------------FEATURE IMPORTANCE---------------------------
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |       Rank   Feature                                  Importance
+2026-07-15 02:21:33 | INFO    |       --------------------------------------------------------
+2026-07-15 02:21:33 | INFO    |       1      DC_Expected_Goal_Difference                  0.0537
+2026-07-15 02:21:33 | INFO    |       2      DC_Away_Win_Prob                             0.0430
+2026-07-15 02:21:33 | INFO    |       3      DC_Home_Win_Prob                             0.0362
+2026-07-15 02:21:33 | INFO    |       4      DC_Draw_Prob                                 0.0181
+2026-07-15 02:21:33 | INFO    |       5      h_attack_ratio10                             0.0163
+2026-07-15 02:21:33 | INFO    |       6      home_goals_ht                                0.0153
+2026-07-15 02:21:33 | INFO    |       7      DC_Expected_Away_Goals                       0.0147
+2026-07-15 02:21:33 | INFO    |       8      h_win_rate_overall                           0.0146
+2026-07-15 02:21:33 | INFO    |       9      DC_Expected_Home_Goals                       0.0142
+2026-07-15 02:21:33 | INFO    |       10     h_defence_ratio20                            0.0133
+2026-07-15 02:21:33 | INFO    |       11     a_defence_ratio20                            0.0133
+2026-07-15 02:21:33 | INFO    |       12     h_attack_ratio5                              0.0129
+2026-07-15 02:21:33 | INFO    |       13     a_win_rate_overall                           0.0127
+2026-07-15 02:21:33 | INFO    |       14     a_xg_avg5                                    0.0123
+2026-07-15 02:21:33 | INFO    |       15     h_home_matches                               0.0121
+2026-07-15 02:21:33 | INFO    |     [TIME] Evaluate: 0.1s
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |   ========================================================================
+2026-07-15 02:21:33 | INFO    |     PREDICTING UPCOMING MATCHES
+2026-07-15 02:21:33 | INFO    |   ========================================================================
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     Predictable matches:  2 (both teams known)
+2026-07-15 02:21:33 | INFO    |     Placeholder matches:  2 (opponent TBD)
+2026-07-15 02:21:33 | INFO    |     [TIME] Build features (predict, combined orig+swapped): 24.0s
+2026-07-15 02:21:33 | INFO    |     [TIME] Model predict (swap-average + combine): 0.0s
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     ========================================================================
+2026-07-15 02:21:33 | INFO    |     KNOCKOUT ROUND PREDICTIONS (neutral venue — averaged both orderings)
+2026-07-15 02:21:33 | INFO    |     ========================================================================
+2026-07-15 02:21:33 | INFO    |     Date           Team 1                 Team 2                 Prediction       Conf    
+2026-07-15 02:21:33 | INFO    |     --------------------------------------------------------------------------------
+2026-07-15 02:21:33 | INFO    |     2026-07-14     France                 Spain                  Spain wins       51%
+2026-07-15 02:21:33 | INFO    |     2026-07-15     England                Argentina              England wins     47%
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     Detailed probabilities:
+2026-07-15 02:21:33 | INFO    |     Date           Match                                          Team 1       Draw         Team 2      
+2026-07-15 02:21:33 | INFO    |     ----------------------------------------------------------------------------------
+2026-07-15 02:21:33 | INFO    |     2026-07-14     France vs Spain                                 26.2%    23.1%    50.7%
+2026-07-15 02:21:33 | INFO    |     2026-07-15     England vs Argentina                            46.8%    27.5%    25.7%
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     [*] Predictions saved to reports\predictions_worldcup\worldcup_predictions.csv
+2026-07-15 02:21:33 | INFO    |     [TIME] Poisson goal predictions: 0.0s
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     ========================================================================
+2026-07-15 02:21:33 | INFO    |     POISSON GOAL PREDICTIONS (from historical goal rates)
+2026-07-15 02:21:33 | INFO    |     ========================================================================
+2026-07-15 02:21:33 | INFO    |     Date           Match                                          Exp Goals              Score      O/U 2.5   
+2026-07-15 02:21:33 | INFO    |     --------------------------------------------------------------------------------------------
+2026-07-15 02:21:33 | INFO    |     2026-07-14     France vs Spain                                France: 1.27 / Spain: 0.90 1-1        UNDER
+2026-07-15 02:21:33 | INFO    |     2026-07-15     England vs Argentina                           England: 1.28 / Argentina: 1.04 1-1        UNDER
+2026-07-15 02:21:33 | INFO    |     
+2026-07-15 02:21:33 | INFO    |     Prediction summary:
+2026-07-15 02:21:33 | INFO    |       Team 1 wins: 1 (50%)
+2026-07-15 02:21:33 | INFO    |       Draws:       0 (0%)
+2026-07-15 02:21:33 | INFO    |       Team 2 wins: 1 (50%)
+2026-07-15 02:21:33 | INFO    |       Avg confidence: 48.7%
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |     [W] 2 matches have TBD opponents:
+2026-07-15 02:21:33 | INFO    |       2026-07-18 | L101                   vs L102                   | Match for third place
+2026-07-15 02:21:33 | INFO    |       2026-07-19 | W101                   vs W102                   | Final
+2026-07-15 02:21:33 | INFO    |     -> Re-run once opponents are known and data is updated
+2026-07-15 02:21:33 | INFO    |     [TIME] Predict step total: 24.4s
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | INFO    |   ========================================================================
+2026-07-15 02:21:33 | INFO    |     DONE - 76.9s
+2026-07-15 02:21:33 | INFO    |     Model:  xgboost
+2026-07-15 02:21:33 | INFO    |     Trained on: 484 matches x 147 features
+2026-07-15 02:21:33 | INFO    |     Test accuracy: 72.60%
+2026-07-15 02:21:33 | INFO    |     Predictions: 2 matches -> reports\predictions_worldcup\worldcup_predictions.csv
+2026-07-15 02:21:33 | INFO    |   ========================================================================
+2026-07-15 02:21:33 | INFO    |   
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:22 | INFO    | Building features on 484 rows
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:22 | INFO    | Elo features added: 74 teams, K=32, home_adv=50, draw_k=0.25, host_nations=True
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:22 | INFO    | Elo adjustment: Morocco -50 pts (16 rows adjusted)
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:22 | INFO    | Adding odds features on 484 rows
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:22 | WARNING | No odds columns found in DataFrame. Creating zero-filled placeholders for all odds features.
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:22 | INFO    | Loaded 1180 player records from C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:22 | INFO    | Adding player information features on 484 rows
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:23 | INFO    | Player info features added — 7 columns from real player data (injuries=True, gk=True, scorer=True, age=True, value=True, rotation=False)
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:23 | INFO    | Adding xG features on 484 rows
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:24 | INFO    | xG features added — 15 columns from placeholders (no xG data found)
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:24 | INFO    | Poisson features added — \u03bc_home=1.406, \u03bc_away=1.130, 74 teams
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:44 | WARNING | Dixon-Coles MLE did not fully converge: STOP: TOTAL NO. OF F,G EVALUATIONS EXCEEDS LIMIT
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:45 | INFO    | Dixon-Coles features added: 484 matches, refit every 100, last \u03c1=0.000
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:47 | INFO    | Feature matrix: 484 rows × 147 columns  |  target distribution: {2: 0.44834710743801653, 0: 0.33884297520661155, 1: 0.2128099173553719}
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:47 | INFO    | Chronological split — train: 338, val: 73, test: 73
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:20:48 | INFO    | Hyper-parameter tuning 'xgboost' — 3-fold CV, 20 random samples
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:06 | INFO    | Best CV log-loss: 0.9229  with params: {'subsample': 0.7, 'reg_lambda': 1.0, 'reg_alpha': 1.0, 'n_estimators': 100, 'min_child_weight': 3, 'max_depth': 8, 'learning_rate': 0.03, 'colsample_bytree': 0.7}
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:06 | INFO    | Starting training with model_type='xgboost'
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:07 | INFO    | Early stopped at iteration 92 / 100
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:07 | INFO    | Training complete.
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:07 | INFO    | Model saved to C:\Users\dell\Documents\complex num\football prediction\models\worldcup_xgboost.joblib
+2026-07-15 02:21:33 | WARNING |   [stderr] C:\Users\dell\AppData\Roaming\Python\Python314\site-packages\sklearn\metrics\_classification.py:1879: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.
+2026-07-15 02:21:33 | WARNING |   [stderr]   _warn_prf(average, modifier, f"{metric.capitalize()} is", result.shape[0])
+2026-07-15 02:21:33 | WARNING |   [stderr] C:\Users\dell\AppData\Roaming\Python\Python314\site-packages\sklearn\metrics\_classification.py:1879: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.
+2026-07-15 02:21:33 | WARNING |   [stderr]   _warn_prf(average, modifier, f"{metric.capitalize()} is", result.shape[0])
+2026-07-15 02:21:33 | WARNING |   [stderr] C:\Users\dell\AppData\Roaming\Python\Python314\site-packages\sklearn\metrics\_classification.py:1879: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.
+2026-07-15 02:21:33 | WARNING |   [stderr]   _warn_prf(average, modifier, f"{metric.capitalize()} is", result.shape[0])
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:07 | INFO    | Building features on 488 rows
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:07 | INFO    | Elo features added: 74 teams, K=32, home_adv=50, draw_k=0.25, host_nations=True
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:07 | INFO    | Elo adjustment: Morocco -50 pts (16 rows adjusted)
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:07 | INFO    | Adding odds features on 488 rows
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:07 | WARNING | No odds columns found in DataFrame. Creating zero-filled placeholders for all odds features.
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:07 | INFO    | Loaded 1180 player records from C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:07 | INFO    | Adding player information features on 488 rows
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:08 | INFO    | Player info features added — 7 columns from real player data (injuries=True, gk=True, scorer=True, age=True, value=True, rotation=False)
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:08 | INFO    | Adding xG features on 488 rows
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:09 | INFO    | xG features added — 15 columns from placeholders (no xG data found)
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:09 | INFO    | Poisson features added — \u03bc_home=1.396, \u03bc_away=1.123, 74 teams
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:29 | WARNING | Dixon-Coles MLE did not fully converge: STOP: TOTAL NO. OF F,G EVALUATIONS EXCEEDS LIMIT
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:29 | INFO    | Dixon-Coles features added: 488 matches, refit every 100, last \u03c1=0.000
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:31 | INFO    | Feature matrix: 488 rows × 149 columns  |  target distribution: {2: 0.444672131147541, 0: 0.3360655737704918, 1: 0.21106557377049182, -1: 0.00819672131147541}
+2026-07-15 02:21:33 | WARNING |   [stderr] 02:21:31 | INFO    | Poisson features added — \u03bc_home=1.406, \u03bc_away=1.130, 74 teams
+2026-07-15 02:21:33 | INFO    |   Training & prediction completed successfully
+2026-07-15 02:21:33 | INFO    | --------------------------------------------------
+2026-07-15 02:21:33 | INFO    | Done in 1286.1 seconds
+2026-07-15 02:21:33 | INFO    | --------------------------------------------------
+2026-07-15 20:00:03 | INFO    | --------------------------------------------------
+2026-07-15 20:00:03 | INFO    | STEP 1: Download data
+2026-07-15 20:00:03 | INFO    | --------------------------------------------------
+2026-07-15 20:00:03 | INFO    | Downloading 2002 World Cup data ...
+2026-07-15 20:00:04 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-15 20:00:04 | INFO    | Downloading 2006 World Cup data ...
+2026-07-15 20:00:04 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-15 20:00:04 | INFO    | Downloading 2010 World Cup data ...
+2026-07-15 20:00:06 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-15 20:00:06 | INFO    | Downloading 2014 World Cup data ...
+2026-07-15 20:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-15 20:00:07 | INFO    | Downloading 2018 World Cup data ...
+2026-07-15 20:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-15 20:00:08 | INFO    | Downloading 2022 World Cup data ...
+2026-07-15 20:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-15 20:00:08 | INFO    | Downloading 2026 World Cup data ...
+2026-07-15 20:00:09 | INFO    |   104 matches (101 completed, 3 upcoming)
+2026-07-15 20:00:09 | INFO    | --------------------------------------------------
+2026-07-15 20:00:09 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-15 20:00:09 | INFO    | --------------------------------------------------
+2026-07-15 20:00:09 | INFO    |   Remaining placeholder match-ups: 2
+2026-07-15 20:00:09 | INFO    |     2026-07-18 | Match for third place | France vs L102
+2026-07-15 20:00:09 | INFO    |     2026-07-19 | Final | Spain vs W102
+2026-07-15 20:00:09 | INFO    | 
+2026-07-15 20:00:09 | INFO    |   Total:     488 matches
+2026-07-15 20:00:09 | INFO    |   Completed: 485
+2026-07-15 20:00:09 | INFO    |   Upcoming:  3
+2026-07-15 20:00:09 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-15 20:00:09 | INFO    | --------------------------------------------------
+2026-07-15 20:00:09 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-15 20:00:09 | INFO    | --------------------------------------------------
+2026-07-15 20:00:09 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-15 20:00:09 | INFO    | --------------------------------------------------
+2026-07-15 20:00:09 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-15 20:00:09 | INFO    | --------------------------------------------------
+2026-07-15 20:00:09 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-15 20:03:59 | WARNING |   [stderr] 20:00:10 | World Cup data loaded: 7 tournaments (2002, 2006, 2010, 2014, 2018, 2022, 2026)
+2026-07-15 20:03:59 | WARNING |   [stderr] 20:00:10 | Loaded 2327 cached match IDs from C:\Users\dell\Documents\complex num\football prediction\data\external\known_match_ids.csv
+2026-07-16 02:21:14 | INFO    | --------------------------------------------------
+2026-07-16 02:21:14 | INFO    | STEP 1: Download data
+2026-07-16 02:21:14 | INFO    | --------------------------------------------------
+2026-07-16 02:21:14 | INFO    | Downloading 2002 World Cup data ...
+2026-07-16 17:21:40 | INFO    | --------------------------------------------------
+2026-07-16 17:21:40 | INFO    | STEP 1: Download data
+2026-07-16 17:21:40 | INFO    | --------------------------------------------------
+2026-07-16 17:21:40 | INFO    | Downloading 2002 World Cup data ...
+2026-07-16 17:21:41 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-16 17:21:41 | INFO    | Downloading 2006 World Cup data ...
+2026-07-16 17:21:42 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-16 17:21:42 | INFO    | Downloading 2010 World Cup data ...
+2026-07-16 17:21:43 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-16 17:21:43 | INFO    | Downloading 2014 World Cup data ...
+2026-07-16 17:21:44 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-16 17:21:44 | INFO    | Downloading 2018 World Cup data ...
+2026-07-16 17:21:44 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-16 17:21:44 | INFO    | Downloading 2022 World Cup data ...
+2026-07-16 17:21:45 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-16 17:21:45 | INFO    | Downloading 2026 World Cup data ...
+2026-07-16 17:21:46 | INFO    |   104 matches (102 completed, 2 upcoming)
+2026-07-16 17:21:46 | INFO    | --------------------------------------------------
+2026-07-16 17:21:46 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-16 17:21:46 | INFO    | --------------------------------------------------
+2026-07-16 17:21:46 | INFO    |   No remaining placeholder match-ups - all resolved!
+2026-07-16 17:21:46 | INFO    | 
+2026-07-16 17:21:46 | INFO    |   Total:     488 matches
+2026-07-16 17:21:46 | INFO    |   Completed: 486
+2026-07-16 17:21:46 | INFO    |   Upcoming:  2
+2026-07-16 17:21:46 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-16 17:21:46 | INFO    | --------------------------------------------------
+2026-07-16 17:21:46 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-16 17:21:46 | INFO    | --------------------------------------------------
+2026-07-16 17:21:46 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-16 17:21:46 | INFO    | --------------------------------------------------
+2026-07-16 17:21:46 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-16 17:21:46 | INFO    | --------------------------------------------------
+2026-07-16 17:21:46 | INFO    |   Lineup collection skipped (--skip-lineups)
+2026-07-16 17:21:46 | INFO    | --- Training skipped (--skip-train) ---
+2026-07-16 17:21:46 | INFO    | --------------------------------------------------
+2026-07-16 17:21:46 | INFO    | Done in 5.7 seconds
+2026-07-16 17:21:46 | INFO    | --------------------------------------------------
+2026-07-16 20:00:07 | INFO    | --------------------------------------------------
+2026-07-16 20:00:07 | INFO    | STEP 1: Download data
+2026-07-16 20:00:07 | INFO    | --------------------------------------------------
+2026-07-16 20:00:07 | INFO    | Downloading 2002 World Cup data ...
+2026-07-16 20:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-16 20:00:08 | INFO    | Downloading 2006 World Cup data ...
+2026-07-16 20:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-16 20:00:08 | INFO    | Downloading 2010 World Cup data ...
+2026-07-16 20:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-16 20:00:09 | INFO    | Downloading 2014 World Cup data ...
+2026-07-16 20:00:10 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-16 20:00:10 | INFO    | Downloading 2018 World Cup data ...
+2026-07-16 20:00:11 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-16 20:00:11 | INFO    | Downloading 2022 World Cup data ...
+2026-07-16 20:00:11 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-16 20:00:11 | INFO    | Downloading 2026 World Cup data ...
+2026-07-16 20:00:12 | INFO    |   104 matches (102 completed, 2 upcoming)
+2026-07-16 20:00:12 | INFO    | --------------------------------------------------
+2026-07-16 20:00:12 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-16 20:00:12 | INFO    | --------------------------------------------------
+2026-07-16 20:00:12 | INFO    |   No remaining placeholder match-ups - all resolved!
+2026-07-16 20:00:12 | INFO    | 
+2026-07-16 20:00:12 | INFO    |   Total:     488 matches
+2026-07-16 20:00:12 | INFO    |   Completed: 486
+2026-07-16 20:00:12 | INFO    |   Upcoming:  2
+2026-07-16 20:00:12 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-16 20:00:12 | INFO    | --------------------------------------------------
+2026-07-16 20:00:12 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-16 20:00:12 | INFO    | --------------------------------------------------
+2026-07-16 20:00:12 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-16 20:00:12 | INFO    | --------------------------------------------------
+2026-07-16 20:00:12 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-16 20:00:12 | INFO    | --------------------------------------------------
+2026-07-16 20:00:12 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-17 08:00:06 | INFO    | --------------------------------------------------
+2026-07-17 08:00:06 | INFO    | STEP 1: Download data
+2026-07-17 08:00:06 | INFO    | --------------------------------------------------
+2026-07-17 08:00:06 | INFO    | Downloading 2002 World Cup data ...
+2026-07-17 08:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 08:00:07 | INFO    | Downloading 2006 World Cup data ...
+2026-07-17 08:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 08:00:08 | INFO    | Downloading 2010 World Cup data ...
+2026-07-17 08:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 08:00:09 | INFO    | Downloading 2014 World Cup data ...
+2026-07-17 08:00:09 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 08:00:09 | INFO    | Downloading 2018 World Cup data ...
+2026-07-17 08:00:10 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 08:00:10 | INFO    | Downloading 2022 World Cup data ...
+2026-07-17 08:00:11 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 08:00:11 | INFO    | Downloading 2026 World Cup data ...
+2026-07-17 08:00:11 | INFO    |   104 matches (102 completed, 2 upcoming)
+2026-07-17 08:00:11 | INFO    | --------------------------------------------------
+2026-07-17 08:00:11 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-17 08:00:11 | INFO    | --------------------------------------------------
+2026-07-17 08:00:11 | INFO    |   No remaining placeholder match-ups - all resolved!
+2026-07-17 08:00:11 | INFO    | 
+2026-07-17 08:00:11 | INFO    |   Total:     488 matches
+2026-07-17 08:00:11 | INFO    |   Completed: 486
+2026-07-17 08:00:11 | INFO    |   Upcoming:  2
+2026-07-17 08:00:11 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-17 08:00:11 | INFO    | --------------------------------------------------
+2026-07-17 08:00:11 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-17 08:00:11 | INFO    | --------------------------------------------------
+2026-07-17 08:00:11 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-17 08:00:11 | INFO    | --------------------------------------------------
+2026-07-17 08:00:11 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-17 08:00:11 | INFO    | --------------------------------------------------
+2026-07-17 08:00:11 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-17 08:20:11 | ERROR   |   Lineup collection timed out (20 min limit)
+2026-07-17 08:20:11 | INFO    | --------------------------------------------------
+2026-07-17 08:20:11 | INFO    | STEP 4: Train & Predict
+2026-07-17 08:20:11 | INFO    | --------------------------------------------------
+2026-07-17 08:20:12 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\train_worldcup.py
+2026-07-17 08:21:38 | INFO    |   ========================================================================
+2026-07-17 08:21:38 | INFO    |     WORLD CUP - TRAIN & PREDICT (Multi-Tournament)
+2026-07-17 08:21:38 | INFO    |     Model: LIGHTGBM
+2026-07-17 08:21:38 | INFO    |     Data:  data\raw\worldcup_all.csv
+2026-07-17 08:21:38 | INFO    |   ========================================================================
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     Loading data\raw\worldcup_all.csv ...
+2026-07-17 08:21:38 | INFO    |     [*] 488 rows x 15 cols
+2026-07-17 08:21:38 | INFO    |     [*] Completed: 486 matches
+2026-07-17 08:21:38 | INFO    |     [*] Upcoming:  2 matches
+2026-07-17 08:21:38 | INFO    |     [TIME] Load data: 0.0s
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     Building features ...
+2026-07-17 08:21:38 | INFO    |     [*] Feature matrix: 486 rows x 203 features
+2026-07-17 08:21:38 | INFO    |     [TIME] Build features (train): 34.6s
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     Splitting chronologically (70/15/15) ...
+2026-07-17 08:21:38 | INFO    |     [*] Train: 340  |  Val: 73  |  Test: 73
+2026-07-17 08:21:38 | INFO    |     [TIME] Split: 0.0s
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     Tuning hyper-parameters (3-fold time-series CV) ...
+2026-07-17 08:21:38 | INFO    |     [*] Best params: {'subsample': 0.9, 'reg_lambda': 10.0, 'reg_alpha': 1.0, 'num_leaves': 63, 'n_estimators': 300, 'min_child_samples': 20, 'max_depth': 4, 'learning_rate': 0.05, 'colsample_bytree': 0.6}
+2026-07-17 08:21:38 | INFO    |     [TIME] Hyper-parameter tuning: 20.9s
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     Training lightgbm ...
+2026-07-17 08:21:38 | INFO    |     [*] Train log-loss: 0.4945
+2026-07-17 08:21:38 | INFO    |     [*] Val log-loss:   0.7821
+2026-07-17 08:21:38 | INFO    |     [*] Val accuracy:   0.6849 (68.5%)
+2026-07-17 08:21:38 | INFO    |     [TIME] Train model: 0.1s
+2026-07-17 08:21:38 | INFO    |     [*] Model saved: models/worldcup_lightgbm.joblib
+2026-07-17 08:21:38 | INFO    |     [TIME] Save model: 0.0s
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |   ========================================================================
+2026-07-17 08:21:38 | INFO    |     TEST SET RESULTS
+2026-07-17 08:21:38 | INFO    |   ========================================================================
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     Test accuracy: 0.7397 (74.0%)
+2026-07-17 08:21:38 | INFO    |     Correct: 54 / 73
+2026-07-17 08:21:38 | INFO    |     Naive baseline (always Home): 42.5%
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     Confusion matrix:
+2026-07-17 08:21:38 | INFO    |                      Away Win       Draw   Home Win
+2026-07-17 08:21:38 | INFO    |       ------------------------------------------
+2026-07-17 08:21:38 | INFO    |       Away Win        26         0         2
+2026-07-17 08:21:38 | INFO    |           Draw         2         1        11
+2026-07-17 08:21:38 | INFO    |       Home Win         4         0        27
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     Classification report:
+2026-07-17 08:21:38 | INFO    |                 precision    recall  f1-score   support
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |       Away Win      0.812     0.929     0.867        28
+2026-07-17 08:21:38 | INFO    |           Draw      1.000     0.071     0.133        14
+2026-07-17 08:21:38 | INFO    |       Home Win      0.675     0.871     0.761        31
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |       accuracy                          0.740        73
+2026-07-17 08:21:38 | INFO    |      macro avg      0.829     0.624     0.587        73
+2026-07-17 08:21:38 | INFO    |   weighted avg      0.790     0.740     0.681        73
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |   ---------------------------FEATURE IMPORTANCE---------------------------
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |       Rank   Feature                                  Importance
+2026-07-17 08:21:38 | INFO    |       --------------------------------------------------------
+2026-07-17 08:21:38 | INFO    |       1      DC_Away_Win_Prob                            87.0000
+2026-07-17 08:21:38 | INFO    |       2      DC_Expected_Home_Goals                      80.0000
+2026-07-17 08:21:38 | INFO    |       3      DC_Draw_Prob                                68.0000
+2026-07-17 08:21:38 | INFO    |       4      DC_Home_Attack_Strength                     67.0000
+2026-07-17 08:21:38 | INFO    |       5      DC_Expected_Away_Goals                      62.0000
+2026-07-17 08:21:38 | INFO    |       6      Home_Elo                                    61.0000
+2026-07-17 08:21:38 | INFO    |       7      h_home_matches                              57.0000
+2026-07-17 08:21:38 | INFO    |       8      DC_Expected_Goal_Difference                 55.0000
+2026-07-17 08:21:38 | INFO    |       9      Home_Attack_Strength                        54.0000
+2026-07-17 08:21:38 | INFO    |       10     DC_Home_Defence_Weakness                    54.0000
+2026-07-17 08:21:38 | INFO    |       11     DC_Away_Defence_Weakness                    53.0000
+2026-07-17 08:21:38 | INFO    |       12     a_away_matches                              52.0000
+2026-07-17 08:21:38 | INFO    |       13     DC_Home_Win_Prob                            51.0000
+2026-07-17 08:21:38 | INFO    |       14     a_squad_value                               47.0000
+2026-07-17 08:21:38 | INFO    |       15     Elo_Difference                              47.0000
+2026-07-17 08:21:38 | INFO    |     [TIME] Evaluate: 0.0s
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |   ========================================================================
+2026-07-17 08:21:38 | INFO    |     PREDICTING UPCOMING MATCHES
+2026-07-17 08:21:38 | INFO    |   ========================================================================
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     Predictable matches:  2 (both teams known)
+2026-07-17 08:21:38 | INFO    |     Placeholder matches:  0 (opponent TBD)
+2026-07-17 08:21:38 | INFO    |     [TIME] Build features (predict, combined orig+swapped): 27.0s
+2026-07-17 08:21:38 | INFO    |     [TIME] Model predict (swap-average + combine): 0.0s
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     ========================================================================
+2026-07-17 08:21:38 | INFO    |     KNOCKOUT ROUND PREDICTIONS (neutral venue — averaged both orderings)
+2026-07-17 08:21:38 | INFO    |     ========================================================================
+2026-07-17 08:21:38 | INFO    |     Date           Team 1                 Team 2                 Prediction       Conf    
+2026-07-17 08:21:38 | INFO    |     --------------------------------------------------------------------------------
+2026-07-17 08:21:38 | INFO    |     2026-07-18     France                 England                France wins      50%
+2026-07-17 08:21:38 | INFO    |     2026-07-19     Spain                  Argentina              Spain wins       59%
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     Detailed probabilities:
+2026-07-17 08:21:38 | INFO    |     Date           Match                                          Team 1       Draw         Team 2      
+2026-07-17 08:21:38 | INFO    |     ----------------------------------------------------------------------------------
+2026-07-17 08:21:38 | INFO    |     2026-07-18     France vs England                               50.5%    21.4%    28.2%
+2026-07-17 08:21:38 | INFO    |     2026-07-19     Spain vs Argentina                              59.3%    18.7%    22.0%
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     [*] Predictions saved to reports\predictions_worldcup\worldcup_predictions.csv
+2026-07-17 08:21:38 | INFO    |     [TIME] Poisson goal predictions: 0.0s
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |     ========================================================================
+2026-07-17 08:21:38 | INFO    |     POISSON GOAL PREDICTIONS (from historical goal rates)
+2026-07-17 08:21:38 | INFO    |     ========================================================================
+2026-07-17 08:21:38 | INFO    |     Date           Match                                          Exp Goals              Score      O/U 2.5   
+2026-07-17 08:21:38 | INFO    |     --------------------------------------------------------------------------------------------
+2026-07-17 08:21:38 | INFO    |     2026-07-18     France vs England                              France: 1.33 / England: 0.83 1-1        UNDER
+2026-07-17 08:21:38 | INFO    |     2026-07-19     Spain vs Argentina                             Spain: 1.44 / Argentina: 0.98 1-1        UNDER
+2026-07-17 08:21:38 | INFO    |     
+2026-07-17 08:21:38 | INFO    |     Prediction summary:
+2026-07-17 08:21:38 | INFO    |       Team 1 wins: 2 (100%)
+2026-07-17 08:21:38 | INFO    |       Draws:       0 (0%)
+2026-07-17 08:21:38 | INFO    |       Team 2 wins: 0 (0%)
+2026-07-17 08:21:38 | INFO    |       Avg confidence: 54.9%
+2026-07-17 08:21:38 | INFO    |     [TIME] Predict step total: 27.3s
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | INFO    |   ========================================================================
+2026-07-17 08:21:38 | INFO    |     DONE - 83.1s
+2026-07-17 08:21:38 | INFO    |     Model:  lightgbm
+2026-07-17 08:21:38 | INFO    |     Trained on: 486 matches x 203 features
+2026-07-17 08:21:38 | INFO    |     Test accuracy: 73.97%
+2026-07-17 08:21:38 | INFO    |     Predictions: 2 matches -> reports\predictions_worldcup\worldcup_predictions.csv
+2026-07-17 08:21:38 | INFO    |   ========================================================================
+2026-07-17 08:21:38 | INFO    |   
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:21 | INFO    | Building features on 486 rows
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:21 | INFO    | Elo features added: 74 teams, K=32, home_adv=50, draw_k=0.25, host_nations=True
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:21 | INFO    | Elo adjustment: Morocco -50 pts (16 rows adjusted)
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:21 | INFO    | Adding odds features on 486 rows
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:21 | WARNING | No odds columns found in DataFrame. Creating zero-filled placeholders for all odds features.
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:21 | INFO    | Loaded 1180 player records from C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:21 | INFO    | Adding player information features on 486 rows
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:22 | INFO    | Player info features added — 7 columns from real player data (injuries=True, gk=True, scorer=True, age=True, value=True, rotation=False)
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:22 | INFO    | Adding enhanced player features on 486 rows
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:22 | INFO    | Computed squad stats for 51 teams
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:25 | INFO    | Enhanced player features added — ~8723 feature columns from real player data
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:25 | INFO    | Adding xG features on 486 rows
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:25 | INFO    | xG features added — 15 columns from placeholders (no xG data found)
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:25 | INFO    | Poisson features added — \u03bc_home=1.402, \u03bc_away=1.132, 74 teams
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:44 | WARNING | Dixon-Coles MLE did not fully converge: STOP: TOTAL NO. OF F,G EVALUATIONS EXCEEDS LIMIT
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:45 | INFO    | Dixon-Coles features added: 486 matches, refit every 100, last \u03c1=0.000
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:46 | INFO    | Added 16 schedule/congestion feature columns
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:48 | INFO    | Feature matrix: 486 rows × 203 columns  |  target distribution: {2: 0.44650205761316875, 0: 0.34156378600823045, 1: 0.21193415637860083}
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:48 | INFO    | Chronological split — train: 340, val: 73, test: 73
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:20:49 | INFO    | Hyper-parameter tuning 'lightgbm' — 3-fold CV, 20 random samples
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:09 | INFO    | Best CV log-loss: 0.9716  with params: {'subsample': 0.9, 'reg_lambda': 10.0, 'reg_alpha': 1.0, 'num_leaves': 63, 'n_estimators': 300, 'min_child_samples': 20, 'max_depth': 4, 'learning_rate': 0.05, 'colsample_bytree': 0.6}
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:09 | INFO    | Starting training with model_type='lightgbm'
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:09 | INFO    | Early stopped at iteration 58 / 300
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:09 | INFO    | Training complete.
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:09 | INFO    | Model saved to C:\Users\dell\Documents\complex num\football prediction\models\worldcup_lightgbm.joblib
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:09 | INFO    | Building features on 490 rows
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:09 | INFO    | Elo features added: 74 teams, K=32, home_adv=50, draw_k=0.25, host_nations=True
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:09 | INFO    | Elo adjustment: Morocco -50 pts (16 rows adjusted)
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:09 | INFO    | Adding odds features on 490 rows
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:09 | WARNING | No odds columns found in DataFrame. Creating zero-filled placeholders for all odds features.
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:09 | INFO    | Loaded 1180 player records from C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:09 | INFO    | Adding player information features on 490 rows
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:10 | INFO    | Player info features added — 7 columns from real player data (injuries=True, gk=True, scorer=True, age=True, value=True, rotation=False)
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:10 | INFO    | Adding enhanced player features on 490 rows
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:11 | INFO    | Computed squad stats for 51 teams
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:13 | INFO    | Enhanced player features added — ~8811 feature columns from real player data
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:13 | INFO    | Adding xG features on 490 rows
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:13 | INFO    | xG features added — 15 columns from placeholders (no xG data found)
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:13 | INFO    | Poisson features added — \u03bc_home=1.393, \u03bc_away=1.127, 74 teams
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:33 | WARNING | Dixon-Coles MLE did not fully converge: STOP: TOTAL NO. OF F,G EVALUATIONS EXCEEDS LIMIT
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:34 | INFO    | Dixon-Coles features added: 490 matches, refit every 100, last \u03c1=0.000
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:34 | INFO    | Added 16 schedule/congestion feature columns
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:36 | INFO    | Feature matrix: 490 rows × 205 columns  |  target distribution: {2: 0.44285714285714284, 0: 0.33877551020408164, 1: 0.21020408163265306, -1: 0.00816326530612245}
+2026-07-17 08:21:38 | WARNING |   [stderr] 08:21:36 | INFO    | Poisson features added — \u03bc_home=1.402, \u03bc_away=1.132, 74 teams
+2026-07-17 08:21:38 | INFO    |   Training & prediction completed successfully
+2026-07-17 08:21:38 | INFO    | --------------------------------------------------
+2026-07-17 08:21:38 | INFO    | Done in 1291.3 seconds
+2026-07-17 08:21:38 | INFO    | --------------------------------------------------
+2026-07-17 14:00:04 | INFO    | --------------------------------------------------
+2026-07-17 14:00:04 | INFO    | STEP 1: Download data
+2026-07-17 14:00:04 | INFO    | --------------------------------------------------
+2026-07-17 14:00:04 | INFO    | Downloading 2002 World Cup data ...
+2026-07-17 14:00:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 14:00:05 | INFO    | Downloading 2006 World Cup data ...
+2026-07-17 14:00:05 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 14:00:05 | INFO    | Downloading 2010 World Cup data ...
+2026-07-17 14:00:06 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 14:00:06 | INFO    | Downloading 2014 World Cup data ...
+2026-07-17 14:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 14:00:07 | INFO    | Downloading 2018 World Cup data ...
+2026-07-17 14:00:07 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 14:00:07 | INFO    | Downloading 2022 World Cup data ...
+2026-07-17 14:00:08 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 14:00:08 | INFO    | Downloading 2026 World Cup data ...
+2026-07-17 14:00:09 | INFO    |   104 matches (102 completed, 2 upcoming)
+2026-07-17 14:00:09 | INFO    | --------------------------------------------------
+2026-07-17 14:00:09 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-17 14:00:09 | INFO    | --------------------------------------------------
+2026-07-17 14:00:09 | INFO    |   No remaining placeholder match-ups - all resolved!
+2026-07-17 14:00:09 | INFO    | 
+2026-07-17 14:00:09 | INFO    |   Total:     488 matches
+2026-07-17 14:00:09 | INFO    |   Completed: 486
+2026-07-17 14:00:09 | INFO    |   Upcoming:  2
+2026-07-17 14:00:09 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-17 14:00:09 | INFO    | --------------------------------------------------
+2026-07-17 14:00:09 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-17 14:00:09 | INFO    | --------------------------------------------------
+2026-07-17 14:00:09 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-17 14:00:09 | INFO    | --------------------------------------------------
+2026-07-17 14:00:09 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-17 14:00:09 | INFO    | --------------------------------------------------
+2026-07-17 14:00:09 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-17 20:17:30 | INFO    | --------------------------------------------------
+2026-07-17 20:17:30 | INFO    | STEP 1: Download data
+2026-07-17 20:17:30 | INFO    | --------------------------------------------------
+2026-07-17 20:17:30 | INFO    | Downloading 2002 World Cup data ...
+2026-07-17 20:17:31 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 20:17:31 | INFO    | Downloading 2006 World Cup data ...
+2026-07-17 20:17:32 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 20:17:32 | INFO    | Downloading 2010 World Cup data ...
+2026-07-17 20:17:32 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 20:17:32 | INFO    | Downloading 2014 World Cup data ...
+2026-07-17 20:17:33 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 20:17:33 | INFO    | Downloading 2018 World Cup data ...
+2026-07-17 20:17:35 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 20:17:35 | INFO    | Downloading 2022 World Cup data ...
+2026-07-17 20:17:36 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-17 20:17:36 | INFO    | Downloading 2026 World Cup data ...
+2026-07-17 20:17:36 | INFO    |   104 matches (102 completed, 2 upcoming)
+2026-07-17 20:17:36 | INFO    | --------------------------------------------------
+2026-07-17 20:17:36 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-17 20:17:36 | INFO    | --------------------------------------------------
+2026-07-17 20:17:36 | INFO    |   No remaining placeholder match-ups - all resolved!
+2026-07-17 20:17:36 | INFO    | 
+2026-07-17 20:17:36 | INFO    |   Total:     488 matches
+2026-07-17 20:17:36 | INFO    |   Completed: 486
+2026-07-17 20:17:36 | INFO    |   Upcoming:  2
+2026-07-17 20:17:36 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-17 20:17:36 | INFO    | --------------------------------------------------
+2026-07-17 20:17:36 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-17 20:17:36 | INFO    | --------------------------------------------------
+2026-07-17 20:17:36 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-17 20:17:36 | INFO    | --------------------------------------------------
+2026-07-17 20:17:36 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-17 20:17:36 | INFO    | --------------------------------------------------
+2026-07-17 20:17:36 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py
+2026-07-18 20:00:14 | INFO    | --------------------------------------------------
+2026-07-18 20:00:14 | INFO    | STEP 1: Download data
+2026-07-18 20:00:14 | INFO    | --------------------------------------------------
+2026-07-18 20:00:14 | INFO    | Downloading 2002 World Cup data ...
+2026-07-18 20:00:14 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-18 20:00:14 | INFO    | Downloading 2006 World Cup data ...
+2026-07-18 20:00:15 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-18 20:00:15 | INFO    | Downloading 2010 World Cup data ...
+2026-07-18 20:00:15 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-18 20:00:15 | INFO    | Downloading 2014 World Cup data ...
+2026-07-18 20:00:16 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-18 20:00:16 | INFO    | Downloading 2018 World Cup data ...
+2026-07-18 20:00:16 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-18 20:00:16 | INFO    | Downloading 2022 World Cup data ...
+2026-07-18 20:00:16 | INFO    |   64 matches (64 completed, 0 upcoming)
+2026-07-18 20:00:16 | INFO    | Downloading 2026 World Cup data ...
+2026-07-18 20:00:16 | INFO    |   104 matches (102 completed, 2 upcoming)
+2026-07-18 20:00:16 | INFO    | --------------------------------------------------
+2026-07-18 20:00:16 | INFO    | STEP 2: Resolve knockout bracket
+2026-07-18 20:00:16 | INFO    | --------------------------------------------------
+2026-07-18 20:00:16 | INFO    |   No remaining placeholder match-ups - all resolved!
+2026-07-18 20:00:16 | INFO    | 
+2026-07-18 20:00:16 | INFO    |   Total:     488 matches
+2026-07-18 20:00:16 | INFO    |   Completed: 486
+2026-07-18 20:00:16 | INFO    |   Upcoming:  2
+2026-07-18 20:00:16 | INFO    |   Saved to C:\Users\dell\Documents\complex num\football prediction\data\raw\worldcup_all.csv
+2026-07-18 20:00:16 | INFO    | --------------------------------------------------
+2026-07-18 20:00:16 | INFO    | STEP 3: Collect player data (Transfermarkt)
+2026-07-18 20:00:16 | INFO    | --------------------------------------------------
+2026-07-18 20:00:16 | INFO    |   Player data exists at C:\Users\dell\Documents\complex num\football prediction\data\external\players.csv — skipping (use --force-players to refresh)
+2026-07-18 20:00:16 | INFO    | --------------------------------------------------
+2026-07-18 20:00:16 | INFO    | STEP 3b: Collect lineup data (Transfermarkt)
+2026-07-18 20:00:16 | INFO    | --------------------------------------------------
+2026-07-18 20:00:17 | INFO    |   Running: C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe -u C:\Users\dell\Documents\complex num\football prediction\collect_lineups.py

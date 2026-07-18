@@ -42,9 +42,9 @@ def load_predictions() -> list[dict]:
     """Load all available prediction CSV/JSON files."""
     results = []
     pred_dirs = [
-        Path("reports/predictions_worldcup"),
+        Path(config.worldcup.predictions_dir),
         Path("reports"),
-        Path("data/raw"),
+        Path(config.worldcup.data_path).parent,
     ]
     for d in pred_dirs:
         if not d.exists():

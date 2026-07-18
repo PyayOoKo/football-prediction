@@ -28,7 +28,7 @@ import logging
 import smtplib
 import ssl
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any

@@ -262,7 +262,8 @@ class TestNotifier:
     def test_send_console(self):
         from src.scheduler.notifications import Notifier, NotificationConfig
 
-        cfg = NotificationConfig(console_enabled=True, email_enabled=False, slack_enabled=False, file_enabled=False)
+        cfg = NotificationConfig(console_enabled=True, email_enabled=False, slack_enabled=False,
+                                  file_enabled=False, min_level="info")
         notifier = Notifier(config=cfg)
 
         results = notifier.send("Test Title", "Test message", level="info")
@@ -291,7 +292,7 @@ class TestNotifier:
         try:
             cfg = NotificationConfig(
                 console_enabled=False, email_enabled=False, slack_enabled=False,
-                file_enabled=True, notification_file=log_path,
+                file_enabled=True, notification_file=log_path, min_level="info",
             )
             notifier = Notifier(config=cfg)
             results = notifier.send("Test", "File log test", level="info")
@@ -307,7 +308,8 @@ class TestNotifier:
     def test_send_pipeline_report(self):
         from src.scheduler.notifications import Notifier, NotificationConfig
 
-        cfg = NotificationConfig(console_enabled=True, email_enabled=False, slack_enabled=False, file_enabled=False)
+        cfg = NotificationConfig(console_enabled=True, email_enabled=False, slack_enabled=False,
+                                  file_enabled=False, min_level="info")
         notifier = Notifier(config=cfg)
 
         report = {

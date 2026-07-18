@@ -19,7 +19,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from config import config
+from config import config as _global_config
 from src.confidence_scoring import ConfidenceScorer
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,7 @@ def predict_fixtures(
     output_path: str | Path | None = None,
     individual_probs: dict[str, np.ndarray] | None = None,
     calibration_brier: float | None = None,
+    config: Any | None = None,
 ) -> pd.DataFrame:
     """Generate outcome predictions for a set of fixtures.
 
@@ -48,6 +49,9 @@ def predict_fixtures(
         Each value must be shape ``(n, 3)``.
     calibration_brier : float, optional
         Brier score from a held-out validation set for calibration scoring.
+    config : Config, optional
+        Config instance for dependency injection. Defaults to the
+        global singleton ``config``.
 
     Returns
     -------
@@ -55,6 +59,7 @@ def predict_fixtures(
         Original fixtures augmented with ``prediction``, ``probability``,
         and ``confidence`` columns.
     """
+    cfg = config or _global_config
     logger.info("Generating predictions for %d fixtures", len(fixtures_df))
     df = fixtures_df.copy()
 
@@ -91,7 +96,7 @@ def predict_fixtures(
         else:
             raise AttributeError("Model has no predict or predict_classes method.")
 
-    _output_predictions(df, output_path)
+    _output_predictions(df, output_path, config=cfg)
     return df
 
 
@@ -104,7 +109,7 @@ def _output_predictions(
 ) -> None:
     """Write / print predictions according to ``config.predict.output_format``."""
     path = Path(output_path) if output_path else None
-    fmt = config.predict.output_format
+    fmt = cfg.predict.output_format
 
     if path:
         fmt = path.suffix.lstrip(".")  # infer format from extension

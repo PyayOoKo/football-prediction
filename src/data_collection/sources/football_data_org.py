@@ -21,7 +21,7 @@ from typing import Any
 import pandas as pd
 import requests
 
-from config import config
+from config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +41,13 @@ COMPETITION_IDS = {
 # ── Session ─────────────────────────────────────────────
 
 
-def _session() -> requests.Session:
+def _session(config: Any | None = None) -> requests.Session:
     """Create an authenticated session for football-data.org."""
-    api_key = os.environ.get(config.data.api_key_env)
+    cfg = config or _global_config
+    api_key = os.environ.get(cfg.data.api_key_env)
     if not api_key:
         raise RuntimeError(
-            f"{config.data.api_key_env} environment variable is not set. "
+            f"{cfg.data.api_key_env} environment variable is not set. "
             "Get a free key from https://www.football-data.org/"
         )
 

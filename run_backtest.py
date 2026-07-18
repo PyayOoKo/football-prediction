@@ -58,10 +58,12 @@ def main() -> None:
     # Try multiple column sets in preference order.
     odds_candidates = [
         ("BbAvA", "BbAvD", "BbAvH"),      # Average odds (preferred)
-        ("B365A", "B365D", "B365H"),      # Bet365
+        ("B365A", "B365D", "B365H"),      # Bet365 (uppercase)
+        ("b365a", "b365d", "b365h"),      # Bet365 (lowercase)
         ("BWA", "BWD", "BWH"),            # Bet&Win
         ("IWA", "IWD", "IWH"),            # Interwetten
-        ("PSA", "PSD", "PSH"),            # Pinnacle
+        ("PSA", "PSD", "PSH"),            # Pinnacle (uppercase)
+        ("psa", "psd", "psh"),            # Pinnacle (lowercase)
     ]
 
     odds_cols = None

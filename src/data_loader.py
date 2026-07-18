@@ -21,7 +21,7 @@ from typing import Any
 
 import pandas as pd
 
-from config import config
+from config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 def load_results(
     file_name: str | None = None,
+    config: Any | None = None,
     **csv_kwargs: Any,
 ) -> pd.DataFrame:
     """Load historical match results.
@@ -39,6 +40,9 @@ def load_results(
     ----------
     file_name : str, optional
         Override the default results file name from ``config``.
+    config : Config, optional
+        Config instance for dependency injection. Defaults to the
+        global singleton ``config``.
     **csv_kwargs
         Extra keyword arguments forwarded to ``pd.read_csv``.
 
@@ -47,7 +51,8 @@ def load_results(
     pd.DataFrame
         Cleaned results DataFrame.
     """
-    path = _resolve_path(file_name or config.data.results_file)
+    cfg = config or _global_config
+    path = _resolve_path(file_name or cfg.data.results_file, config=cfg)
     logger.info("Loading results from %s", path)
     df = pd.read_csv(path, **csv_kwargs)
     df = _standardise_columns(df)
@@ -57,6 +62,7 @@ def load_results(
 
 def load_fixtures(
     file_name: str | None = None,
+    config: Any | None = None,
     **csv_kwargs: Any,
 ) -> pd.DataFrame:
     """Load upcoming fixtures to predict.
@@ -65,6 +71,9 @@ def load_fixtures(
     ----------
     file_name : str, optional
         Override the default fixtures file name from ``config``.
+    config : Config, optional
+        Config instance for dependency injection. Defaults to the
+        global singleton ``config``.
     **csv_kwargs
         Extra keyword arguments forwarded to ``pd.read_csv``.
 
@@ -73,7 +82,8 @@ def load_fixtures(
     pd.DataFrame
         Cleaned fixtures DataFrame.
     """
-    path = _resolve_path(file_name or config.data.fixtures_file)
+    cfg = config or _global_config
+    path = _resolve_path(file_name or cfg.data.fixtures_file, config=cfg)
     logger.info("Loading fixtures from %s", path)
     df = pd.read_csv(path, **csv_kwargs)
     df = _standardise_columns(df)
@@ -83,6 +93,7 @@ def load_fixtures(
 
 def load_teams(
     file_name: str | None = None,
+    config: Any | None = None,
     **csv_kwargs: Any,
 ) -> pd.DataFrame:
     """Load team metadata (name, league, stadium, etc.).
@@ -91,6 +102,9 @@ def load_teams(
     ----------
     file_name : str, optional
         Override the default teams file name from ``config``.
+    config : Config, optional
+        Config instance for dependency injection. Defaults to the
+        global singleton ``config``.
     **csv_kwargs
         Extra keyword arguments forwarded to ``pd.read_csv``.
 
@@ -99,7 +113,8 @@ def load_teams(
     pd.DataFrame
         Cleaned teams DataFrame.
     """
-    path = _resolve_path(file_name or config.data.teams_file)
+    cfg = config or _global_config
+    path = _resolve_path(file_name or cfg.data.teams_file, config=cfg)
     logger.info("Loading teams from %s", path)
     df = pd.read_csv(path, **csv_kwargs)
     df = _standardise_columns(df)
@@ -110,9 +125,10 @@ def load_teams(
 # ── Internal helpers ────────────────────────────────────
 
 
-def _resolve_path(file_name: str) -> Path:
+def _resolve_path(file_name: str, config: Any | None = None) -> Path:
     """Return the full path for *file_name* inside ``data/raw``."""
-    return config.paths.raw / file_name
+    cfg = config or _global_config
+    return cfg.paths.raw / file_name
 
 
 def _standardise_columns(df: pd.DataFrame) -> pd.DataFrame:

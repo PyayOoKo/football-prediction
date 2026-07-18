@@ -21,6 +21,8 @@ import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
 
+from config import config as _global_config
+
 st.set_page_config(
     page_title="World Cup 2026",
     page_icon="🏆",
@@ -30,8 +32,8 @@ st.set_page_config(
 
 # ── Paths ───────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-PREDICTIONS_CSV = PROJECT_ROOT / "reports" / "predictions_worldcup" / "worldcup_predictions.csv"
-DATA_CSV = PROJECT_ROOT / "data" / "raw" / "worldcup_all.csv"
+PREDICTIONS_CSV = PROJECT_ROOT / _global_config.worldcup.predictions_dir / _global_config.worldcup.predictions_file
+DATA_CSV = PROJECT_ROOT / _global_config.worldcup.data_path
 
 
 # ═══════════════════════════════════════════════════════════

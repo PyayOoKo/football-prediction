@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from config import config
+from config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def _load_from_file(file_name: str) -> Any | None:
     # Try as ensemble model
     try:
         from src.ensemble import EnsembleModel
-        model_path = config.paths.models / file_name
+        model_path = _global_config.paths.models / file_name
         if model_path.exists():
             return EnsembleModel.load(str(model_path))
     except Exception:
@@ -77,7 +77,7 @@ def _try_load_ensemble(name: str) -> Any | None:
     """Try loading an EnsembleModel from file."""
     try:
         from src.ensemble import EnsembleModel
-        model_path = config.paths.models / name
+        model_path = _global_config.paths.models / name
         if model_path.exists():
             return EnsembleModel.load(str(model_path))
     except Exception:
@@ -98,7 +98,7 @@ def _try_load_xgb(name: str) -> Any | None:
 @st.cache_resource(show_spinner="Loading preprocessed data ...")
 def load_clean_data() -> pd.DataFrame | None:
     """Load the preprocessed match data."""
-    path = config.paths.processed / "results_clean.csv"
+    path = _global_config.paths.processed / "results_clean.csv"
     if not path.exists():
         return None
     df = pd.read_csv(path, low_memory=False)
@@ -137,10 +137,10 @@ def run_backtest_cached(
         model=_model, X_test=X_test, y_test=y_test,
         odds_df=odds_df, odds_cols=odds_cols,
         team_cols=("home_team", "away_team"),
-        initial_bankroll=config.value_betting.bankroll,
-        kelly_fraction=config.value_betting.kelly_fraction,
-        min_ev=config.value_betting.min_ev,
-        output_dir=config.paths.data.parent / "reports" / "backtest",
+        initial_bankroll=_global_config.value_betting.bankroll,
+        kelly_fraction=_global_config.value_betting.kelly_fraction,
+        min_ev=_global_config.value_betting.min_ev,
+        output_dir=_global_config.paths.data.parent / "reports" / "backtest",
         print_report=False, show_charts=False,
     )
     return result
@@ -289,7 +289,7 @@ def run_model_diagnostic(
 @st.cache_data(ttl=300, show_spinner="Loading latest value bets...")
 def load_latest_value_bets() -> pd.DataFrame | None:
     """Load the latest value bets report saved by today_value_bets_live.py."""
-    path = config.paths.data.parent / "reports" / "value_bets" / "latest.csv"
+    path = _global_config.paths.data.parent / "reports" / "value_bets" / "latest.csv"
     if not path.exists():
         return None
     try:
@@ -302,7 +302,7 @@ def load_latest_value_bets() -> pd.DataFrame | None:
 @st.cache_data(ttl=300)
 def load_value_bets_meta() -> pd.DataFrame | None:
     """Load prediction metadata from latest value bets run."""
-    path = config.paths.data.parent / "reports" / "value_bets" / "latest_meta.csv"
+    path = _global_config.paths.data.parent / "reports" / "value_bets" / "latest_meta.csv"
     if not path.exists():
         return None
     try:

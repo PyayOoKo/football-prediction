@@ -7,11 +7,10 @@ validation rules, field descriptions, and example values.
 
 from __future__ import annotations
 
-from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ── Enums ───────────────────────────────────────────────────
@@ -36,28 +35,38 @@ class FixtureInput(BaseModel):
     """A single football fixture to predict."""
 
     home_team: str = Field(
-        ..., min_length=1, max_length=100,
+        ...,
+        min_length=1,
+        max_length=100,
         description="Home team name",
         examples=["Brazil"],
     )
     away_team: str = Field(
-        ..., min_length=1, max_length=100,
+        ...,
+        min_length=1,
+        max_length=100,
         description="Away team name",
         examples=["Argentina"],
     )
     match_date: str | None = Field(
-        None, description="Match date (YYYY-MM-DD). Defaults to today.",
+        None,
+        description="Match date (YYYY-MM-DD). Defaults to today.",
         examples=["2026-07-15"],
     )
     competition: str | None = Field(
-        None, description="Competition name (optional, for context)",
+        None,
+        description="Competition name (optional, for context)",
         examples=["World Cup 2026"],
     )
     home_goals: float | None = Field(
-        None, ge=0, description="Historical home goals (for H2H stats, optional)",
+        None,
+        ge=0,
+        description="Historical home goals (for H2H stats, optional)",
     )
     away_goals: float | None = Field(
-        None, ge=0, description="Historical away goals (for H2H stats, optional)",
+        None,
+        ge=0,
+        description="Historical away goals (for H2H stats, optional)",
     )
 
     @field_validator("home_team", "away_team")
@@ -67,6 +76,14 @@ class FixtureInput(BaseModel):
         if not v:
             raise ValueError("Team name cannot be empty")
         return v
+
+    @model_validator(mode="after")
+    def home_not_away(self) -> FixtureInput:
+        if self.home_team.strip().lower() == self.away_team.strip().lower():
+            raise ValueError(
+                f"Home team '{self.home_team}' and away team '{self.away_team}' must be different"
+            )
+        return self
 
 
 # ── Odds Input (optional, for EV calculation) ───────────────
@@ -82,16 +99,18 @@ class PredictRequest(BaseModel):
     """Request body for the prediction endpoint."""
 
     fixtures: list[FixtureInput] = Field(
-        ..., min_length=1, max_length=50,
+        ...,
+        min_length=1,
+        max_length=50,
         description="List of fixtures to predict (1-50 matches)",
     )
     market: MarketEnum = Field(
         default=MarketEnum.h2h,
         description="Betting market to predict",
     )
-    include_ev: bool = Field(
+    include_expected_value: bool = Field(
         default=True,
-        description="Include Expected Value and Kelly stake calculations",
+        description="Include expected value (EV) and Kelly stake calculations in response",
     )
     include_features: bool = Field(
         default=False,
@@ -123,23 +142,21 @@ class MatchPrediction(BaseModel):
     """Prediction result for a single fixture."""
 
     fixture: FixtureInput
-    predicted_outcome: OutcomeEnum = Field(
-        ..., description="Predicted match result"
-    )
+    predicted_outcome: OutcomeEnum = Field(..., description="Predicted match result")
     probabilities: OutcomeProbabilities = Field(
         ..., description="Per-outcome probabilities"
     )
     confidence: float = Field(
         ..., ge=0, le=1, description="Model confidence in prediction"
     )
-    model: str = Field(
-        ..., description="Model name used for prediction"
-    )
+    model: str = Field(..., description="Model name used for prediction")
     expected_value: float | None = Field(
         None, description="Expected Value (if odds available)"
     )
     kelly_stake: float | None = Field(
-        None, ge=0, le=1,
+        None,
+        ge=0,
+        le=1,
         description="Kelly Criterion fraction of bankroll to stake",
     )
     implied_probabilities: OutcomeProbabilities | None = Field(
@@ -152,14 +169,16 @@ class PredictResponse(BaseModel):
 
     status: str = Field("success", description="Response status")
     predictions: list[MatchPrediction] = Field(
-        ..., description="List of predictions, one per fixture",
+        ...,
+        description="List of predictions, one per fixture",
     )
     model_info: dict[str, Any] = Field(
         default_factory=dict,
         description="Model metadata (name, version, fitted date)",
     )
     processing_time_ms: float = Field(
-        ..., description="Total processing time in milliseconds",
+        ...,
+        description="Total processing time in milliseconds",
     )
 
 
@@ -174,6 +193,7 @@ class ModelInfo(BaseModel):
     calibrated: bool = Field(False, description="Whether probabilities are calibrated")
     features: int = Field(0, description="Number of features the model expects")
     trained_at: str | None = Field(None, description="When the model was trained")
+    model_path: str = Field("", description="Absolute path to the saved model file")
     metrics: dict[str, float] = Field(
         default_factory=dict,
         description="Evaluation metrics (accuracy, log_loss, etc.)",
@@ -194,6 +214,12 @@ class HealthResponse(BaseModel):
     status: str = Field("healthy", description="Service health status")
     version: str = Field("2.0.0", description="API version")
     model_loaded: bool = Field(False, description="Whether a model is loaded")
+    model_name: str = Field("none", description="Loaded model filename")
+    model_type: str = Field("none", description="Loaded model class name")
+    model_features: int = Field(0, description="Number of features model expects")
+    model_trained_at: str | None = Field(
+        None, description="Training timestamp (file mtime)"
+    )
     uptime_seconds: float = Field(0.0, description="Server uptime in seconds")
 
 
@@ -217,7 +243,9 @@ class PredictWithOddsRequest(PredictRequest):
 
     @field_validator("odds")
     @classmethod
-    def odds_match_fixtures(cls, v: list[OddsInput] | None, info: Any) -> list[OddsInput] | None:
+    def odds_match_fixtures(
+        cls, v: list[OddsInput] | None, info: Any
+    ) -> list[OddsInput] | None:
         if v is not None and info.data.get("fixtures"):
             if len(v) != len(info.data["fixtures"]):
                 raise ValueError(

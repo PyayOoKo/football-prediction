@@ -239,7 +239,12 @@ class ScheduleTransformer(FeatureTransformer):
         if "date" in df.columns and self.params.get("sort_by_date", True):
             df["date"] = pd.to_datetime(df["date"])
             df.sort_values(["date", "home_team"], inplace=True)
-            df.reset_index(drop=True, inplace=True)
+
+        # Always reset index for clean match_id; this prevents
+        # ``.at[]`` from returning a Series when the original index
+        # contains duplicates (which would cause ``unhashable type``
+        # errors in ``_merge_features``).
+        df.reset_index(drop=True, inplace=True)
 
         logger.debug("Schedule: transforming %d rows", len(df))
 

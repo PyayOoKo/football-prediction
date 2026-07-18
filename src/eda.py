@@ -35,7 +35,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from config import config
+from config import config as _global_config
 
 # Use Agg backend only if no interactive backend is already active
 if matplotlib.get_backend() in ("", None):
@@ -55,7 +55,7 @@ plt.rcParams.update({
 })
 
 # Output directory
-_FIGURE_DIR = config.paths.data.parent / "reports" / "figures"
+_FIGURE_DIR = _global_config.paths.data.parent / "reports" / "figures"
 
 
 # ═══════════════════════════════════════════════════════════
@@ -86,7 +86,7 @@ def run_eda(
         Report with file paths, chart descriptions, and dataset stats.
     """
     if df is None:
-        path = Path(data_path or config.paths.processed / "results_clean.csv")
+        path = Path(data_path or _global_config.paths.processed / "results_clean.csv")
         if not path.exists():
             raise FileNotFoundError(
                 f"EDA input not found at {path}. "

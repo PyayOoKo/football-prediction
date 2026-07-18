@@ -28,7 +28,7 @@ from sklearn.metrics import (
     roc_curve,
 )
 
-from config import config
+from config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ def evaluate_model(
     model: Any,
     X_test: pd.DataFrame,
     y_test: pd.Series,
+    config: Any | None = None,
 ) -> dict[str, Any]:
     """Compute all configured metrics and optionally generate plots.
 
@@ -51,6 +52,9 @@ def evaluate_model(
         Test feature matrix.
     y_test : pd.Series
         True labels.
+    config : Config, optional
+        Config instance for dependency injection.  Defaults to the
+        global singleton ``config``.
 
     Returns
     -------
@@ -61,10 +65,11 @@ def evaluate_model(
     y_pred = model.predict(X_test)
     y_proba = model.predict_proba(X_test) if hasattr(model, "predict_proba") else None
 
+    cfg = config or _global_config
     report: dict[str, Any] = {}
 
     # ── Metrics ──────────────────────────────────
-    metrics = config.eval.metrics
+    metrics = cfg.eval.metrics
     if "accuracy" in metrics:
         report["accuracy"] = accuracy_score(y_test, y_pred)
     if "precision" in metrics:
@@ -91,16 +96,16 @@ def evaluate_model(
     plot_paths: dict[str, str] = {}
     sns.set_theme(style="whitegrid")
 
-    if config.eval.plot_confusion_matrix:
-        path = _save_confusion_matrix(y_test, y_pred)
+    if cfg.eval.plot_confusion_matrix:
+        path = _save_confusion_matrix(y_test, y_pred, config=cfg)
         plot_paths["confusion_matrix"] = path
 
-    if config.eval.plot_roc_curve and y_proba is not None:
-        path = _save_roc_curve(y_test, y_proba)
+    if cfg.eval.plot_roc_curve and y_proba is not None:
+        path = _save_roc_curve(y_test, y_proba, config=cfg)
         plot_paths["roc_curve"] = path
 
-    if config.eval.plot_feature_importance:
-        path = _save_feature_importance(model, X_test.columns)
+    if cfg.eval.plot_feature_importance:
+        path = _save_feature_importance(model, X_test.columns, config=cfg)
         if path:
             plot_paths["feature_importance"] = path
 
@@ -121,23 +126,56 @@ def _compute_roc_auc(y_test: pd.Series, y_proba: np.ndarray) -> float:
     return roc_auc_score(y_test, y_proba, multi_class="ovr", average="macro")
 
 
-def _save_confusion_matrix(y_test: pd.Series, y_pred: np.ndarray) -> str:
-    """Plot and save a confusion matrix heatmap."""
+def _save_confusion_matrix(y_test: pd.Series, y_pred: np.ndarray, config: Any | None = None) -> str:
+    """Plot and save a confusion matrix heatmap.
+
+    Parameters
+    ----------
+    y_test : pd.Series
+        True labels.
+    y_pred : np.ndarray
+        Predicted labels.
+    config : Config, optional
+        Config instance for dependency injection.  Defaults to the
+        global singleton ``config``.
+
+    Returns
+    -------
+    str
+        File path to the saved PNG image.
+    """
     cm = confusion_matrix(y_test, y_pred)
     labels = sorted(set(y_test) | set(y_pred))
     fig, ax = plt.subplots(figsize=(6, 5))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
                 xticklabels=labels, yticklabels=labels, ax=ax)
     ax.set(xlabel="Predicted", ylabel="Actual", title="Confusion Matrix")
-    path = str(config.eval.output_dir / "confusion_matrix.png")
+    cfg = config or _global_config
+    path = str(cfg.eval.output_dir / "confusion_matrix.png")
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     logger.info("Confusion matrix saved to %s", path)
     return path
 
 
-def _save_roc_curve(y_test: pd.Series, y_proba: np.ndarray) -> str:
-    """Plot and save ROC curves (one-vs-rest for multi-class)."""
+def _save_roc_curve(y_test: pd.Series, y_proba: np.ndarray, config: Any | None = None) -> str:
+    """Plot and save ROC curves (one-vs-rest for multi-class).
+
+    Parameters
+    ----------
+    y_test : pd.Series
+        True labels.
+    y_proba : np.ndarray
+        Predicted probability matrix (n_samples x n_classes).
+    config : Config, optional
+        Config instance for dependency injection.  Defaults to the
+        global singleton ``config``.
+
+    Returns
+    -------
+    str
+        File path to the saved PNG image.
+    """
     n_classes = y_proba.shape[1]
     fig, ax = plt.subplots(figsize=(7, 6))
 
@@ -150,7 +188,8 @@ def _save_roc_curve(y_test: pd.Series, y_proba: np.ndarray) -> str:
     ax.set(xlabel="False Positive Rate", ylabel="True Positive Rate",
            title="ROC Curve", xlim=(0, 1), ylim=(0, 1))
     ax.legend(loc="lower right")
-    path = str(config.eval.output_dir / "roc_curve.png")
+    cfg = config or _global_config
+    path = str(cfg.eval.output_dir / "roc_curve.png")
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     logger.info("ROC curve saved to %s", path)
@@ -160,8 +199,26 @@ def _save_roc_curve(y_test: pd.Series, y_proba: np.ndarray) -> str:
 def _save_feature_importance(
     model: Any,
     feature_names: pd.Index,
+    config: Any | None = None,
 ) -> str | None:
-    """Plot and save feature importance if the model exposes one."""
+    """Plot and save feature importance if the model exposes one.
+
+    Parameters
+    ----------
+    model : Any
+        Trained model with ``feature_importances_`` or ``coef_`` attribute.
+    feature_names : pd.Index
+        Column names from the feature matrix.
+    config : Config, optional
+        Config instance for dependency injection.  Defaults to the
+        global singleton ``config``.
+
+    Returns
+    -------
+    str | None
+        File path to the saved PNG image, or ``None`` if the model
+        does not expose feature importance.
+    """
     if hasattr(model, "feature_importances_"):
         importances = model.feature_importances_
     elif hasattr(model, "coef_"):

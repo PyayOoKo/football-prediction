@@ -9,8 +9,6 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-
-from config import config
 from src.app.utils import (
     build_feature_matrix,
     get_available_odds_cols,

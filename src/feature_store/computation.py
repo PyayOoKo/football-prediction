@@ -671,7 +671,6 @@ class FeatureComputationEngine:
 
         from datetime import datetime, timezone
 
-        from config import config
         from src.feature_engineering import build_features
 
         start_time = _time.time()

@@ -130,9 +130,9 @@ def step_download() -> dict[str, Any]:
     dict[str, Any]
         Report with keys ``success``, ``new_rows``, ``source``, ``error``.
     """
-    logger.info("─" * 60)
+    logger.info("-" * 60)
     logger.info("STEP 1: Download data")
-    logger.info("─" * 60)
+    logger.info("-" * 60)
 
     try:
         from src.data_collection import update
@@ -168,9 +168,9 @@ def step_preprocess() -> dict[str, Any]:
     dict[str, Any]
         Report with keys ``success``, ``rows``, ``columns``, ``error``.
     """
-    logger.info("─" * 60)
+    logger.info("-" * 60)
     logger.info("STEP 2: Preprocess data")
-    logger.info("─" * 60)
+    logger.info("-" * 60)
 
     try:
         from src.preprocessing import run_preprocessing
@@ -264,9 +264,9 @@ def step_retrain() -> dict[str, Any]:
         Report with keys ``success``, ``retrained``, ``model_path``,
         ``weights``, ``val_loss``, ``error``.
     """
-    logger.info("─" * 60)
-    logger.info("STEP 3: Check & retrain ensemble model")
-    logger.info("─" * 60)
+    logger.info("-" * 60)
+    logger.info("STEP 3: Retrain model")
+    logger.info("-" * 60)
 
     if not _should_retrain():
         return {"success": True, "retrained": False, "model_path": str(config.paths.models / _pipeline_cfg.model_file)}
@@ -341,9 +341,9 @@ def step_predict() -> dict[str, Any]:
     dict[str, Any]
         Report with keys ``success``, ``n_predictions``, ``output_path``, ``error``.
     """
-    logger.info("─" * 60)
+    logger.info("-" * 60)
     logger.info("STEP 4: Predict upcoming matches (ensemble)")
-    logger.info("─" * 60)
+    logger.info("-" * 60)
 
     try:
         from src.ensemble import EnsembleModel
@@ -435,9 +435,9 @@ def step_report(
     dict[str, Any]
         Report with keys ``success``, ``report_path``, ``error``.
     """
-    logger.info("─" * 60)
+    logger.info("-" * 60)
     logger.info("STEP 5: Generate summary report")
-    logger.info("─" * 60)
+    logger.info("-" * 60)
 
     elapsed = time.time() - _start_time
 
@@ -458,16 +458,16 @@ def step_report(
         lines.append("")
 
         # ── Step status table ────────────────────────────
-        lines.append(f"  {'─' * 50}")
+        lines.append(f"  {'-' * 50}")
         lines.append(f"  {'Step':<30s} {'Status':<15s} {'Details':>40s}")
-        lines.append(f"  {'─' * 50}")
+        lines.append(f"  {'-' * 50}")
 
         for step_name, result in results.items():
             status = "PASS" if result.get("success") else "FAIL"
             detail = result.get("error", "OK")
             detail_str = str(detail)[:40] if len(str(detail)) > 40 else str(detail)
             lines.append(f"  {step_name:<30s} {status:<15s} {detail_str:>40s}")
-        lines.append(f"  {'─' * 50}")
+        lines.append(f"  {'-' * 50}")
         lines.append("")
 
         # ── Detailed step info ───────────────────────────
@@ -503,7 +503,7 @@ def step_report(
         report_text = "\n".join(lines)
 
         # ── Print to console (handle Windows encoding gracefully) ──
-        safe_text = report_text.replace("—", "-")
+        safe_text = report_text.replace("—", "-").replace("─", "-")
         try:
             print(safe_text)
         except UnicodeEncodeError:

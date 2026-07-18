@@ -24,6 +24,8 @@ import sys
 import time
 from pathlib import Path
 
+from config import config
+
 PROJECT_ROOT = Path(__file__).resolve().parent
 PYTHON = sys.executable
 
@@ -50,7 +52,7 @@ def run_script(script: str, args: list[str] | None = None) -> bool:
 
 def check_data_exists() -> bool:
     """Check if World Cup data exists."""
-    csv_path = PROJECT_ROOT / "data" / "raw" / "worldcup_all.csv"
+    csv_path = PROJECT_ROOT / config.worldcup.data_path
     return csv_path.exists()
 
 
@@ -176,9 +178,9 @@ def main(argv: list[str] | None = None) -> int:
     print("=" * 72)
     print()
     print("  Dashboard:      http://localhost:8501")
-    print("  Predictions:    reports/predictions_worldcup/worldcup_predictions.csv")
+    print(f"  Predictions:    {config.worldcup.predictions_dir}/{config.worldcup.predictions_file}")
     print("  Value bets:     reports/value_bets/latest.csv")
-    print("  Model:          models/worldcup_lightgbm.joblib")
+    print(f"  Model:          models/{config.worldcup.model_save_name}")
     print("  Run guide:      guidesetupforpyay.text")
     print("=" * 72)
 

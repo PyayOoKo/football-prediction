@@ -53,6 +53,7 @@ MODEL_ACCURACY = {
     "Ensemble (Stacking)": (0.62, 0.68),
     "Ensemble (Weighted)": (0.61, 0.66),
     "XGBoost (tuned)": (0.60, 0.65),
+    "LightGBM (World Cup 2026)": (0.71, 0.74),
     "LightGBM": (0.59, 0.64),
     "Random Forest": (0.55, 0.60),
     "Logistic Regression": (0.52, 0.57),
@@ -173,12 +174,91 @@ LESSONS = [
     ("🗂️ Feature Store eliminates recomputation", "Caching features reduced pipeline runtime by 70%. Lineage tracking saved hours of debugging."),
 ]
 
+DI_MIGRATION = {
+    "Batch 1 — Core Pipeline + Services": {"files": 6, "done": 6, "functions": [
+        "train_model", "tune_hyperparameters", "save_model",
+        "load_model", "build_features", "train_val_test_split",
+        "evaluate_model", "resolve_data_path", "load_and_prepare",
+        "TrainingService", "PredictionService", "services/__init__",
+    ]},
+    "Batch 2a — Prediction & Value": {"files": 3, "done": 3, "functions": [
+        "predict_fixtures", "compute_value_bets",
+        "load_results", "load_fixtures", "load_teams",
+    ]},
+    "Batch 2b — Preprocessing & CV": {"files": 4, "done": 4, "functions": [
+        "run_preprocessing", "time_series_train_val_test_split",
+        "create_time_series_folds", "DataLoader.__init__",
+        "DataPreprocessor.__init__",
+    ]},
+    "Batch 2c — Feature Modules": {"files": 4, "done": 4, "functions": [
+        "_encode_categoricals", "_add_rolling_features",
+        "_add_extended_h2h_features", "_add_extended_form_features",
+        "_add_weather_features", "_add_referee_features",
+        "_add_schedule_features", "_add_transfer_features",
+        "_add_attack_defence_ratios",
+    ]},
+    "Batch 2d — Data Collection": {"files": 5, "done": 5, "functions": [
+        "collect_worldcup", "collect_all", "collect_league", "update",
+        "download_bulk", "_session", "collect_weather",
+        "_build_placeholder_df",
+    ]},
+    "Batch 3 — Remaining 10 Modules": {"files": 10, "done": 10, "functions": [
+        "cli.py: _handle_train", "eda.py: run_eda",
+        "factory.py: create_ensemble, create_default",
+        "app/utils.py (9 refs)", "app/dashboard.py (5 refs)",
+        "app/pages/4_WorldCup.py",
+        "Removed dead config imports: live_predictions.py, 3_Backtest.py, backtesting/__init__.py, feature_store/computation.py",
+    ]},
+}
+
+DI_MIGRATION_TOTAL = {
+    "files_refactored": 32,
+    "files_total": 32,
+    "call_sites_scanned": 182,
+    "call_site_issues": 0,
+    "config_keyword_calls": 21,
+}
+
+RECENT_FIXES = [
+    ("ScheduleTransformer index reset", "TypeError: cannot use 'tuple' as dict key"
+     " — duplicate index caused .at[] to return unhashable Series",
+     "src/feature_framework/features/schedule.py"),
+    ("Rolling features dedup",
+     "LightGBM Fatal: duplicate feature h_days_since_last_match"
+     " — pd.concat created duplicate columns",
+     "src/features/rolling.py"),
+    ("tune_hyperparameters signature",
+     "Got unexpected keyword argument 'model_type' after DI migration",
+     "train_worldcup.py"),
+    ("find_value_bets.py argparse",
+     "ValueError: badly formed help string — %K treated as format spec",
+     "find_value_bets.py"),
+    ("conftest.py SyntaxError",
+     "Unterminated string: docstring closing adjacent to from __future__",
+     "tests/test_dashboard/conftest.py"),
+    ("Dead code removal",
+     "FeatureEngineer stub with TODO — 0 imports, removed safely",
+     "src/data/feature_engineering.py"),
+    ("sklearn 1.9 compat: multi_class removed",
+     "LogisticRegression.__init__() got unexpected keyword 'multi_class'"
+     " — removed from 3 call sites across src + tests",
+     "run_wc_ensemble.py, src/ensemble.py, tests"),
+]
+
 TECH_DEBT = [
-    ("train_worldcup.py hardcoded paths", "Medium", "30 min", "⏳ Planned"),
-    ("feature_engineering.py is 1,700+ lines", "High", "4 hr", "⏳ Planned"),
-    ("Dashboard page test coverage low", "Medium", "3 hr", "⏳ Planned"),
-    ("No integration tests for live predictions", "Medium", "2 hr", "⏳ Planned"),
-    ("Global config imports → DI migration", "Low", "8 hr", "📋 Backlog"),
+    ("train_worldcup.py hardcoded paths", "Medium", "30 min", "✅ Done"),
+    ("feature_engineering.py 1,700+ lines → src/features/", "High", "4 hr", "✅ Done"),
+    ("Dashboard page test coverage low", "Medium", "3 hr", "✅ Done — 44 tests across 4 files"),
+    ("No integration tests for live predictions", "Medium", "2 hr", "✅ Done — 12 tests covering full pipeline"),
+    ("Global config imports → DI migration", "Low", "8 hr", "✅ Done — 32/32 src/ modules refactored"),
+    ("Schedule features: 'tuple as dict key' TypeError", "High", "30 min", "✅ Fixed — unconditional index reset in ScheduleTransformer"),
+    ("Rolling features: duplicate columns via pd.concat", "High", "30 min", "✅ Fixed — dedup check before concat in _merge_team_stats"),
+    ("train_worldcup.py: tune_hyperparameters kwarg mismatch", "Medium", "10 min", "✅ Fixed — removed stale model_type= kwarg"),
+    ("find_value_bets.py: argparse %K format crash", "Medium", "5 min", "✅ Fixed — escaped % in help string"),
+    ("tests/test_dashboard/conftest.py: SyntaxError", "High", "5 min", "✅ Fixed — newline between docstring and future import"),
+    ("src/data/feature_engineering.py: dead TODO stub", "Low", "5 min", "✅ Removed — 0 imports, 53 lines of dead code"),
+    ("sklearn 1.9.0: remove deprecated multi_class param", "Medium", "15 min",
+     "✅ Fixed — 3 call sites updated (run_wc_ensemble.py, src/ensemble.py, test helper)"),
 ]
 
 
@@ -729,6 +809,88 @@ def render_tech_debt() -> None:
         )
 
 
+def render_recent_fixes() -> None:
+    st.markdown('<div class="section-header">🐛 Recent Bug Fixes</div>', unsafe_allow_html=True)
+
+    cols = st.columns(3)
+    for i, (title, desc, file) in enumerate(RECENT_FIXES):
+        with cols[i % 3]:
+            st.markdown(
+                f'<div class="lesson-card" style="padding:0.8rem 1rem">'
+                f'<div class="lesson-title" style="font-size:0.9rem">{title}</div>'
+                f'<div class="lesson-text" style="font-size:0.8rem">{desc}</div>'
+                f'<div style="margin-top:0.4rem">'
+                f'<span class="tag tag-green" style="font-size:0.65rem">{file}</span>'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+
+def render_di_migration() -> None:
+    st.markdown('<div class="section-header">📊 Dependency Injection Migration</div>', unsafe_allow_html=True)
+
+    total_pct = (
+        DI_MIGRATION_TOTAL["files_refactored"]
+        / DI_MIGRATION_TOTAL["files_total"]
+        * 100
+    )
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        stat_card(f"{DI_MIGRATION_TOTAL['files_refactored']}/{DI_MIGRATION_TOTAL['files_total']}",
+                  "Modules Refactored", col1)
+    with col2:
+        stat_card(f"{DI_MIGRATION_TOTAL['call_sites_scanned']}",
+                  "Call Sites Scanned", col2)
+    with col3:
+        stat_card(f"{DI_MIGRATION_TOTAL['call_site_issues']}",
+                  "Backward Compat Issues", col3)
+    with col4:
+        stat_card(f"{DI_MIGRATION_TOTAL['config_keyword_calls']}",
+                  "Config= Keyword Calls", col4)
+
+    st.markdown(
+        f'<div style="margin:1rem 0 0.5rem 0">'
+        f'<div style="display:flex;justify-content:space-between;font-size:0.8rem">'
+        f'<span style="color:#6b7280">Overall migration progress</span>'
+        f'<span style="color:#81c784;font-weight:600">{total_pct:.0f}%</span>'
+        f'</div>'
+        f'<div class="progress-container" style="height:12px">'
+        f'<div class="progress-fill" style="width:{total_pct}%;background:linear-gradient(90deg,#4fc3f7,#81c784)"></div>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    cols = st.columns(3)
+    for i, (batch_name, data) in enumerate(DI_MIGRATION.items()):
+        with cols[i % 3]:
+            pct = data["done"] / data["files"] * 100 if data["files"] > 0 else 0
+            is_done = pct >= 100
+            color = "#4caf50" if is_done else "#ffc107"
+            batch_label = batch_name.replace("Batch ", "B")
+            st.markdown(
+                f'<div class="phase-card">'
+                f'<div class="phase-name">{batch_name}</div>'
+                f'<div class="phase-progress">{data["done"]}/{data["files"]} files '
+                f'<span style="color:{color};font-weight:600">{"DONE" if is_done else f"{pct:.0f}%"}</span></div>'
+                f'<div class="progress-container">'
+                f'<div class="progress-fill" style="width:{pct}%;background:{color}"></div>'
+                f'</div>'
+                f'<div style="margin-top:0.5rem">',
+                unsafe_allow_html=True,
+            )
+            for fn in data["functions"]:
+                status = "✅" if is_done else "⬜"
+                st.markdown(
+                    f'<div class="info-row" style="font-size:0.75rem;padding:0.15rem 0">'
+                    f'{status} {fn}</div>',
+                    unsafe_allow_html=True,
+                )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+
 def render_footer() -> None:
     st.markdown("---")
     col1, col2, col3 = st.columns(3)
@@ -767,6 +929,8 @@ def main() -> None:
     render_watchlist()
     render_roadmap()
     render_lessons()
+    render_di_migration()
+    render_recent_fixes()
     render_tech_debt()
     render_footer()
 

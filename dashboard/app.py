@@ -81,6 +81,72 @@ if "data" not in st.session_state:
     st.session_state.data = None
 if "backtest_results" not in st.session_state:
     st.session_state.backtest_results = None
+if "pipeline_cache" not in st.session_state:
+    st.session_state.pipeline_cache = None
+
+
+# ── Data helpers (cached) ──────────────────────────────
+
+@st.cache_data(ttl=120)
+def detect_data_pipeline_status() -> dict[str, Any]:
+    """Use the data pipeline to assess the current dataset.
+
+    Returns a dict with: ``found``, ``rows``, ``completed``,
+    ``upcoming``, ``teams``, ``date_min``, ``date_max``,
+    ``n_columns``, ``pipeline_applied``.
+    """
+    result: dict[str, Any] = {
+        "found": False,
+        "rows": 0,
+        "completed": 0,
+        "upcoming": 0,
+        "teams": 0,
+        "date_min": None,
+        "date_max": None,
+        "n_columns": 0,
+        "pipeline_applied": False,
+    }
+    try:
+        from src.services import load_and_prepare
+
+        df = load_and_prepare(add_temporal=True)
+        if df is not None and len(df) > 0:
+            result["found"] = True
+            result["rows"] = len(df)
+            result["n_columns"] = len(df.columns)
+            result["completed"] = int(df["result"].notna().sum())
+            result["upcoming"] = int((df["result"].isna() | (df["result"] == "")).sum())
+            result["pipeline_applied"] = True
+
+            # Team count
+            teams: set[str] = set()
+            for col in ("home_team", "away_team"):
+                if col in df.columns:
+                    teams.update(df[col].dropna().unique())
+            result["teams"] = len(teams)
+
+            # Date range
+            if "date" in df.columns:
+                dates = df["date"].dropna()
+                if len(dates) > 0:
+                    result["date_min"] = str(dates.min())[:10]
+                    result["date_max"] = str(dates.max())[:10]
+    except Exception:
+        pass
+    return result
+
+
+@st.cache_data(ttl=60)
+def detect_data_file_count() -> dict[str, int]:
+    """Count data files in standard directories (fallback when pipeline unavailable)."""
+    counts: dict[str, int] = {}
+    for d in [config.paths.raw, config.paths.processed, config.paths.data / "external"]:
+        path = Path(d)
+        if path.exists():
+            counts[d.name] = len(list(path.glob("*.csv")))
+        else:
+            counts[d.name] = 0
+    return counts
 
 
 # ── Hero Section ───────────────────────────────────────
@@ -116,20 +182,31 @@ with col1:
         unsafe_allow_html=True,
     )
 
-# Data status
+# Data status (via pipeline)
 with col2:
-    data_dirs = [config.paths.raw, config.paths.processed]
-    data_files = []
-    for d in data_dirs:
-        if d.exists():
-            data_files.extend(list(d.glob("*.csv")))
-    data_found = len(data_files) > 0
-    ds_icon = "✅" if data_found else "❌"
-    ds_color = "#4caf50" if data_found else "#f44336"
+    pipeline = detect_data_pipeline_status()
+    if pipeline["found"]:
+        ds_icon = "✅"
+        ds_color = "#4caf50"
+        ds_info = (
+            f"{pipeline['rows']:,} rows · {pipeline['teams']} teams · "
+            f"{pipeline['completed']} completed"
+        )
+        if pipeline["upcoming"] > 0:
+            ds_info += f" · {pipeline['upcoming']} upcoming"
+        if pipeline["pipeline_applied"]:
+            ds_info += " · 🌀 Pipeline Active"
+    else:
+        # Fallback: count files
+        file_counts = detect_data_file_count()
+        total_files = sum(file_counts.values())
+        ds_icon = "⚠️" if total_files > 0 else "❌"
+        ds_color = "#ffc107" if total_files > 0 else "#f44336"
+        ds_info = f"{total_files} CSV files (pipeline inactive)"
     st.markdown(
         f'<div class="metric-card">'
         f'<div class="metric-value" style="color:{ds_color}">{ds_icon}</div>'
-        f'<div class="metric-label">Data Files ({len(data_files)})</div>'
+        f'<div class="metric-label">{ds_info}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -156,6 +233,77 @@ with col4:
         f'</div>',
         unsafe_allow_html=True,
     )
+
+
+# ── Data Pipeline Status ─────────────────────────────
+st.markdown("## 🔄 Data Pipeline Status")
+pipeline = detect_data_pipeline_status()
+if pipeline["found"]:
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-value">{pipeline["rows"]:,}</div>'
+            f'<div class="metric-label">Total Matches</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with c2:
+        st.markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-value" style="color:#81c784">{pipeline["teams"]}</div>'
+            f'<div class="metric-label">Unique Teams (normalised)</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with c3:
+        st.markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-value" style="color:#4fc3f7">{pipeline["n_columns"]}</div>'
+            f'<div class="metric-label">Feature Columns</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with c4:
+        pip_label = "✅ Active" if pipeline["pipeline_applied"] else "⚠️ Raw"
+        pip_color = "#4caf50" if pipeline["pipeline_applied"] else "#ffc107"
+        st.markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-value" style="color:{pip_color}">{pip_label}</div>'
+            f'<div class="metric-label">Data Pipeline</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    if pipeline["date_min"] and pipeline["date_max"]:
+        st.markdown(
+            f"<p style='color:#8b8fa3;font-size:0.85rem;margin-top:-0.5rem'>"
+            f"📅 Date range: {pipeline['date_min']} → {pipeline['date_max']}  ·  "
+            f"{pipeline['completed']:,} completed, {pipeline['upcoming']} upcoming matches</p>",
+            unsafe_allow_html=True,
+        )
+
+    if pipeline["upcoming"] > 0:
+        st.markdown(
+            f"<span class='badge-blue'>🔮 {pipeline['upcoming']} upcoming matches ready for prediction</span>",
+            unsafe_allow_html=True,
+        )
+else:
+    st.markdown(
+        "<p style='color:#8b8fa3;font-size:0.9rem'>⚠️ No match data found. "
+        "Run data collection or place a CSV file in the data directory to activate the pipeline.</p>",
+        unsafe_allow_html=True,
+    )
+    # Show fallback file counts
+    file_counts = detect_data_file_count()
+    if any(file_counts.values()):
+        st.markdown(
+            f"<p style='color:#8b8fa3;font-size:0.8rem'>"
+            f"📁 Raw: {file_counts.get('raw', 0)} · "
+            f"Processed: {file_counts.get('processed', 0)} · "
+            f"External: {file_counts.get('external', 0)}</p>",
+            unsafe_allow_html=True,
+        )
 
 
 # ── Quick overview cards ───────────────────────────────

@@ -566,15 +566,16 @@ class PredictionEngine:
         -------
         list[PredictionResult]
         """
-        results: list[PredictionResult] = []
-
-        # Try batch feature engineering
+        results: list[PredictionResult] = []            # Try batch feature engineering
         X_batch = None
         if self.model_loaded:
             try:
                 X_batch = self._feature_builder.build_features(fixtures)
             except Exception as exc:
-                logger.debug("Batch feature engineering failed: %s", exc)
+                logger.warning(
+                    "Batch feature engineering failed for %d fixtures: %s",
+                    len(fixtures), exc,
+                )
 
         if X_batch is not None and len(X_batch) > 0:
             # Batch prediction with features
@@ -586,8 +587,13 @@ class PredictionEngine:
                     if probs is not None:
                         results.append(self._make_result(probs, fixture, start))
                         continue
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning(
+                        "Batch prediction failed for %s vs %s (idx=%d): %s",
+                        fixture.get("home_team", "?"),
+                        fixture.get("away_team", "?"),
+                        i, exc,
+                    )
                 # Fallback per fixture
                 if use_fallback:
                     start = time.perf_counter()

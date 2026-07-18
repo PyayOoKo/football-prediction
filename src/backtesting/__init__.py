@@ -57,8 +57,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from config import config
-
 if matplotlib.get_backend() in ("", None):
     matplotlib.use("Agg")
 
