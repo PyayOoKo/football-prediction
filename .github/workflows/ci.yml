@@ -440,7 +440,7 @@ jobs:
           SLACK_FOOTER: "Football Prediction CI"
 
       - name: Send email notification
-        uses: dawidd6/action-send-mail@v3
+        uses: dawidd6/action-send-mail@v18
         continue-on-error: true
         if: ${{ secrets.CI_EMAIL != '' }}
         with:
