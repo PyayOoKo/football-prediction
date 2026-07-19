@@ -109,7 +109,7 @@ class TestRunReport:
 class TestScheduleConfig:
     def test_default_config(self) -> None:
         cfg = ScheduleConfig.default()
-        assert len(cfg.tasks) == 6
+        assert len(cfg.tasks) == 10
         assert cfg.pipeline_name == "football_pipeline"
 
     def test_default_task_names(self) -> None:
@@ -136,4 +136,4 @@ class TestScheduleConfig:
         cfg = ScheduleConfig.default()
         d = cfg.to_dict()
         assert d["pipeline_name"] == "football_pipeline"
-        assert len(d["tasks"]) == 6
+        assert len(d["tasks"]) == 10

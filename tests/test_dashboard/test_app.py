@@ -75,7 +75,7 @@ class TestDetectDataPipelineStatus:
 
     def test_returns_default_when_no_data(self) -> None:
         """Should return default zeros when load_and_prepare raises or returns empty."""
-        with patch("dashboard.app.load_and_prepare", return_value=None):
+        with patch("src.services.load_and_prepare", return_value=None):
             from dashboard.app import detect_data_pipeline_status
 
             status = detect_data_pipeline_status()
@@ -97,7 +97,7 @@ class TestDetectDataPipelineStatus:
             "away_goals": [1, None, 0],
         })
 
-        with patch("dashboard.app.load_and_prepare", return_value=sample_df):
+        with patch("src.services.load_and_prepare", return_value=sample_df):
             from dashboard.app import detect_data_pipeline_status
 
             status = detect_data_pipeline_status()
@@ -105,27 +105,27 @@ class TestDetectDataPipelineStatus:
             assert status["rows"] == 3
             assert status["completed"] == 2  # H, H = 2 notnull
             assert status["upcoming"] == 1   # None result = 1
-            assert status["teams"] == 6       # 3 home + 3 away = 6 unique
+            assert status["teams"] == 6  # 3 home (Brazil, France, Argentina) + 3 away (Norway, Morocco, Egypt)
             assert status["date_min"] == "2026-07-01"
             assert status["date_max"] == "2026-07-03"
             assert status["pipeline_applied"] is True
-            assert status["n_columns"] == 5
+            assert status["n_columns"] == 6  # date, home_team, away_team, result, home_goals, away_goals
 
     def test_handles_empty_dataframe(self) -> None:
         """Should return found=False for an empty DataFrame."""
         import pandas as pd
 
-        with patch("dashboard.app.load_and_prepare", return_value=pd.DataFrame()):
+        with patch("src.services.load_and_prepare", return_value=pd.DataFrame()):
             from dashboard.app import detect_data_pipeline_status
 
             status = detect_data_pipeline_status()
-            assert status["found"] is True  # Not None, so found=True
+            assert status["found"] is False  # len(empty_df) == 0, so found stays False
             assert status["rows"] == 0
 
     def test_handles_load_and_prepare_exception(self) -> None:
         """Should gracefully handle exceptions from load_and_prepare."""
         with patch(
-            "dashboard.app.load_and_prepare",
+            "src.services.load_and_prepare",
             side_effect=Exception("DB connection failed"),
         ):
             from dashboard.app import detect_data_pipeline_status
@@ -140,7 +140,7 @@ class TestPageInfoStructure:
 
     def test_data_pipeline_status_keys(self) -> None:
         """The pipeline status dict should have all expected keys."""
-        with patch("dashboard.app.load_and_prepare", return_value=None):
+        with patch("src.services.load_and_prepare", return_value=None):
             from dashboard.app import detect_data_pipeline_status
 
             status = detect_data_pipeline_status()

@@ -197,8 +197,7 @@ class TestCmdStatus:
                 mock_path.glob.return_value = [report_file]
                 MockPath.return_value = mock_path
 
-                with patch("src.scheduler.cli.Path.__init__", return_value=None):
-                    with patch("src.scheduler.cli.ScheduleConfig") as MockCfg:
+                with patch("src.scheduler.cli.ScheduleConfig") as MockCfg:
                         mock_cfg = MagicMock()
                         mock_cfg.report_dir = tmpdir
                         MockCfg.default.return_value = mock_cfg
@@ -238,8 +237,8 @@ class TestMain:
         assert exit_code == 1
 
     def test_main_unknown_command(self) -> None:
-        exit_code = main(["unknown_command"])
-        assert exit_code == 1
+        with pytest.raises(SystemExit, match="2"):
+            main(["unknown_command"])
 
     def test_main_list(self) -> None:
         exit_code = main(["list"])

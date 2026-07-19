@@ -71,6 +71,7 @@ def compute_value_bets(
     bankroll: float = 1000.0,
     kelly_fraction: float = 0.25,
     min_ev: float = 0.05,
+    max_odds: float | None = None,
     config: Any | None = None,
 ) -> pd.DataFrame:
     """Compute value betting metrics for a set of fixtures.
@@ -93,6 +94,11 @@ def compute_value_bets(
         Minimum EV threshold. Only bets with EV >= *min_ev* are flagged
         as ``positive_ev`` (default 0.05 — raised from 0.0 to avoid
         low-confidence bets).
+    max_odds : float, optional
+        Maximum decimal odds to accept. Bets with odds above this are
+        rejected (default from config: 30.0). Set to None to disable.
+        Extreme longshots (> 30x) have too much variance to monetize
+        the model's edge within a reasonable bankroll.
     config : Config, optional
         Config instance for dependency injection. Defaults to the
         global singleton ``config``.
@@ -115,6 +121,10 @@ def compute_value_bets(
     odds = np.asarray(odds, dtype=float)
     model_probs = np.asarray(model_probs, dtype=float)
     n_matches = len(odds)
+
+    # Determine max_odds: explicit arg > config default > no limit
+    if max_odds is None:
+        max_odds = getattr(cfg.value_betting, 'max_odds', 30.0)
 
     if odds.shape != model_probs.shape:
         raise ValueError(
@@ -154,19 +164,39 @@ def compute_value_bets(
             # ── 4. Expected Value ─────────────────────────
             ev = (mod_prob * dec_odds) - 1.0
 
-            # ── 5. Kelly Criterion ────────────────────────
+            # ── 5. Max odds filter ────────────────────────
+            # Reject extreme longshots that can't be monetized
+            odds_too_high = dec_odds > max_odds
+
+            # ── 6. Kelly Criterion ────────────────────────
             if dec_odds > 1.0:
                 full_kelly = (mod_prob * dec_odds - 1.0) / (dec_odds - 1.0)
             else:
                 full_kelly = 0.0
             kelly_pct = max(full_kelly * kelly_fraction, 0.0)
+
             # Cap stake at 10% of bankroll to prevent over-betting
             max_stake_pct = getattr(cfg.value_betting, 'max_stake_pct', 0.10)
             kelly_pct = min(kelly_pct, max_stake_pct)
+
+            # Progressive Kelly reduction for extreme odds:
+            # Odds 20-30x: 50% of computed Kelly
+            # Odds > 30x: should be rejected by max_odds filter, but if max_odds
+            #             is set higher, reduce progressively
+            if dec_odds > 20.0 and dec_odds <= 30.0:
+                kelly_pct *= 0.5  # Half Kelly
+            elif dec_odds > 30.0:
+                kelly_pct *= 0.25  # Quarter Kelly for extreme odds
+
             kelly_stake = bankroll * kelly_pct
 
-            # ── 6. Positive EV filter ─────────────────────
-            is_positive = bool(ev >= min_ev and mod_prob > fair_prob and kelly_pct > 0.0)
+            # ── 7. Positive EV filter ─────────────────────
+            is_positive = bool(
+                ev >= min_ev
+                and mod_prob > fair_prob
+                and kelly_pct > 0.0
+                and not odds_too_high
+            )
 
             records.append({
                 "match": match_label,

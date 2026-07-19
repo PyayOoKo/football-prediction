@@ -148,10 +148,14 @@ class TestCompetitionResolution:
         return_value=10,
     )
     @patch(
+        "src.importers.resolver.EntityResolver._query_competition_by_name",
+        return_value=None,
+    )
+    @patch(
         "src.importers.resolver.EntityResolver._query_competition_by_code",
         return_value=None,
     )
-    def test_auto_create_competition(self, mock_query, mock_create) -> None:
+    def test_auto_create_competition(self, mock_query_code, mock_query_name, mock_create) -> None:
         """Auto-create mode creates unknown competitions."""
         resolver = EntityResolver(auto_create_competitions=True)
         comp_id = resolver.resolve_competition(code="XX", name="Unknown League")
@@ -235,8 +239,8 @@ class TestRowResolution:
         }
         result = resolver.resolve_row(row)
 
-        assert result["team_home_id"] == 1
-        assert result["team_away_id"] == 2
+        assert result["home_team_id"] == 1
+        assert result["away_team_id"] == 2
         assert result["competition_id"] == 5
         assert result["season_id"] == 10
 
@@ -254,9 +258,9 @@ class TestRowResolution:
         results = resolver.resolve_rows(rows)
         assert len(results) == 2
         for r in results:
-            assert "team_home_id" in r
-            assert r["team_home_id"] == 1
-            assert r["team_away_id"] == 2
+            assert "home_team_id" in r
+            assert r["home_team_id"] == 1
+            assert r["away_team_id"] == 2
 
 
 # ── Cache management ──────────────────────────────────────

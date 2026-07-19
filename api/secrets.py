@@ -133,10 +133,10 @@ def get_database_url() -> str:
     url = get_secret("DATABASE_URL")
     if not url:
         # Fallback to individual components
-        host = get_secret("DB_HOST", "localhost")
-        port = get_secret("DB_PORT", "5432")
-        name = get_secret("DB_NAME", "football_predictions")
-        user = get_secret("DB_USER", "postgres")
+        host = get_secret_with_default("DB_HOST", "localhost")
+        port = get_secret_with_default("DB_PORT", "5432")
+        name = get_secret_with_default("DB_NAME", "football_predictions")
+        user = get_secret_with_default("DB_USER", "postgres")
         password = get_secret("DB_PASSWORD", "")
         url = f"postgresql://{user}:{password}@{host}:{port}/{name}"
     return url

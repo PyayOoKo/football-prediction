@@ -139,8 +139,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print_header("STEP 4/5: Finding value bets with live odds")
         ok = run_script("today_value_bets_live.py", [
-            "--calibrate", "platt",
+            "--calibrate", "hybrid",
             "--kelly", "0.25",
+            "--max-odds", "30.0",
             "--days", "7",
         ])
         steps.append(("Value bets", ok))

@@ -330,6 +330,86 @@ def step_retrain() -> dict[str, Any]:
 # ═══════════════════════════════════════════════════════════
 
 
+# ═══════════════════════════════════════════════════════════
+#  Step 4b — Value bets
+# ═══════════════════════════════════════════════════════════
+
+
+def step_value_bets(calibrate: str, max_odds: float) -> dict[str, Any]:
+    """Run today_value_bets_live.py with the given calibration and max-odds settings.
+
+    Parameters
+    ----------
+    calibrate : str
+        Calibration method ('platt', 'isotonic', 'hybrid', 'none').
+    max_odds : float
+        Maximum decimal odds to accept.
+
+    Returns
+    -------
+    dict[str, Any]
+        Report with keys ``success``, ``n_value_bets``, ``output_path``, ``error``.
+    """
+    logger.info("-" * 60)
+    logger.info("STEP 4b: Value bets (today_value_bets_live.py)")
+    logger.info(f"  Calibration: {calibrate}  |  Max odds: {max_odds}")
+    logger.info("-" * 60)
+
+    try:
+        import subprocess
+        import sys as _sys
+
+        # Use the same Python interpreter to call the script
+        python_exe = _sys.executable
+        script_path = Path(__file__).resolve().parent / "today_value_bets_live.py"
+
+        if not script_path.exists():
+            raise FileNotFoundError(f"{script_path} not found")
+
+        cmd = [
+            python_exe, str(script_path),
+            "--calibrate", calibrate,
+            "--max-odds", str(max_odds),
+            "--days", "14",
+            "--quiet",
+        ]
+
+        logger.info("  Running: %s", " ".join(str(c) for c in cmd))
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            logger.error("Value bets step failed (exit %d)", result.returncode)
+            if result.stderr:
+                logger.error("  stderr: %s", result.stderr.strip()[-500:])
+            return {"success": False, "n_value_bets": 0, "error": result.stderr.strip()[:200] or "subprocess failed"}
+
+        # Try to read the latest report to count value bets
+        from pathlib import Path as _Path
+        reports_dir = _Path(__file__).resolve().parent / "reports" / "value_bets"
+        latest_csv = reports_dir / "latest.csv"
+        n_value_bets = 0
+        if latest_csv.exists():
+            import pandas as _pd
+            df = _pd.read_csv(latest_csv)
+            if "positive_ev" in df.columns:
+                n_value_bets = int(df["positive_ev"].sum())
+
+        logger.info(
+            "Value bets complete — %d value bets found",
+            n_value_bets,
+        )
+        return {
+            "success": True,
+            "n_value_bets": n_value_bets,
+            "calibration": calibrate,
+            "max_odds": max_odds,
+            "output_path": str(latest_csv) if latest_csv.exists() else "",
+        }
+    except Exception as exc:
+        logger.error("Value bets step failed: %s", exc, exc_info=True)
+        return {"success": False, "n_value_bets": 0, "error": str(exc)}
+
+
 def step_predict() -> dict[str, Any]:
     """Generate predictions for upcoming / most recent matches using the ensemble.
 
@@ -575,6 +655,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--lightweight", action="store_true",
         help="Skip download + train (predict only using existing data and model)",
     )
+    parser.add_argument(
+        "--calibrate", type=str, default="hybrid",
+        choices=["platt", "isotonic", "hybrid", "none"],
+        help="Calibration method for value bets (default: hybrid)",
+    )
+    parser.add_argument(
+        "--max-odds", type=float, default=30.0,
+        help="Maximum decimal odds for value bets (default: 30.0). "
+             "Bets above this are rejected to manage variance.",
+    )
+    parser.add_argument(
+        "--skip-value-bets", action="store_true",
+        help="Skip the value bets step",
+    )
     return parser.parse_args(argv)
 
 
@@ -630,6 +724,13 @@ def main(argv: list[str] | None = None) -> int:
 
     # ── Step 4: Predict ──────────────────────────────────
     results["predict"] = step_predict()
+
+    # ── Step 4b: Value bets ──────────────────────────────
+    if args.skip_value_bets:
+        logger.info("Skipping value bets (--skip-value-bets)")
+        results["value_bets"] = {"success": True, "skipped": True}
+    else:
+        results["value_bets"] = step_value_bets(args.calibrate, args.max_odds)
 
     # ── Step 5: Report ───────────────────────────────────
     results["report"] = step_report(results)

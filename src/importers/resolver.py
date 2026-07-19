@@ -150,7 +150,7 @@ class EntityResolver:
 
     def resolve_competition(
         self,
-        code: str | None,
+        code: str | None = None,
         name: str | None = None,
     ) -> int | None:
         """Resolve a league code/name to a Competition database ID.

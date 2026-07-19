@@ -50,10 +50,8 @@ def dummy_model() -> _DummyModel:
 
 class TestPredictionService:
     def test_init_defaults(self, temp_models_dir: Path) -> None:
-        with patch("src.services.prediction_service._global_config") as mock_cfg:
-            mock_cfg.paths.models = temp_models_dir
-            service = PredictionService()
-            assert service._model_dir == temp_models_dir
+        service = PredictionService(model_dir=temp_models_dir)
+        assert service._model_dir == temp_models_dir
 
     def test_init_with_model_dir(self) -> None:
         service = PredictionService(model_dir=Path("/tmp/models"))
@@ -68,11 +66,9 @@ class TestPredictionService:
         model_path = temp_models_dir / "test_model.joblib"
         joblib.dump(dummy_model, model_path)
 
-        with patch("src.services.prediction_service._global_config") as mock_cfg:
-            mock_cfg.paths.models = temp_models_dir
-            service = PredictionService(model_dir=temp_models_dir)
-            loaded = service._load_model("test_model.joblib")
-            assert loaded is not None
+        service = PredictionService(model_dir=temp_models_dir)
+        loaded = service._load_model("test_model.joblib")
+        assert loaded is not None
 
     def test_load_model_missing_raises(self, temp_models_dir: Path) -> None:
         """Loading a non-existent model should raise FileNotFoundError."""
@@ -141,11 +137,12 @@ class TestPredictionService:
         """backfill_predictions should return empty list for no data."""
         service = PredictionService(model_dir=temp_models_dir)
         with patch.object(service, "_load_model", return_value=_DummyModel()):
-            results = service.backfill_predictions(
-                start_date=date(2024, 1, 1),
-                end_date=date(2024, 12, 31),
-            )
-            assert results == []
+            with patch("src.services.prediction_service.load_and_prepare", return_value=pd.DataFrame()):
+                results = service.backfill_predictions(
+                    start_date=date(2024, 1, 1),
+                    end_date=date(2024, 12, 31),
+                )
+                assert results == []
 
     def test_save_predictions_csv(self, temp_models_dir: Path) -> None:
         """_save_predictions should save CSV correctly."""

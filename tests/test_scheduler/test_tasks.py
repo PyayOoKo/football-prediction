@@ -128,11 +128,11 @@ class TestValidateData:
             with patch("pathlib.WindowsPath.exists", return_value=True):
                 with patch("pandas.read_csv") as mock_read:
                     mock_read.return_value = df
-                    with patch.object(Path(cfg.report_dir), "mkdir"):
-                        # to_html, to_csv, to_json may have template issues
-                        with patch("src.validation.models.HTMLReporter") as MockReporter:
-                            with patch("csv.DictWriter") as MockWriter:
-                                with patch("json.dump"):
+                    # to_html, to_csv, to_json may have template issues
+                    with patch("src.validation.reporter.HTMLReporter") as MockReporter:
+                        MockReporter.render.return_value = "<html></html>"
+                        with patch("csv.DictWriter") as MockWriter:
+                            with patch("json.dump"):
                                     result = validate_data(cfg)
                                     assert result.status in (TaskStatus.SUCCESS, TaskStatus.WARNING)
                                     assert result.records_processed == 2

@@ -36,4 +36,29 @@ Thumbs.db
 
 # Temp files
 *.tmp
+
+# Virtual environments
+.venv_temp/
+
+# Data files
+data/
+
+# Model files
+models/
+
+# Reports and logs
+reports/
+logs/
+
+# Generated config
+config/three_model_weights_league_wc_*.json
+config/three_model_weights.json
+
+# Cache
+*.db
+*.sqlite
+*.sqlite3
+
+# OS junk
+nul
 ```

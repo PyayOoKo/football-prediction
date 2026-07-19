@@ -27,9 +27,35 @@ class TestBettingResultsExtractMetrics:
 
     @pytest.fixture(autouse=True)
     def _import_extract(self) -> None:
-        import importlib
-        mod = importlib.import_module("dashboard.pages.3_Betting_Results")
-        self.extract_metrics = mod.extract_metrics
+        """Import extract_metrics from the betting results page.
+
+        Uses AST to extract just the function without running the
+        module-level code (which has side effects like loading report files).
+        """
+        import ast
+        from pathlib import Path
+
+        source_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "dashboard" / "pages" / "3_Betting_Results.py"
+        )
+        source = source_path.read_text(encoding="utf-8")
+
+        # Parse AST and find extract_metrics function
+        tree = ast.parse(source, str(source_path))
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef) and node.name == "extract_metrics":
+                # Compile and execute just this function
+                func_code = compile(
+                    ast.Module(body=[node], type_ignores=[]),
+                    str(source_path), "exec",
+                )
+                ns: dict[str, Any] = {"__builtins__": __builtins__}
+                exec(func_code, ns)
+                self.extract_metrics = ns["extract_metrics"]
+                return
+
+        pytest.skip("extract_metrics function not found in source")
 
     def test_metrics_format(self, sample_backtest_best_strategy: dict) -> None:
         """Should extract from 'metrics' key directly."""

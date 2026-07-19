@@ -38,7 +38,7 @@ def _mock_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("streamlit.slider", mock_st)
     monkeypatch.setattr("streamlit.checkbox", mock_st)
     monkeypatch.setattr("streamlit.tabs", mock_st)
-    monkeypatch.setattr("streamlit.columns", lambda n: [MagicMock() for _ in range(n)])
+    monkeypatch.setattr("streamlit.columns", lambda *args, **kwargs: [MagicMock() for _ in range(args[0] if isinstance(args[0], int) else len(args[0]) if args else 2)])
     monkeypatch.setattr("streamlit.button", mock_st)
     monkeypatch.setattr("streamlit.metric", mock_st)
     monkeypatch.setattr("streamlit.info", mock_st)
@@ -61,13 +61,11 @@ def _mock_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
 def sample_clv_report_data() -> dict[str, Any]:
     """CLV report with per-model results (most common format)."""
     return {
-        {
-            "clv_values": [
-                {"model": "XGBoost", "clv": 0.012, "positive_clv_pct": 55.0, "clv_gt_5_pct": 12.0, "bets": 200},
-                {"model": "LightGBM", "clv": 0.008, "positive_clv_pct": 52.0, "clv_gt_5_pct": 8.0, "bets": 150},
-                {"model": "Ensemble", "clv": 0.015, "positive_clv_pct": 58.0, "clv_gt_5_pct": 15.0, "bets": 300},
-            ],
-        },
+        "clv_values": [
+            {"model": "XGBoost", "clv": 0.012, "positive_clv_pct": 55.0, "clv_gt_5_pct": 12.0, "bets": 200},
+            {"model": "LightGBM", "clv": 0.008, "positive_clv_pct": 52.0, "clv_gt_5_pct": 8.0, "bets": 150},
+            {"model": "Ensemble", "clv": 0.015, "positive_clv_pct": 58.0, "clv_gt_5_pct": 15.0, "bets": 300},
+        ],
     }
 
 

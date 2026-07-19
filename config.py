@@ -306,6 +306,11 @@ class ValueBetConfig:
     # so only significant edges are bet on — avoids low-confidence bets)
     min_ev: float = 0.05
 
+    # Maximum decimal odds to accept. Bets with odds above this are rejected
+    # because extreme longshots (> 30x) have too much variance to monetize
+    # the model's edge within a reasonable bankroll.
+    max_odds: float = 30.0
+
     # Maximum single stake as fraction of bankroll (cap to avoid over-betting)
     max_stake_pct: float = 0.10
 

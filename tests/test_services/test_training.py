@@ -24,10 +24,8 @@ def temp_models_dir(tmp_path: Path) -> Path:
 
 class TestTrainingService:
     def test_init_defaults(self, temp_models_dir: Path) -> None:
-        with patch("src.services.training_service._global_config") as mock_cfg:
-            mock_cfg.paths.models = temp_models_dir
-            service = TrainingService()
-            assert service._model_dir == temp_models_dir
+        service = TrainingService(model_dir=temp_models_dir)
+        assert service._model_dir == temp_models_dir
 
     def test_init_with_model_dir(self) -> None:
         service = TrainingService(model_dir=Path("/tmp/models"))
@@ -92,15 +90,12 @@ class TestTrainingService:
     def test_service_logs_training(self, temp_models_dir: Path) -> None:
         """Training service should log its actions."""
         with patch("src.services.training_service.logger") as mock_logger:
-            with patch("src.services.training_service._global_config") as mock_cfg:
-                mock_cfg.paths.models = temp_models_dir
-                mock_cfg.train.model_type = "logistic_regression"
-                service = TrainingService()
-                try:
-                    service.train(data_path="/nonexistent/missing.csv")
-                except FileNotFoundError:
-                    pass
-                mock_logger.info.assert_called()
+            service = TrainingService(model_dir=temp_models_dir)
+            try:
+                service.train(data_path="/nonexistent/missing.csv")
+            except FileNotFoundError:
+                pass
+            mock_logger.info.assert_called()
 
     def test_apply_feature_selection_disabled(self, temp_models_dir: Path) -> None:
         """Feature selection should be a no-op when disabled."""

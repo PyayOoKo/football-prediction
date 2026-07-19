@@ -268,7 +268,12 @@ class TestEndpointProtection:
 
     @pytest.fixture(autouse=True)
     def _setup(self):
-        """Patch env vars, create minimal test app with the real auth."""
+        """Patch env vars, create minimal test app with the real auth.
+
+        The ``patch.dict`` context **must** stay active via ``yield`` so
+        that ``verify_api_key`` still sees the patched env when the
+        TestClient processes a request.
+        """
         with patch.dict(
             os.environ,
             {
@@ -303,6 +308,7 @@ class TestEndpointProtection:
                 return {"status": "success", "predictions": []}
 
             self.client = TestClient(self.app)
+            yield
 
     # Scenario 8: Protected /predict — requires auth
     def test_predict_no_auth(self) -> None:
