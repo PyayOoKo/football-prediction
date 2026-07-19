@@ -216,22 +216,39 @@ def _handle_train(args: argparse.Namespace) -> int:
     """Handle the ``train`` subcommand."""
     logger.info("Training model...")
     try:
+        from src.services import TrainingService
+        
+        service = TrainingService()
+        
         if args.model_type:
-            from config import config as _global_config
-            _global_config.train.model_type = args.model_type
+            # Override config model type for this training run
+            service._config.train.model_type = args.model_type
 
         if args.tune:
-            from src.preprocessing import load_preprocessed
-            from src.feature_engineering import build_features
-            df = load_preprocessed()
-            X, y = build_features(df, is_training=True)
-            from src.train import tune_hyperparameters
-            best_params = tune_hyperparameters(X, y)
-            print(f"Best params: {best_params}")
+            logger.info("Running hyperparameter tuning before training...")
+        
+        report = service.train(
+            data_path=None,
+            model_type=args.model_type,
+            tune_hyperparams=args.tune,
+        )
+        
+        print(f"\n  Training completed successfully!")
+        print(f"  Model saved to: {report.get('model_path', 'N/A')}")
+        if 'metrics' in report:
+            metrics = report['metrics']
+            if 'accuracy' in metrics:
+                print(f"  Accuracy: {metrics['accuracy']:.4f}")
+            if 'log_loss' in metrics:
+                print(f"  Log loss: {metrics['log_loss']:.4f}")
+        
+        return 0
 
-        from run_pipeline import main as pipeline_main
-        return pipeline_main(["--skip-download"])
-
+    except FileNotFoundError as exc:
+        logger.error("Training failed: %s", exc)
+        print(f"  Error: {exc}")
+        print("  Run data collection first: football-predict collect")
+        return 1
     except ImportError as exc:
         logger.error("Training failed: %s", exc)
         print(f"  Error: {exc}")
@@ -239,6 +256,7 @@ def _handle_train(args: argparse.Namespace) -> int:
         return 1
     except Exception as exc:
         logger.error("Training failed: %s", exc)
+        print(f"  Error: {exc}")
         return 1
 
 
@@ -246,10 +264,41 @@ def _handle_predict(args: argparse.Namespace) -> int:
     """Handle the ``predict`` subcommand."""
     logger.info("Generating predictions...")
     try:
-        from run_pipeline import main as pipeline_main
-        return pipeline_main(["--skip-download", "--skip-train"])
+        from src.services import PredictionService
+        
+        service = PredictionService()
+        
+        predictions = service.predict_upcoming(
+            data_path=args.fixtures,
+            model_name=args.model,
+            limit=10,
+            output_path=args.output,
+        )
+        
+        print(f"\n  Generated {len(predictions)} predictions")
+        if predictions:
+            print("\n  Top predictions:")
+            for pred in predictions[:5]:
+                print(f"    {pred['home_team']} vs {pred['away_team']}")
+                print(f"      Home: {pred['home_win_prob']:.1%}  "
+                      f"Draw: {pred['draw_prob']:.1%}  "
+                      f"Away: {pred['away_win_prob']:.1%}")
+                print(f"      Prediction: {pred['prediction']} "
+                      f"(confidence: {pred['confidence']:.1%})")
+        
+        if args.output:
+            print(f"\n  Results saved to: {args.output}")
+        
+        return 0
+        
+    except FileNotFoundError as exc:
+        logger.error("Prediction failed: %s", exc)
+        print(f"  Error: {exc}")
+        print("  Run data collection first: football-predict collect")
+        return 1
     except Exception as exc:
         logger.error("Prediction failed: %s", exc)
+        print(f"  Error: {exc}")
         return 1
 
 
@@ -258,21 +307,29 @@ def _handle_collect(args: argparse.Namespace) -> int:
     source = args.source
     logger.info("Collecting data: %s", source)
     try:
-        if source == "worldcup" or source == "all":
-            print("  Collecting World Cup data...")
-            from collect_all_worldcups import main as wc_main
-            wc_main()
-        if source == "leagues" or source == "all":
-            print("  Collecting league data...")
-            from collect_leagues import main as league_main
-            league_main()
-        if source == "players" or source == "all":
-            print("  Collecting player data...")
-            from collect_player_data import main as player_main
-            player_main()
+        from src.services import DataCollectionService
+        
+        service = DataCollectionService()
+        
+        if source == "all":
+            sources = None  # Collect all sources
+        else:
+            sources = [source]
+        
+        results = service.collect_all(sources=sources)
+        
+        print(f"\n  Data collection completed:")
+        for src, df in results.items():
+            if len(df) > 0:
+                print(f"    {src}: {len(df)} records")
+            else:
+                print(f"    {src}: No data collected")
+        
         return 0
+        
     except Exception as exc:
         logger.error("Data collection failed: %s", exc)
+        print(f"  Error: {exc}")
         return 1
 
 
@@ -280,11 +337,28 @@ def _handle_backtest(args: argparse.Namespace) -> int:
     """Handle the ``backtest`` subcommand."""
     logger.info("Running backtest...")
     try:
-        from run_backtest import main as bt_main
-        bt_main()
+        from src.services import BacktestingService
+        
+        service = BacktestingService()
+        
+        report = service.run_backtest(
+            model_name=args.model,
+            data_path=None,
+            initial_bankroll=1000.0,
+            kelly_fraction=0.25,
+            min_ev=0.0,
+        )
+        
         return 0
+        
+    except FileNotFoundError as exc:
+        logger.error("Backtest failed: %s", exc)
+        print(f"  Error: {exc}")
+        print("  Train a model first: football-predict train")
+        return 1
     except Exception as exc:
         logger.error("Backtest failed: %s", exc)
+        print(f"  Error: {exc}")
         return 1
 
 
@@ -564,27 +638,58 @@ def _handle_run_all(args: argparse.Namespace) -> int:
     """Handle the ``run-all`` subcommand."""
     logger.info("Running complete pipeline...")
     try:
-        from run_all import main as run_all_main
-        cmd_args = []
-        if args.skip_collect:
-            cmd_args.append("--skip-collect")
-        if args.skip_value_bets:
-            cmd_args.append("--skip-value-bets")
-        if args.skip_dashboard:
-            cmd_args.append("--skip-dashboard")
-        if args.predict_only:
-            cmd_args.append("--predict-only")
-        if args.model:
-            cmd_args.extend(["--model", args.model])
-        return run_all_main(cmd_args)
+        from src.services import DataCollectionService, TrainingService, PredictionService
+        
+        # Step 1: Collect data (if not skipped)
+        if not args.skip_collect:
+            print("\n  [Step 1/4] Collecting data...")
+            collect_service = DataCollectionService()
+            collect_service.collect_all()
+        
+        # Step 2: Train model (unless predict-only)
+        if not args.predict_only:
+            print("\n  [Step 2/4] Training model...")
+            train_service = TrainingService()
+            train_service.train(model_type=args.model if args.model else None)
+        
+        # Step 3: Generate predictions
+        print("\n  [Step 3/4] Generating predictions...")
+        pred_service = PredictionService()
+        predictions = pred_service.predict_upcoming(limit=10)
+        print(f"    Generated {len(predictions)} predictions")
+        
+        # Step 4: Value bets (if not skipped and not predict-only)
+        if not args.skip_value_bets and not args.predict_only:
+            print("\n  [Step 4/4] Finding value bets...")
+            # TODO: Implement value betting service
+            print("    Value betting analysis coming soon...")
+        
+        # Launch dashboard (if not skipped)
+        if not args.skip_dashboard and not args.predict_only:
+            print("\n  Launching dashboard...")
+            import subprocess
+            import sys
+            subprocess.Popen([
+                sys.executable, "-m", "streamlit", "run",
+                "src/app/dashboard.py",
+                "--browser.serverAddress", "localhost",
+                "--server.headless", "true",
+            ])
+        
+        print("\n  ✓ Pipeline completed successfully!")
+        return 0
+        
     except Exception as exc:
         logger.error("Run-all failed: %s", exc)
+        print(f"  Error: {exc}")
         return 1
 
 
 def _handle_pipeline(args: argparse.Namespace) -> int:
     """Handle the ``pipeline`` subcommand."""
     logger.info("Running prediction pipeline...")
+    
+    # Build command args for compatibility
     cmd_args = []
     if args.skip_download:
         cmd_args.append("--skip-download")
@@ -594,8 +699,31 @@ def _handle_pipeline(args: argparse.Namespace) -> int:
         cmd_args.append("--lightweight")
 
     try:
-        from run_pipeline import main as pipeline_main
-        return pipeline_main(cmd_args)
+        from src.services import TrainingService, PredictionService
+        
+        # If lightweight or skip both, just predict
+        if args.lightweight or (args.skip_download and args.skip_train):
+            print("\n  Running prediction only (lightweight mode)...")
+            pred_service = PredictionService()
+            predictions = pred_service.predict_upcoming(limit=10)
+            print(f"    Generated {len(predictions)} predictions")
+            return 0
+        
+        # Full pipeline
+        if not args.skip_train:
+            print("\n  [Step 1/2] Training model...")
+            train_service = TrainingService()
+            train_service.train()
+        
+        print("\n  [Step 2/2] Generating predictions...")
+        pred_service = PredictionService()
+        predictions = pred_service.predict_upcoming(limit=10)
+        print(f"    Generated {len(predictions)} predictions")
+        
+        print("\n  ✓ Pipeline completed successfully!")
+        return 0
+        
     except Exception as exc:
         logger.error("Pipeline failed: %s", exc)
+        print(f"  Error: {exc}")
         return 1

@@ -24,13 +24,15 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from config import config as _global_config
+from src.di_container import ConfigProvider, get_container
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
     "PredictionService",
     "TrainingService",
+    "DataCollectionService",
+    "BacktestingService",
     "resolve_data_path",
     "add_target_col",
     "load_and_prepare",
@@ -51,7 +53,7 @@ def add_target_col(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def resolve_data_path(
-    hint: str | Path | None = None, config: Any | None = None
+    hint: str | Path | None = None, config: ConfigProvider | None = None
 ) -> Path:
     """Resolve the most likely match-data CSV path.
 
@@ -66,16 +68,16 @@ def resolve_data_path(
     ----------
     hint : str | Path, optional
         Explicit path to a CSV file.  If given, returned immediately.
-    config : Config, optional
-        Config instance for dependency injection.  Defaults to the
-        global singleton ``config``.
+    config : ConfigProvider, optional
+        Config provider for dependency injection.  Defaults to the
+        global container's ConfigProvider.
 
     Returns
     -------
     Path
         The first existing path found, or a default candidate if none exist.
     """
-    cfg = config or _global_config
+    cfg = config or get_container().resolve(ConfigProvider)
     if hint is not None:
         return Path(hint)
 
@@ -99,7 +101,7 @@ def resolve_data_path(
 def load_and_prepare(
     data_path: str | Path | None = None,
     add_temporal: bool = True,
-    config: Any | None = None,
+    config: ConfigProvider | None = None,
 ) -> pd.DataFrame:
     """Load match data through the full pipeline and return a clean DataFrame.
 
@@ -115,15 +117,15 @@ def load_and_prepare(
     add_temporal : bool
         Whether the ``DataPreprocessor`` adds year/month/day-of-week
         columns (default ``True``).
-    config : Config, optional
-        Config instance for DI. Defaults to the global singleton.
+    config : ConfigProvider, optional
+        Config provider for DI. Defaults to the global container's ConfigProvider.
 
     Returns
     -------
     pd.DataFrame
         Cleaned, preprocessed DataFrame with ``target`` column present.
     """
-    cfg = config or _global_config
+    cfg = config or get_container().resolve(ConfigProvider)
     from src.data import DataCleaner, DataLoader, DataPreprocessor
 
     resolved = resolve_data_path(data_path, config=cfg)
@@ -150,3 +152,5 @@ def load_and_prepare(
 # Late imports to avoid circular dependencies between the two services
 from src.services.prediction_service import PredictionService  # noqa: E402
 from src.services.training_service import TrainingService  # noqa: E402
+from src.services.data_collection_service import DataCollectionService  # noqa: E402
+from src.services.backtesting_service import BacktestingService  # noqa: E402

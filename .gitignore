@@ -1,85 +1,39 @@
-# ── Python ──────────────────────────────────────────────
+```
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
 *.so
 *.egg-info/
 dist/
 build/
-*.egg
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
 
-# ── Virtual Environment ─────────────────────────────────
-venv/
+# Dependencies
 .venv/
-.venv_temp/
-env/
-ENV/
+venv/
+.env
+.env.local
+*.env.*
 
-# ── Notebooks ───────────────────────────────────────────
-.ipynb_checkpoints/
-*.nbconvert.ipynb
-
-# ── Data ────────────────────────────────────────────────
-data/raw/
-data/processed/
-data/external/
-*.csv
-*.xlsx
-*.xls
-*.parquet
-*.feather
-*.h5
-*.hdf5
-*.sqlite
-*.sqlite3
-*.db
-
-# ── Models ──────────────────────────────────────────────
-models/**/*
-!models/.gitkeep
-*.pkl
-*.joblib
-*.h5
-*.hdf5
-*.onnx
-*.pt
-*.pth
-
-# ── IDE / Editor ───────────────────────────────────────
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
+
+# OS
 .DS_Store
 Thumbs.db
 
-# ── Environment ─────────────────────────────────────────
-.env
-.env.local
-.env.*.local
-
-# ── Logs ────────────────────────────────────────────────
-logs/
+# Logs
 *.log
 
-# ── Reports / Figures ──────────────────────────────────
-reports/
-figures/
-
-# ── Docker ─────────────────────────────────────────────
-docker-compose.override.yml
-
-# ── Generated data / monitoring ────────────────────────
-data/monitoring/
-
-# ── Misc ────────────────────────────────────────────────
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-htmlcov/
-.coverage
-coverage.xml
-nul
-refresh.log
-
+# Temp files
+*.tmp
+```

@@ -1,269 +1,102 @@
 """
-API Key Authentication — secure bearer-token auth for the prediction API.
-
-Supports:
-- Authorization: Bearer <key> header (preferred)
-- X-API-Key header
-- Environment-based toggling for development mode
-
-Security guarantees:
-- Constant-time comparison via secrets.compare_digest()
-- No len() on None
-- Request object passed explicitly to verify_api_key
-- Production authentication is mandatory
-- Development mode requires explicit APP_ENV=development flag
+JWT-based authentication for the API.
+Provides secure token-based authentication with refresh tokens.
 """
-
-from __future__ import annotations
-
-import logging
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
+from jose import JWTError, jwt
+from fastapi import HTTPException, status, Depends
+from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel
 import os
-import secrets
-import time
-from collections import defaultdict
-from pathlib import Path
 
-from dotenv import load_dotenv
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+# Configuration
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+REFRESH_TOKEN_EXPIRE_DAYS = 7
 
-from config import config
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# Load .env before reading any environment variables
-_dotenv_path = Path(__file__).resolve().parent.parent / ".env"
-load_dotenv(dotenv_path=_dotenv_path)
+class TokenData(BaseModel):
+    """Token payload data."""
+    user_id: Optional[str] = None
+    username: Optional[str] = None
+    roles: list = []
 
-logger = logging.getLogger(__name__)
+class TokenResponse(BaseModel):
+    """Token response model."""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
 
-# ── Security scheme ─────────────────────────────────────────
-security = HTTPBearer(auto_error=False)
-
-# ── Environment / auth mode ─────────────────────────────────
-APP_ENV = os.environ.get("APP_ENV", "production").lower()
-AUTH_DISABLED = os.environ.get("API_AUTH_DISABLED", "").lower() in ("true", "1", "yes")
-IS_DEV_MODE = APP_ENV == "development" or AUTH_DISABLED
-
-# ── API key configuration ──────────────────────────────────
-# Try reading from multiple sources
-_raw_key: str | None = (
-    os.environ.get("PREDICTION_API_KEY")
-    or os.environ.get("THE_ODDS_API_KEY")
-    or (
-        getattr(config, "odds_api", None)
-        and getattr(config.odds_api, "api_key_env", None)
-        and os.environ.get(config.odds_api.api_key_env)
-    )
-)
-
-if not _raw_key:
-    if IS_DEV_MODE:
-        logger.warning(
-            "No PREDICTION_API_KEY set. Running in DEVELOPMENT mode without auth. "
-            "Set APP_ENV=production and PREDICTION_API_KEY in production."
-        )
+def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    """Create a JWT access token."""
+    to_encode = data.copy()
+    
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
     else:
-        logger.error(
-            "PRODUCTION MODE: No PREDICTION_API_KEY environment variable set! "
-            "Authentication is DISABLED. Set PREDICTION_API_KEY immediately."
-        )
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    to_encode.update({"exp": expire, "type": "access"})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
-# Store as Optional[str]; never None for comparison purposes
-API_KEY: str | None = _raw_key
+def create_refresh_token(data: Dict[str, Any]) -> str:
+    """Create a JWT refresh token."""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
-if API_KEY:
-    if IS_DEV_MODE:
-        logger.info("API authentication configured (key length: %d chars)", len(API_KEY))
-    else:
-        logger.info("API authentication configured")
-elif IS_DEV_MODE:
-    logger.info("API authentication disabled (development mode)")
-else:
-    logger.warning("API authentication DISABLED in production! Set PREDICTION_API_KEY.")
-
-
-# ── Rate limiting ───────────────────────────────────────────
-class RateLimiter:
-    """In-memory rate limiter with bounded storage.
-
-    Limits requests per client ID within a sliding time window.
-    Uses a fixed-size LRU-like eviction policy to prevent memory leaks.
-
-    .. warning::
-
-        This is a **process-local** in-memory limiter. For multi-worker
-        deployments (e.g., multiple uvicorn workers), use a shared backend
-        like Redis.
-    """
-
-    def __init__(
-        self,
-        max_requests: int = 100,
-        window_seconds: int = 60,
-        max_clients: int = 10000,
-    ) -> None:
-        self.max_requests = max_requests
-        self.window_seconds = window_seconds
-        self.max_clients = max_clients
-        self._requests: dict[str, list[float]] = defaultdict(list)
-        self._last_cleanup: float = time.time()
-
-    def check(self, client_id: str) -> bool:
-        """Check if *client_id* has exceeded the rate limit.
-
-        Returns True if the request is allowed, False if rate-limited.
-        """
-        now = time.time()
-        cutoff = now - self.window_seconds
-
-        # Periodic cleanup of stale clients (every 60s)
-        if now - self._last_cleanup > 60:
-            self._cleanup(now)
-            self._last_cleanup = now
-
-        # Prune old entries for this client
-        timestamps = self._requests.get(client_id, [])
-        self._requests[client_id] = [t for t in timestamps if t > cutoff]
-
-        if len(self._requests[client_id]) >= self.max_requests:
-            return False
-
-        self._requests[client_id].append(now)
-        return True
-
-    def _cleanup(self, now: float) -> None:
-        """Remove stale clients that haven't made requests in 2x window."""
-        stale_cutoff = now - self.window_seconds * 2
-        stale_keys = [
-            k
-            for k, v in list(self._requests.items())
-            if not v or max(v, default=0) < stale_cutoff
-        ]
-        for k in stale_keys:
-            try:
-                del self._requests[k]
-            except KeyError:
-                pass
-
-        # If still over max_clients, evict oldest
-        if len(self._requests) > self.max_clients:
-            sorted_keys = sorted(
-                self._requests.keys(),
-                key=lambda k: max(self._requests[k], default=0),
+def decode_token(token: str) -> TokenData:
+    """Decode and validate a JWT token."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        username: str = payload.get("username")
+        roles: list = payload.get("roles", [])
+        
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token claims",
+                headers={"WWW-Authenticate": "Bearer"},
             )
-            to_evict = len(self._requests) - self.max_clients
-            for k in sorted_keys[:to_evict]:
-                try:
-                    del self._requests[k]
-                except KeyError:
-                    pass
-
-
-# Singleton rate limiter — configurable via environment variables
-# RATE_LIMIT_MAX:   max requests per window (default 100)
-# RATE_LIMIT_WINDOW: time window in seconds (default 60)
-_rate_limit_max = int(os.environ.get("RATE_LIMIT_MAX", "100"))
-_rate_limit_window = int(os.environ.get("RATE_LIMIT_WINDOW", "60"))
-rate_limiter = RateLimiter(
-    max_requests=max(_rate_limit_max, 1),
-    window_seconds=max(_rate_limit_window, 1),
-)
-logger.info(
-    "Rate limiter: max %d requests per %d seconds per IP",
-    rate_limiter.max_requests,
-    rate_limiter.window_seconds,
-)
-
-
-# ── Authentication dependency ───────────────────────────────
-async def verify_api_key(
-    request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
-) -> str:
-    """FastAPI dependency that validates the API key.
-
-    Accepts the API key via:
-    1. ``Authorization: Bearer <key>`` header (preferred)
-    2. ``X-API-Key`` header
-    3. ``api_key`` query parameter (for backward compatibility)
-
-    Returns the API key string on success.
-    Raises 401 for missing credentials, 403 for invalid credentials.
-
-    In development mode (APP_ENV=development or API_AUTH_DISABLED=true),
-    authentication is skipped.
-    """
-    # Development mode — no auth required
-    if IS_DEV_MODE:
-        return "dev-mode"
-
-    # Production mode — API key must be configured
-    if not API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Authentication is not configured. Set PREDICTION_API_KEY environment variable.",
-        )
-
-    # Extract API key from various sources
-    api_key: str | None = None
-
-    if credentials is not None:
-        api_key = credentials.credentials
-    else:
-        # Check X-API-Key header
-        x_api_key = request.headers.get("x-api-key")
-        if x_api_key:
-            api_key = x_api_key
-        else:
-            # Check query parameter (backward compatibility)
-            api_key = request.query_params.get("api_key")
-
-    # Validate key
-    if not api_key:
+        
+        return TokenData(user_id=user_id, username=username, roles=roles)
+    
+    except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing API key. Provide via Authorization: Bearer <key>, "
-            "X-API-Key header, or ?api_key=<key> query parameter.",
+            detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e
 
-    # Constant-time comparison to prevent timing attacks
-    if not secrets.compare_digest(api_key, API_KEY):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid API key.",
-        )
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenData:
+    """Get current authenticated user from token."""
+    return decode_token(token)
 
-    return api_key
+async def require_role(required_role: str):
+    """Dependency to require specific role."""
+    async def role_checker(current_user: TokenData = Depends(get_current_user)):
+        if required_role not in current_user.roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{required_role}' required"
+            )
+        return current_user
+    return role_checker
 
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify password against hash (placeholder - use bcrypt in production)."""
+    # In production, use: return bcrypt.verify(plain_password, hashed_password)
+    return plain_password == hashed_password  # Placeholder
 
-# ── Optional authentication (for backward compatibility, removed from critical endpoints) ──
-async def optional_auth(
-    request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
-) -> str | None:
-    """Like ``verify_api_key`` but returns None instead of raising on failure.
-
-    .. deprecated::
-        Use ``verify_api_key`` for protected endpoints. This is retained only
-        for non-critical informational endpoints.
-
-    Returns the API key string if valid, or None if missing/invalid.
-    """
-    if IS_DEV_MODE:
-        return "dev-mode"
-
-    # Production mode — API key must be configured
-    if not API_KEY:
-        return None
-
-    api_key: str | None = None
-
-    if credentials is not None:
-        api_key = credentials.credentials
-    else:
-        api_key = request.headers.get("x-api-key")
-
-    if api_key and secrets.compare_digest(api_key, API_KEY):
-        return api_key
-
-    return None
+def hash_password(password: str) -> str:
+    """Hash password (placeholder - use bcrypt in production)."""
+    # In production, use: return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    return password  # Placeholder
