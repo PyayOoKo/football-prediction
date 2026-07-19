@@ -46,12 +46,19 @@ def parse_args(argv=None):
     p.add_argument("--days", type=int, default=7)
     p.add_argument("--bankroll", type=float, default=1000.0)
     p.add_argument("--kelly", type=float, default=0.25)
+    p.add_argument("--max-odds", type=float, default=30.0,
+                   help="Maximum decimal odds to accept (default: 30.0). "
+                   "Bets above this are rejected to manage variance.")
     p.add_argument("--no-save", action="store_true")
     p.add_argument("--dixon-coles", action="store_true",
                    help="Enable Dixon-Coles features (slower but may improve accuracy)")
-    p.add_argument("--calibrate", type=str, default="platt",
-                   choices=["platt", "isotonic", "none"],
-                   help="Calibration method (default: platt)")
+    p.add_argument("--calibrate", type=str, default="hybrid",
+                   choices=["platt", "isotonic", "hybrid", "none"],
+                   help=("Calibration method (default: hybrid)\n"
+                         "platt=logistic regression, "
+                         "isotonic=non-parametric, "
+                         "hybrid=isotonic-tails+platt-mid (best for extreme odds), "
+                         "none=skip calibration"))
     p.add_argument("--quiet", action="store_true",
                    help="Minimal output (for scheduled runs)")
     p.add_argument("--log-file", type=str, default=None,
@@ -180,7 +187,8 @@ def main(argv=None):
     use_calibration = args.calibrate != "none"
     if use_calibration:
         log(f"\n  -- CALIBRATION: {args.calibrate.upper()} --")
-        from src.calibration import CalibratedModel, calibration_report
+        from sklearn.metrics import log_loss
+        from src.calibration import CalibratedModel, _fit_calibrators, calibration_report
 
         # Use last 20% of training data for calibration (chronological holdout)
         split = int(len(X_train) * 0.8)
@@ -296,6 +304,7 @@ def main(argv=None):
         team_matches=names_list,
         bankroll=args.bankroll,
         kelly_fraction=args.kelly,
+        max_odds=args.max_odds,
     )
     info_map = {f"{h} vs {a}": e for (h, a), e in zip(names_list, extra)}
     bets["date"] = bets["match"].map(lambda m: info_map.get(m, {}).get("date", ""))
@@ -349,30 +358,6 @@ def main(argv=None):
     log(f"  Matches: {len(predictions)}  |  Value bets: {len(val)}  |  Odds: {src_label}")
     log_separator()
     return 0
-
-
-# Inline _fit_calibrators to avoid import of sklearn in calibration module
-from sklearn.linear_model import LogisticRegression as _LR
-from sklearn.isotonic import IsotonicRegression as _IR
-from sklearn.metrics import log_loss
-
-
-def _fit_calibrators(val_probs, y_val, n_classes, method):
-    """Fit per-class calibrators."""
-    calibrators = []
-    for c in range(n_classes):
-        if method == "platt":
-            cal = _LR(penalty=None, solver="lbfgs", max_iter=1000)
-            p = np.clip(val_probs[:, c], 1e-7, 1 - 1e-7)
-            X_c = np.log(p / (1.0 - p)).reshape(-1, 1)
-            cal.fit(X_c, (y_val == c).astype(int))
-        elif method == "isotonic":
-            cal = _IR(out_of_bounds="clip")
-            cal.fit(val_probs[:, c], (y_val == c).astype(int))
-        else:
-            raise ValueError(f"Unknown calibration method: {method}")
-        calibrators.append(cal)
-    return calibrators
 
 
 if __name__ == "__main__":
