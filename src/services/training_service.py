@@ -14,8 +14,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from config import config as _global_config
-from src.services import add_target_col, load_and_prepare, resolve_data_path
+from src.di_container import ConfigProvider, get_container
 
 logger = logging.getLogger(__name__)
 
@@ -28,13 +27,13 @@ class TrainingService:
     model_dir : Path, optional
         Directory where trained models are stored. Defaults to
         ``config.paths.models``.
-    config : Config, optional
-        Config instance for dependency injection.  Defaults to the
-        global singleton ``config``.
+    config : ConfigProvider, optional
+        Config provider for dependency injection.  Defaults to the
+        global container's ConfigProvider.
     """
 
-    def __init__(self, model_dir: Path | None = None, config: Any | None = None) -> None:
-        self._config = config or _global_config
+    def __init__(self, model_dir: Path | None = None, config: ConfigProvider | None = None) -> None:
+        self._config = config or get_container().resolve(ConfigProvider)
         self._model_dir = model_dir or self._config.paths.models
         self._model_dir.mkdir(parents=True, exist_ok=True)
 
