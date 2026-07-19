@@ -53,6 +53,7 @@ class PredictionTab(ctk.CTkFrame):
         self.model: Any = None
         self.data: pd.DataFrame | None = None
         self.teams: list[str] = list(DEFAULT_TEAMS)
+        self._blend_loaded: bool = False
         self._build_ui()
 
     # ── UI Build ─────────────────────────────────────────────
@@ -204,8 +205,25 @@ class PredictionTab(ctk.CTkFrame):
     # ── Core Logic ───────────────────────────────────────────
 
     def _load_model(self) -> None:
-        """Load the trained prediction model."""
+        """Load the trained prediction model — prefers ThreeModelBlend first."""
+        # Reset blend flag; will be set True only if blend loads successfully
+        self._blend_loaded = False
         try:
+            # 1. Try 3-model blend first (provides 1X2, O/U, BTTS)
+            blend_path = config.paths.models / "three_model_blend.joblib"
+            if blend_path.exists():
+                from src.models.three_model_blend import ThreeModelBlend
+                self.model = ThreeModelBlend.load(str(blend_path), historical_df=self.data)
+                self.model_status.configure(
+                    text=f"✅ 3-Model Blend: {blend_path.name}",
+                    text_color="#4caf50",
+                )
+                self._blend_loaded = True
+                logger.info("Loaded 3-model blend from %s", blend_path)
+                return
+
+            # 2. Fall back to pickled/joblib models
+            import joblib
             model_paths = [
                 config.paths.models / "ensemble.pkl",
                 config.paths.models / "xgboost_model.pkl",
@@ -214,8 +232,6 @@ class PredictionTab(ctk.CTkFrame):
                 Path("models/xgboost_model.pkl"),
                 Path("models/model.pkl"),
             ]
-            import joblib
-            loaded = False
             for mp in model_paths:
                 if mp.exists():
                     self.model = joblib.load(mp)
@@ -223,15 +239,13 @@ class PredictionTab(ctk.CTkFrame):
                         text=f"✅ Model: {mp.name}",
                         text_color="#4caf50",
                     )
-                    loaded = True
                     logger.info("Loaded model from %s", mp)
-                    break
+                    return
 
-            if not loaded:
-                self.model_status.configure(
-                    text="⚠ Model file not found (train first)",
-                    text_color="#f44336",
-                )
+            self.model_status.configure(
+                text="⚠ Model file not found (train first)",
+                text_color="#f44336",
+            )
         except Exception as exc:
             self.model_status.configure(
                 text=f"⚠ Load failed: {exc}",
@@ -297,12 +311,37 @@ class PredictionTab(ctk.CTkFrame):
         self.predict_btn.configure(state="normal", text="🔮 PREDICT NOW")
 
     def _run_prediction(self, home: str, away: str) -> dict[str, Any]:
-        """Run the full prediction pipeline."""
+        """Run the full prediction pipeline — prefers 3-model blend."""
         if self.model is None:
             return self._fallback_prediction(home, away)
 
+        # 1. Try 3-model blend first (provides 1X2, O/U, BTTS)
+        if getattr(self, '_blend_loaded', False):
+            try:
+                result = self.model.predict(home, away)
+                # Map H/D/A → "Home Win"/"Draw"/"Away Win" for the UI
+                _label_map = {"H": "Home Win", "D": "Draw", "A": "Away Win"}
+                best_key = max(result["1x2"], key=result["1x2"].get)
+                return {
+                    "home_prob": result["1x2"]["H"],
+                    "draw_prob": result["1x2"]["D"],
+                    "away_prob": result["1x2"]["A"],
+                    "prediction": _label_map.get(best_key, "Home Win"),
+                    "confidence": max(result["1x2"].values()),
+                    "over_2_5_prob": result.get("over_under", {}).get(2.5, {}).get("Over", None),
+                    "under_2_5_prob": result.get("over_under", {}).get(2.5, {}).get("Under", None),
+                    "over_3_5_prob": result.get("over_under", {}).get(3.5, {}).get("Over", None),
+                    "under_3_5_prob": result.get("over_under", {}).get(3.5, {}).get("Under", None),
+                    "btts_prob": result.get("btts", {}).get("BTTS", None),
+                    "btts_no_prob": result.get("btts", {}).get("No BTTS", None),
+                    "probs_raw": [result["1x2"]["A"], result["1x2"]["D"], result["1x2"]["H"]],
+                    "method": "3_model_blend",
+                }
+            except Exception as exc:
+                logger.warning("Blend prediction failed: %s", exc)
+
+        # 2. Try using feature engineering with pickled model
         if self.data is not None and len(self.data) > 0:
-            # Try using feature engineering
             try:
                 from src.feature_engineering import build_features
                 synthetic = {
@@ -324,9 +363,7 @@ class PredictionTab(ctk.CTkFrame):
                 probs = self.model.predict_proba(feature_row)[0]
                 pred_class = int(self.model.predict(feature_row)[0])
 
-                # probs may be [away, draw, home] or [home, draw, away]
                 if len(probs) == 3:
-                    # Check ordering
                     labels = ["Away Win", "Draw", "Home Win"]
                     outcome_label = labels[pred_class]
                     return {
@@ -341,7 +378,7 @@ class PredictionTab(ctk.CTkFrame):
             except Exception as exc:
                 logger.warning("Feature pipeline failed: %s", exc)
 
-        # When features are not available, use estimated fallback
+        # 3. Fallback to estimated
         return self._fallback_prediction(home, away)
 
     def _fallback_prediction(self, home: str, away: str) -> dict[str, Any]:
@@ -466,7 +503,7 @@ class PredictionTab(ctk.CTkFrame):
         return stats
 
     def _show_prediction_card(self, home: str, away: str, result: dict[str, Any]) -> None:
-        """Display the main prediction results card."""
+        """Display the main prediction results card — includes O/U and BTTS when available."""
         for w in self.results_card.winfo_children():
             w.destroy()
         self.results_card.grid_columnconfigure(0, weight=1)
@@ -479,6 +516,7 @@ class PredictionTab(ctk.CTkFrame):
         ).grid(row=0, column=0, padx=20, pady=(15, 2))
 
         method_label = {
+            "3_model_blend": "🔬 3-Model Blend (Poisson + Elo + XGBoost)",
             "ensemble_model": "🔬 Ensemble Model",
             "sklearn_model": "🤖 ML Model",
             "estimated": "📊 Estimated",
@@ -511,8 +549,9 @@ class PredictionTab(ctk.CTkFrame):
         ).grid(row=1, column=0, pady=(0, 8))
 
         # ── Probability bars ────────────────────────────────
+        row_offset = 3
         probs_frame = ctk.CTkFrame(self.results_card, fg_color="transparent")
-        probs_frame.grid(row=3, column=0, sticky="ew", padx=40, pady=15)
+        probs_frame.grid(row=row_offset, column=0, sticky="ew", padx=40, pady=15)
         probs_frame.grid_columnconfigure(1, weight=1)
 
         prob_items = [
@@ -537,6 +576,52 @@ class PredictionTab(ctk.CTkFrame):
                 font=ctk.CTkFont(size=11, weight="bold"),
                 text_color="#ffffff",
             ).place(relx=0.5, rely=0.5, anchor="center")
+
+        # ── Secondary Markets (O/U, BTTS) from blend ────────
+        has_ou = result.get("over_2_5_prob") is not None
+        has_btts = result.get("btts_prob") is not None
+        if has_ou or has_btts:
+            row_offset += 1
+            markets_frame = ctk.CTkFrame(self.results_card, fg_color="#1a1a2e", corner_radius=10)
+            markets_frame.grid(row=row_offset, column=0, sticky="ew", padx=40, pady=10)
+            markets_frame.grid_columnconfigure((0, 1), weight=1)
+
+            ctk.CTkLabel(
+                markets_frame, text="📈 Secondary Markets",
+                font=ctk.CTkFont(size=14, weight="bold"),
+            ).grid(row=0, column=0, columnspan=2, padx=15, pady=(12, 5), sticky="w")
+
+            col = 0
+            if has_ou:
+                ou_frame = ctk.CTkFrame(markets_frame, fg_color="#2a2a3e", corner_radius=8)
+                ou_frame.grid(row=1, column=col, sticky="ew", padx=15, pady=(0, 15))
+                ou_frame.grid_columnconfigure(0, weight=1)
+                ctk.CTkLabel(
+                    ou_frame, text=f"⚽ Over 2.5 Goals",
+                    font=ctk.CTkFont(size=12),
+                    text_color="gray",
+                ).grid(row=0, column=0, pady=(8, 2))
+                ctk.CTkLabel(
+                    ou_frame, text=f"{result['over_2_5_prob']:.1%}",
+                    font=ctk.CTkFont(size=20, weight="bold"),
+                    text_color="#7c3aed",
+                ).grid(row=1, column=0, pady=(0, 8))
+                col += 1
+
+            if has_btts:
+                btts_frame = ctk.CTkFrame(markets_frame, fg_color="#2a2a3e", corner_radius=8)
+                btts_frame.grid(row=1, column=col, sticky="ew", padx=15, pady=(0, 15))
+                btts_frame.grid_columnconfigure(0, weight=1)
+                ctk.CTkLabel(
+                    btts_frame, text=f"🤝 Both Teams To Score",
+                    font=ctk.CTkFont(size=12),
+                    text_color="gray",
+                ).grid(row=0, column=0, pady=(8, 2))
+                ctk.CTkLabel(
+                    btts_frame, text=f"{result['btts_prob']:.1%}",
+                    font=ctk.CTkFont(size=20, weight="bold"),
+                    text_color="#7c3aed",
+                ).grid(row=1, column=0, pady=(0, 8))
 
     def _show_value_bet_info(self, result: dict[str, Any]) -> None:
         """Show value betting analysis using default odds."""

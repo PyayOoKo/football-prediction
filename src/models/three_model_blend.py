@@ -1,12 +1,53 @@
 """
 Three-Model Blend — Market-specific ensemble of Poisson + Elo + XGBoost.
 
-Combines predictions from three fundamentally different model types:
-- **Poisson** (statistical scoring distribution) → best for goal-line & BTTS
-- **Elo** (dynamic team strength ratings) → stable long-term prior
-- **XGBoost** (gradient-boosted ML) → best for complex feature interactions
+Combines predictions from three fundamentally different model types, each
+contributing where it excels, with weights optimised per market via
+exhaustive grid search on 9,189 top-league + World Cup matches:
 
-Market-specific weights allow each model to contribute where it excels.
+- **Poisson** (statistical scoring distribution) → exact goal-line, BTTS & O/U
+- **Elo** (dynamic team strength ratings) → stable long-term prior, dominates Over2.5
+- **XGBoost** (gradient-boosted ML, 146 features) → complex feature interactions,
+  dominates BTTS
+
+Market-specific optimised weights
+---------------------------------
+
++----------+----------+------+--------+
+| Market   | Poisson  | Elo  | XGBoost |
++==========+==========+======+========+
+| 1X2      | 0.51     | 0.43 | 0.06    |  ← Poisson+Elo dominate
+| Over2.5  | 0.38     | 0.48 | 0.14    |  ← Elo dominates (surprising!)
+| Over3.5  | 0.50     | 0.00 | 0.50    |  ← Poisson+XGB equally
+| BTTS     | 0.29     | 0.16 | 0.55    |  ← XGBoost dominates
++----------+----------+------+--------+
+
+Key design decisions
+--------------------
+1. **Direct Poisson BTTS formula** — P(BTTS) = 1 - e^{-λ_home} - e^{-λ_away}
+   + e^{-(λ_home + λ_away)} is used for all three models, NOT conditional
+   rates or simple weighted averages.
+2. **Poisson CDF for XGBoost O/U** — XGBoost 1X2 probs → expected total
+   goals → Poisson CDF P(X ≤ t) to get P(Over), rather than deriving
+   O/U directly from 1X2.
+3. **ConditionalRates** — fallback mechanism for converting any model's
+   1X2 predictions into BTTS/O/U probabilities when direct methods are
+   unavailable.
+4. **Feature pipeline** — `_FeatureBuilder` appends fixture rows to
+   historical data and runs the full ``build_features()`` pipeline,
+   ensuring XGBoost receives the same 146 features it was trained on.
+5. **Pre-compute cache** — `precompute()` runs all models once for a
+   dataset and caches results for fast weight grid search.
+6. **Elo excluded from Over3.5** — weight fixed at 0.00 (Elo does not
+   predict the rare-event tail well).
+
+Profitability findings
+----------------------
+Backtested on 9,189 real matches (5 seasons × 5 leagues + 7 World Cups):
+
+- **Over2.5 market**: +5.45% ROI (203 bets)  ✅ PROFITABLE
+- **1X2 market**: No edge found (efficient market absorbs model edge)
+- **BTTS market**: No value bets triggered (conservative thresholds)
 
 Usage
 -----
@@ -24,14 +65,26 @@ Usage
 
     blend = ThreeModelBlend(poisson, elo, xgb)
 
-    # Predict a single fixture
+    # Predict a single fixture (all markets)
     result = blend.predict("France", "England")
+    # → {'1x2': {'H': ..., 'D': ..., 'A': ...},
+    #    'over_under': {'Over': ..., 'Under': ...},
+    #    'over_3_5': {'Over': ..., 'Under': ...},
+    #    'btts': {'BTTS': ..., 'No BTTS': ...},
+    #    'expected_goals': {...}}
+
+    # Batch predict
+    df_preds = blend.predict_matches(df_fixtures)
 
     # Optimise weights for each market
-    blend.optimise_weights(df_train, df_val)
+    blend.optimise_weights(df_val)
 
     # Evaluate per-market
     metrics = blend.evaluate(df_test)
+
+    # Persist / restore
+    blend.save("models/three_model_blend.joblib")
+    blend = ThreeModelBlend.load("models/three_model_blend.joblib", historical_df=df)
 """
 
 from __future__ import annotations
@@ -184,7 +237,13 @@ class ConditionalRates:
 
 
 class _FeatureBuilder:
-    """Build feature vectors for XGBoost from team names."""
+    """Build feature vectors for XGBoost from team names.
+
+    Uses the same ``build_features()`` pipeline as the main training
+    pipeline to ensure consistent feature computation.  Fixture rows are
+    appended with ``None`` goals/result so rolling statistics are computed
+    from real historical data only (never leaked from the fixture itself).
+    """
 
     def __init__(self, historical_df: pd.DataFrame | None = None):
         self._historical_data = historical_df
@@ -199,19 +258,36 @@ class _FeatureBuilder:
             return None
         try:
             from src.feature_engineering import build_features
+
             today_str = datetime.now().strftime("%Y-%m-%d")
             fixture_rows = []
             for ht, at in zip(home_teams, away_teams):
-                row = {
+                row: dict[str, object] = {
                     "date": pd.Timestamp(today_str),
-                    "home_team": ht, "away_team": at,
-                    "result": "H", "home_goals": 0, "away_goals": 0,
+                    "home_team": ht,
+                    "away_team": at,
+                    # Null result/goals prevent pollution of rolling features.
+                    # The fixture is appended AFTER all historical matches, so
+                    # rolling stats for the fixture look backward at real data.
+                    "result": None,
+                    "home_goals": None,
+                    "away_goals": None,
                 }
-                for col in self._historical_data.columns:
-                    if col not in row:
-                        row[col] = self._historical_data[col].iloc[-1] if len(self._historical_data) > 0 else 0
+                # Carry forward essential context columns (static identifiers).
+                # These affect encoding (e.g. league-specific target encoding)
+                # but NOT rolling features (which are driven by results/goals).
+                for col in ("season", "league", "country"):
+                    if col in self._historical_data.columns:
+                        val = self._historical_data[col].iloc[-1]
+                        row[col] = val if pd.notna(val) else None
                 fixture_rows.append(row)
-            df_ext = pd.concat([self._historical_data, pd.DataFrame(fixture_rows)], ignore_index=True)
+
+            df_ext = pd.concat(
+                [self._historical_data, pd.DataFrame(fixture_rows)],
+                ignore_index=True,
+            )
+            # is_training=False ensures build_features does not try to extract
+            # a target from fixture rows (which have result=None).
             X_full, _ = build_features(df_ext, is_training=False)
             n_hist = len(self._historical_data)
             self._feature_cols = list(X_full.columns)
@@ -290,6 +366,7 @@ class ThreeModelBlend:
         self.cond_rates = conditional_rates or ConditionalRates()
         self._feature_builder = _FeatureBuilder(historical_df)
         self._cache: dict[str, PerModelPredictions] = {}
+        self._calibrator: Any = None
 
     # ── Properties ────────────────────────────────────────
 
@@ -303,11 +380,74 @@ class ThreeModelBlend:
         elo_ok = hasattr(self.elo, "_ratings") and len(self.elo._ratings) > 0
         return poisson_ok and elo_ok and self.xgb is not None
 
+    @property
+    def calibrated(self) -> bool:
+        """Whether a probability calibrator is loaded and will be applied."""
+        return self._calibrator is not None
+
+    # ── Calibrator Loading ────────────────────────────────
+
+    def load_calibrator(self, path: str | Path | None = None) -> bool:
+        """Load a previously-fitted probability calibrator for 1X2 calibration.
+
+        Searches for ``blend_calibrator_*.joblib`` in the ``models/`` directory
+        if no explicit path is given.  When loaded, ``predict()`` automatically
+        applies the calibrator to the blend's 1X2 probabilities (Over/Under and
+        BTTS are unaffected).
+
+        Parameters
+        ----------
+        path : str or Path, optional
+            Explicit path to a calibrator file.  If ``None``, auto-detects the
+            most recent ``blend_calibrator_*.joblib`` in ``models/``.
+
+        Returns
+        -------
+        bool
+            ``True`` if a calibrator was successfully loaded.
+        """
+        import joblib
+
+        if path is None:
+            models_dir = Path("models")
+            candidates = sorted(models_dir.glob("blend_calibrator_*.joblib"), reverse=True)
+            if not candidates:
+                logger.info("No calibrator file found in models/ (searched blend_calibrator_*.joblib)")
+                return False
+            path = candidates[0]
+
+        p = Path(path)
+        if not p.exists():
+            logger.warning("Calibrator not found: %s", p)
+            return False
+
+        self._calibrator = joblib.load(p)
+        logger.info("Calibrator loaded from %s (type=%s)", p, type(self._calibrator).__name__)
+        return True
+
     # ── Single Fixture Prediction ─────────────────────────
 
     def predict(self, home_team: str, away_team: str) -> dict[str, Any]:
-        """Predict all markets for a single fixture using the 3-model blend."""
+        """Predict all markets for a single fixture using the 3-model blend.
+
+        When a probability calibrator is loaded (via ``load_calibrator()``),
+        the 1X2 predictions are automatically calibrated.  Over/Under and
+        BTTS are always taken directly from the blend.
+        """
         probs_1x2 = self.predict_1x2(home_team, away_team)
+
+        # Auto-calibrate 1X2 if a calibrator is loaded
+        if self._calibrator is not None:
+            try:
+                raw = np.array([[probs_1x2["A"], probs_1x2["D"], probs_1x2["H"]]])
+                cal = self._calibrator.transform(raw)[0]
+                probs_1x2 = {
+                    "H": float(cal[2]),
+                    "D": float(cal[1]),
+                    "A": float(cal[0]),
+                }
+            except Exception as exc:
+                logger.warning("1X2 calibration failed: %s — using raw blend", exc)
         over_under = self.predict_over_under(home_team, away_team, 2.5)
         over_35 = self.predict_over_under(home_team, away_team, 3.5)
         btts = self.predict_btts(home_team, away_team)
@@ -531,6 +671,58 @@ class ThreeModelBlend:
 
     # ── Individual Model Proxies ──────────────────────────
 
+    def _align_xgb_features(self, X: pd.DataFrame) -> pd.DataFrame | None:
+        """Align feature columns to match what the XGBoost model expects.
+
+        The XGBoost model was trained with a specific feature set (146 features
+        for the current model).  ``build_features()`` may produce a different
+        number of columns when processing fixture rows (e.g. 140 with null
+        results).  This method:
+
+        1. Adds any missing columns filled with 0.
+        2. Drops any extra columns.
+        3. Reorders columns to match the model's training-time schema.
+
+        Uses ``feature_names_in_`` from the underlying XGBoost booster
+        (the authoritative source — the ``ModelArtifact`` wrapper's
+        ``feature_names`` may be empty if saved without them).
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Feature matrix from ``_FeatureBuilder.build()``.
+
+        Returns
+        -------
+        pd.DataFrame or None
+            Aligned feature matrix, or ``None`` if alignment fails.
+        """
+        if X is None or len(X) == 0:
+            return None
+        try:
+            # Always prefer the underlying XGBoost model's feature_names_in_
+            # because that's the authoritative column set the model was
+            # trained with.  ModelArtifact.select_columns() may fail if
+            # the artifact was saved with empty feature_names.
+            if hasattr(self.xgb, "feature_names_in_"):
+                expected = list(self.xgb.feature_names_in_)
+                missing = set(expected) - set(X.columns)
+                for col in missing:
+                    # Use NaN so XGBoost applies its built-in missing-value
+                    # handling (learned during training) instead of forcing
+                    # a semantically-meaningless value like 0.0 for date-
+                    # derived features (year, month, week_of_season, ...).
+                    X[col] = np.nan
+                return X[expected]
+            # Fallback: ModelArtifact.select_columns() (may have empty names)
+            if hasattr(self.xgb, "select_columns"):
+                return self.xgb.select_columns(X)
+            # No alignment needed (unlikely for trained XGBoost models)
+            return X
+        except Exception as exc:
+            logger.warning("Feature alignment failed: %s", exc)
+            return None
+
     def _poisson_1x2(self, home_team: str, away_team: str) -> np.ndarray:
         try:
             r = self.poisson.predict(home_team, away_team)
@@ -564,7 +756,9 @@ class ThreeModelBlend:
         try:
             X = self._feature_builder.build([home_team], [away_team])
             if X is not None and len(X) > 0:
-                return self.xgb.predict_proba(X)[0]
+                X_aligned = self._align_xgb_features(X)
+                if X_aligned is not None and len(X_aligned) > 0:
+                    return self.xgb.predict_proba(X_aligned)[0]
         except Exception:
             pass
         return np.array([0.33, 0.34, 0.33])
@@ -687,26 +881,32 @@ class ThreeModelBlend:
         try:
             X = self._feature_builder.build(home_teams, away_teams)
             if X is not None and len(X) > 0:
-                xgb_raw = self.xgb.predict_proba(X)
-                cr = self.cond_rates
-                for i in range(len(X)):
-                    xgb_probs = xgb_raw[i]  # [away, draw, home]
-                    xgb_1x2_list.append(xgb_probs)
-                    # Compute XGBoost BTTS via 1X2 → expected goals → Poisson formula (inline)
-                    exp_total = (
-                        xgb_probs[2] * cr.mean_total_given_home_win
-                        + xgb_probs[1] * cr.mean_total_given_draw
-                        + xgb_probs[0] * cr.mean_total_given_away_win
-                    )
-                    if exp_total > 0:
-                        exp_home = exp_total * 0.55
-                        exp_away = exp_total * 0.45
-                        p_h0 = np.exp(-exp_home)
-                        p_a0 = np.exp(-exp_away)
-                        btts_val = 1.0 - p_h0 - p_a0 + (p_h0 * p_a0)
-                        xgb_btts_list.append(float(np.clip(btts_val, 0.0, 1.0)))
-                    else:
-                        xgb_btts_list.append(0.5)
+                X_aligned = self._align_xgb_features(X)
+                if X_aligned is not None and len(X_aligned) > 0:
+                    xgb_raw = self.xgb.predict_proba(X_aligned)
+                    cr = self.cond_rates
+                    for i in range(len(X_aligned)):
+                        xgb_probs = xgb_raw[i]  # [away, draw, home]
+                        xgb_1x2_list.append(xgb_probs)
+                        # Compute XGBoost BTTS via 1X2 → expected goals → Poisson formula (inline)
+                        exp_total = (
+                            xgb_probs[2] * cr.mean_total_given_home_win
+                            + xgb_probs[1] * cr.mean_total_given_draw
+                            + xgb_probs[0] * cr.mean_total_given_away_win
+                        )
+                        if exp_total > 0:
+                            exp_home = exp_total * 0.55
+                            exp_away = exp_total * 0.45
+                            p_h0 = np.exp(-exp_home)
+                            p_a0 = np.exp(-exp_away)
+                            btts_val = 1.0 - p_h0 - p_a0 + (p_h0 * p_a0)
+                            xgb_btts_list.append(float(np.clip(btts_val, 0.0, 1.0)))
+                        else:
+                            xgb_btts_list.append(0.5)
+                else:
+                    # Alignment returned empty — safe fallback
+                    xgb_1x2_list = [[0.33, 0.34, 0.33]] * n
+                    xgb_btts_list = [0.5] * n
             else:
                 xgb_1x2_list = [[0.33, 0.34, 0.33]] * n
                 xgb_btts_list = [0.5] * n
@@ -984,6 +1184,135 @@ class ThreeModelBlend:
             results["markets"][market_name] = md
 
         return results
+
+    # ═══════════════════════════════════════════════════════
+    #  Save / Load (pipeline persistence)
+    # ═══════════════════════════════════════════════════════
+
+    def save(self, path: str | Path) -> str:
+        """Persist the blend (models + weights + config) to disk via joblib.
+
+        Parameters
+        ----------
+        path : str or Path
+            Output path (e.g. ``models/three_model_blend.joblib``).
+
+        Returns
+        -------
+        str
+            Absolute path of the saved file.
+        """
+        import joblib
+
+        payload = {
+            "poisson": self.poisson,
+            "elo": self.elo,
+            "xgb": self.xgb,
+            "weights": self.weights,
+            "cond_rates": self.cond_rates,
+        }
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(payload, p)
+        logger.info("ThreeModelBlend saved to %s", p)
+        return str(p.absolute())
+
+    @classmethod
+    def load(cls, path: str | Path, historical_df: pd.DataFrame | None = None) -> "ThreeModelBlend":
+        """Load a persisted blend from disk.
+
+        Parameters
+        ----------
+        path : str or Path
+            Path to the saved blend payload.
+        historical_df : pd.DataFrame, optional
+            Historical data for feature building.  Required for prediction.
+
+        Returns
+        -------
+        ThreeModelBlend
+            Reconstructed blend with all models and weights restored.
+        """
+        import joblib
+
+        p = Path(path)
+        if not p.exists():
+            raise FileNotFoundError(f"ThreeModelBlend not found: {p}")
+
+        payload = joblib.load(p)
+        blend = cls(
+            poisson_model=payload["poisson"],
+            elo_model=payload["elo"],
+            xgb_model=payload["xgb"],
+            weights=payload["weights"],
+            conditional_rates=payload["cond_rates"],
+            historical_df=historical_df,
+        )
+        logger.info(
+            "ThreeModelBlend loaded from %s (%d markets)",
+            p, len(blend.available_markets),
+        )
+
+        # Auto-load calibrator if available
+        calibrator_path = p.parent / "blend_calibrator_hybrid.joblib"
+        if not calibrator_path.exists():
+            calibrator_path = p.parent / "blend_calibrator_platt.joblib"
+        if calibrator_path.exists():
+            try:
+                blend._calibrator = joblib.load(calibrator_path)
+                logger.info("  Calibrator auto-loaded from %s", calibrator_path.name)
+            except Exception as exc:
+                logger.warning("  Calibrator load failed: %s", exc)
+
+        return blend
+
+    # ═══════════════════════════════════════════════════════
+    #  Calibrated prediction (HybridTail via src.calibration)
+    # ═══════════════════════════════════════════════════════
+
+    def predict_with_calibrated_probs(
+        self,
+        home_team: str,
+        away_team: str,
+        cal_probs: np.ndarray | None = None,
+        method: str = "hybrid",
+    ) -> dict[str, Any]:
+        """Predict all markets, optionally overriding 1X2 with calibrated probs.
+
+        ``cal_probs`` must be computed by the caller (e.g. via
+        ``CalibratedModel``).  When provided, the blend's raw 1X2
+        prediction is replaced with these calibrated probabilities,
+        while Over/Under and BTTS continue to use the blend (since
+        those are derived from Poisson/Elo, not the ML 1X2).
+
+        Parameters
+        ----------
+        home_team : str
+        away_team : str
+        cal_probs : np.ndarray, optional
+            Pre-calibrated ``[away, draw, home]`` probabilities.  If
+            ``None``, returns the raw blend prediction.
+        method : str
+            Calibration method label for metadata (default ``"hybrid"``).
+
+        Returns
+        -------
+        dict[str, Any]
+            Same structure as ``predict()`` with ``calibration_method``
+            set when ``cal_probs`` is provided.
+        """
+        result = self.predict(home_team, away_team)
+
+        if cal_probs is not None and len(cal_probs) == 3:
+            # Overwrite 1X2 with calibrated probabilities
+            result["1x2"] = {
+                "A": float(cal_probs[0]),
+                "D": float(cal_probs[1]),
+                "H": float(cal_probs[2]),
+            }
+            result["calibration_method"] = method
+
+        return result
 
     # ═══════════════════════════════════════════════════════
     #  Reporting

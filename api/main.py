@@ -215,7 +215,15 @@ def _load_model() -> None:
                 if state.model is not None:
                     return
 
-        # 2. Search for filenames matching training service output patterns
+        # 2. Search for 3-model blend (highest priority for feature-rich predictions)
+        blend_path = model_dir / "three_model_blend.joblib"
+        if blend_path.exists():
+            _try_load(blend_path)
+            if state.model is not None:
+                logger.info("Loaded 3-model blend as primary prediction model")
+                return
+
+        # 3. Search for filenames matching training service output patterns
         training_patterns = [
             "lightgbm_model.joblib",
             "xgboost_model.joblib",
@@ -231,7 +239,7 @@ def _load_model() -> None:
                 if state.model is not None:
                     return
 
-        # 3. Fallback: most recently modified .joblib file
+        # 4. Fallback: most recently modified .joblib file
         candidates = sorted(
             model_dir.glob("*.joblib"),
             key=lambda p: p.stat().st_mtime,

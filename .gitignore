@@ -21,6 +21,8 @@ venv/
 .env.local
 *.env.*
 
+.freebuff/
+
 # Editors
 .vscode/
 .idea/
@@ -58,6 +60,8 @@ config/three_model_weights.json
 *.db
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
 
 # OS junk
 nul

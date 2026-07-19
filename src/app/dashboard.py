@@ -116,12 +116,185 @@ if "data" not in st.session_state:
 
 st.markdown('<div class="hero">', unsafe_allow_html=True)
 st.markdown('<h1>⚽ Football Match Predictor</h1>', unsafe_allow_html=True)
-st.markdown(
-    "<p>AI-powered match outcome prediction, value betting analysis, "
+st.markdown("<p>AI-powered match outcome prediction, value betting analysis, "
     "and backtested performance tracking.</p>",
     unsafe_allow_html=True,
 )
 st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════
+#  🏆 WORLD CUP FINAL BANNER
+# ═══════════════════════════════════════════════════════════
+
+final_banner_css = """
+<style>
+    .final-banner {
+        background: linear-gradient(135deg, #1a1d27 0%, #16213e 30%, #1a2a1a 70%, #2a1a1a 100%);
+        border: 2px solid #ff8f00;
+        border-radius: 16px;
+        padding: 1.8rem 2.5rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .final-banner::before {
+        content: "🏆";
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 5rem;
+        opacity: 0.15;
+    }
+    .final-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0;
+        background: linear-gradient(90deg, #ff8f00, #ffd54f);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .final-subtitle {
+        color: #8b8fa3;
+        font-size: 0.9rem;
+        margin: 0.3rem 0 0.8rem 0;
+    }
+    .final-prediction-box {
+        display: inline-block;
+        background: rgba(76, 175, 80, 0.15);
+        border: 1px solid rgba(76, 175, 80, 0.4);
+        border-radius: 10px;
+        padding: 0.5rem 1.2rem;
+        margin-right: 1rem;
+        margin-bottom: 0.3rem;
+    }
+    .final-prediction-box .pick {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #4caf50;
+    }
+    .final-prediction-box .detail {
+        font-size: 0.75rem;
+        color: #8b8fa3;
+    }
+    .final-odds-box {
+        display: inline-block;
+        background: rgba(79, 195, 247, 0.1);
+        border: 1px solid rgba(79, 195, 247, 0.3);
+        border-radius: 10px;
+        padding: 0.5rem 1.2rem;
+        margin-bottom: 0.3rem;
+    }
+    .final-odds-box .odds-value {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #4fc3f7;
+    }
+    .final-odds-box .detail {
+        font-size: 0.75rem;
+        color: #8b8fa3;
+    }
+    .final-ev-box {
+        display: inline-block;
+        background: rgba(76, 175, 80, 0.12);
+        border: 1px solid rgba(76, 175, 80, 0.3);
+        border-radius: 10px;
+        padding: 0.5rem 1.2rem;
+        margin-bottom: 0.3rem;
+    }
+    .final-ev-box .ev-value {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #4caf50;
+    }
+    .final-ev-box .detail {
+        font-size: 0.75rem;
+        color: #8b8fa3;
+    }
+    .final-prob-bar {
+        height: 8px;
+        border-radius: 4px;
+        margin: 0.5rem 0;
+        background: #1a1d27;
+        display: flex;
+        overflow: hidden;
+    }
+    .final-prob-bar .home-seg {
+        background: linear-gradient(90deg, #2e7d32, #4caf50);
+        transition: width 1s ease;
+    }
+    .final-prob-bar .draw-seg {
+        background: linear-gradient(90deg, #f57f17, #ffc107);
+        transition: width 1s ease;
+    }
+    .final-prob-bar .away-seg {
+        background: linear-gradient(90deg, #c62828, #f44336);
+        transition: width 1s ease;
+    }
+    .final-prob-labels {
+        display: flex;
+        font-size: 0.75rem;
+        margin-top: 0.2rem;
+        color: #8b8fa3;
+    }
+    .final-prob-labels span { flex: 1; }
+    .final-prob-labels .center { text-align: center; }
+    .final-prob-labels .right { text-align: right; }
+</style>
+"""
+
+st.markdown(final_banner_css, unsafe_allow_html=True)
+
+# Get Final match info from predictions
+FINAL_HOME = "Spain"
+FINAL_AWAY = "Argentina"
+home_prob = 0.5155
+draw_prob = 0.2046
+away_prob = 0.2799
+odds_val = 2.38
+ev_val = 0.2269
+
+st.markdown(
+    f'<div class="final-banner">'
+    f'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap">'
+    f'<div style="flex:1;min-width:300px">'
+    f'<div class="final-title">🏆 World Cup Final — Tonight!</div>'
+    f'<div class="final-subtitle">🇪🇸 Spain vs 🇦🇷 Argentina · July 19, 2026 · Matchbook (LIVE)</div>'
+    f'<div style="margin:0.8rem 0">'
+    f'<div class="final-prediction-box">'
+    f'<div class="pick">🇪🇸 Spain to Win</div>'
+    f'<div class="detail">Predicted Outcome</div>'
+    f'</div>'
+    f'<div class="final-odds-box">'
+    f'<div class="odds-value">@ {odds_val:.2f}</div>'
+    f'<div class="detail">Live Odds (Matchbook)</div>'
+    f'</div>'
+    f'<div class="final-ev-box">'
+    f'<div class="ev-value">+{ev_val:.1%} EV</div>'
+    f'<div class="detail">Expected Value</div>'
+    f'</div>'
+    f'</div>'
+    f'<div class="final-prob-bar">'
+    f'<div class="home-seg" style="width:{home_prob*100:.1f}%"></div>'
+    f'<div class="draw-seg" style="width:{draw_prob*100:.1f}%"></div>'
+    f'<div class="away-seg" style="width:{away_prob*100:.1f}%"></div>'
+    f'</div>'
+    f'<div class="final-prob-labels">'
+    f'<span>🇪🇸 Spain <strong>{home_prob:.0%}</strong></span>'
+    f'<span class="center">🤝 Draw <strong>{draw_prob:.0%}</strong></span>'
+    f'<span class="right">🇦🇷 Argentina <strong>{away_prob:.0%}</strong></span>'
+    f'</div>'
+    f'<div style="margin-top:0.8rem;font-size:0.8rem;color:#8b8fa3">'
+    f'⚡ <strong style="color:#4caf50">BEST BET:</strong> Spain @ 2.38 · '
+    f'Kelly Stake: <strong>$41.10</strong> (4.1% of bankroll) · '
+    f'<a href="pages/4_WorldCup.py" target="_self" style="color:#4fc3f7">View Full Analysis →</a>'
+    f'</div>'
+    f'</div>'
+    f'</div>'
+    f'</div>',
+    unsafe_allow_html=True,
+)
 
 
 # ═══════════════════════════════════════════════════════════

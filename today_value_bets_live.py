@@ -63,6 +63,9 @@ def parse_args(argv=None):
                    help="Minimal output (for scheduled runs)")
     p.add_argument("--log-file", type=str, default=None,
                    help="Path to log file (appends output)")
+    p.add_argument("--xgboost", action="store_true",
+                   help="Force training XGBoost from scratch instead of "
+                        "using the pre-trained 3-model blend")
     return p.parse_args(argv)
 
 
@@ -183,8 +186,64 @@ def main(argv=None):
     tl = history.get("train_loss", [0])[-1]
     log(f"  Train log-loss: {tl:.4f}")
 
+    # -- 4b. Use 3-model blend by default (skip if --xgboost) --
+    use_blend = not args.xgboost
+    if use_blend:
+        blend_path = PROJECT_ROOT / "models" / "three_model_blend.joblib"
+        if blend_path.exists():
+            log("  Loading 3-model blend ...")
+            from src.models.three_model_blend import ThreeModelBlend
+
+            blend = ThreeModelBlend.load(str(blend_path), historical_df=combined)
+
+            # Predict using blend for all matchups
+            blend_preds = blend.predict_matches(pred_meta)
+
+            # Build probs array from blend results
+            probs = np.column_stack([
+                blend_preds["away_win_prob"].values,
+                blend_preds["draw_prob"].values,
+                blend_preds["home_win_prob"].values,
+            ])
+
+            predictions = pd.DataFrame({
+                "date": pred_meta["date"].values,
+                "round": pred_meta["round"].values,
+                "home_team": pred_meta["home_team"].values,
+                "away_team": pred_meta["away_team"].values,
+                "home_win_prob": probs[:, 2],
+                "draw_prob": probs[:, 1],
+                "away_win_prob": probs[:, 0],
+                "over_2_5_prob": blend_preds["over_2_5_prob"].values,
+                "under_2_5_prob": blend_preds["under_2_5_prob"].values,
+                "btts_prob": blend_preds["btts_prob"].values,
+                "btts_no_prob": blend_preds["btts_no_prob"].values,
+            })
+            predictions["pick"] = np.argmax(probs, axis=1).astype(int)
+            predictions["pick_label"] = predictions["pick"].map({0: "Away", 1: "Draw", 2: "Home"})
+            log(f"\n  Predicted {len(predictions)} matches (3-model blend)")
+
+            # Show calibrated probabilities with O/U and BTTS
+            log(f"\n  {'Match':<30} {'Home':<10} {'Draw':<10} {'Away':<10} {'Pick':<10}  {'O/U':<10} {'BTTS':<10}")
+            log(f"  {'-' * 80}")
+            for _, r in predictions.iterrows():
+                ms = f"{r['home_team'][:12]} vs {r['away_team'][:12]}"
+                ou = f"O{r['over_2_5_prob']:.0%}" if 'over_2_5_prob' in predictions else ""
+                bt = f"B{r['btts_prob']:.0%}" if 'btts_prob' in predictions else ""
+                log(f"  {ms:<30} {r['home_win_prob']:<9.1%} {r['draw_prob']:<9.1%} {r['away_win_prob']:<9.1%} {r['pick_label']:<10}  {ou:<10} {bt:<10}")
+
+            # Skip calibration section for blend (go directly to odds)
+            predict_model = None  # signal that probs are already computed
+        else:
+            log("  [i] 3-model blend not found — training XGBoost instead")
+            log("  Run 'run_pipeline.py' first to train and save the blend.")
+            use_blend = False
+            predict_model = model
+    else:
+        predict_model = model
+
     # -- 5. Apply calibration --
-    use_calibration = args.calibrate != "none"
+    use_calibration = args.calibrate != "none" if not use_blend else False
     if use_calibration:
         log(f"\n  -- CALIBRATION: {args.calibrate.upper()} --")
         from sklearn.metrics import log_loss
@@ -230,27 +289,28 @@ def main(argv=None):
         log("  No calibration applied")
         predict_model = model
 
-    # -- 6. Predict --
-    probs = predict_model.predict_proba(X_pred)  # [prob_away, prob_draw, prob_home]
-    predictions = pd.DataFrame({
-        "date": pred_meta["date"].values,
-        "round": pred_meta["round"].values,
-        "home_team": pred_meta["home_team"].values,
-        "away_team": pred_meta["away_team"].values,
-        "home_win_prob": probs[:, 2],
-        "draw_prob": probs[:, 1],
-        "away_win_prob": probs[:, 0],
-    })
-    predictions["pick"] = np.argmax(probs, axis=1).astype(int)
-    predictions["pick_label"] = predictions["pick"].map({0: "Away", 1: "Draw", 2: "Home"})
-    log(f"\n  Predicted {len(predictions)} matches (calibrated={'yes' if use_calibration else 'no'})")
+    # -- 6. Predict (skip if blend already computed probs) --
+    if not use_blend:
+        probs = predict_model.predict_proba(X_pred)  # [prob_away, prob_draw, prob_home]
+        predictions = pd.DataFrame({
+            "date": pred_meta["date"].values,
+            "round": pred_meta["round"].values,
+            "home_team": pred_meta["home_team"].values,
+            "away_team": pred_meta["away_team"].values,
+            "home_win_prob": probs[:, 2],
+            "draw_prob": probs[:, 1],
+            "away_win_prob": probs[:, 0],
+        })
+        predictions["pick"] = np.argmax(probs, axis=1).astype(int)
+        predictions["pick_label"] = predictions["pick"].map({0: "Away", 1: "Draw", 2: "Home"})
+        log(f"\n  Predicted {len(predictions)} matches (calibrated={'yes' if use_calibration else 'no'})")
 
-    # Show calibrated probabilities
-    log(f"\n  {'Match':<30} {'Home':<10} {'Draw':<10} {'Away':<10} {'Pick':<10}")
-    log(f"  {'-' * 70}")
-    for _, r in predictions.iterrows():
-        ms = f"{r['home_team'][:12]} vs {r['away_team'][:12]}"
-        log(f"  {ms:<30} {r['home_win_prob']:<9.1%} {r['draw_prob']:<9.1%} {r['away_win_prob']:<9.1%} {r['pick_label']:<10}")
+        # Show calibrated probabilities
+        log(f"\n  {'Match':<30} {'Home':<10} {'Draw':<10} {'Away':<10} {'Pick':<10}")
+        log(f"  {'-' * 70}")
+        for _, r in predictions.iterrows():
+            ms = f"{r['home_team'][:12]} vs {r['away_team'][:12]}"
+            log(f"  {ms:<30} {r['home_win_prob']:<9.1%} {r['draw_prob']:<9.1%} {r['away_win_prob']:<9.1%} {r['pick_label']:<10}")
 
     # -- 7. Fetch LIVE odds --
     log("\n  -- ODDS --")

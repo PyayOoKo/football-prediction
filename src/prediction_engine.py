@@ -200,8 +200,9 @@ class ModelLoader:
     WeightedEnsemble, PoissonModel, etc.).
     """
 
-    # Default search paths in priority order
+    # Default search paths in priority order — 3-model blend first (richest predictions)
     DEFAULT_SEARCH_PATHS: list[str] = [
+        "models/three_model_blend.joblib",
         "models/ensemble.pkl",
         "models/ensemble_model.joblib",
         "models/weighted_ensemble.joblib",

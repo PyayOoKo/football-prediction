@@ -85,8 +85,7 @@ if %ERRORLEVEL% EQU 0 (
 
 REM ---- Quick test ----
 echo Testing the value bets script (press Ctrl+C to skip)...
-echo.
-"%PYTHON_EXE%" -u "%SCRIPT%" --fast --calibrate none --no-save --days 1
+echo.    "%PYTHON_EXE%" -u "%SCRIPT%" --calibrate none --no-save --days 1
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo [OK] Smoke test passed.

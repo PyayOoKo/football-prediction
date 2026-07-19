@@ -8,9 +8,9 @@ REM ============================================================================
 
 setlocal
 set PROJECT_DIR=%~dp0
-set PYTHON_EXE=C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe
-set SCRIPT=%PROJECT_DIR%refresh_worldcup.py
-set LOG_FILE=%PROJECT_DIR%refresh.log
+set PYTHON_EXE=C:\Users\dell\AppData\Local\Python\bin\python.exe
+set SCRIPT=%PROJECT_DIR%run_pipeline.py
+set LOG_FILE=%PROJECT_DIR%logs\scheduler\pipeline.log
 
 echo.
 echo ========================================================

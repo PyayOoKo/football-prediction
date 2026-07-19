@@ -140,6 +140,7 @@ def load_model_info() -> dict:
     models_dir = config.paths.models
     info = {"total": 0, "found": [], "latest": None}
     key_models = [
+        "three_model_blend.joblib",       # ⭐ Primary: 3-model blend (Poisson + Elo + XGBoost)
         "ensemble_model.joblib",
         "xgboost_model.joblib",
         "lightgbm_model",
@@ -158,6 +159,21 @@ def load_model_info() -> dict:
     info["total"] = len(info["found"])
     if info["found"]:
         info["latest"] = max(info["found"], key=lambda x: x["mtime"])
+        # Add a human-readable display name
+        _display_names = {
+            "three_model_blend.joblib": "3-Model Blend (Poisson+Elo+XGB)",
+            "ensemble_model.joblib": "Ensemble (XGB+LR+Poisson)",
+            "xgboost_model.joblib": "XGBoost",
+            "lightgbm_model": "LightGBM",
+            "worldcup_lightgbm.joblib": "LightGBM (World Cup)",
+            "worldcup_xgboost.joblib": "XGBoost (World Cup)",
+            "calibrated_xgboost.joblib": "XGBoost (Calibrated)",
+            "calibrated_random_forest.joblib": "Random Forest (Calibrated)",
+            "calibrated_lightgbm.joblib": "LightGBM (Calibrated)",
+        }
+        info["latest"]["display_name"] = _display_names.get(
+            info["latest"]["name"], info["latest"]["name"]
+        )
     return info
 
 
@@ -205,6 +221,10 @@ if st.session_state.auto_refresh:
 #  PAGE LAYOUT
 # ══════════════════════════════════════════════════════════
 
+# ── Load model info early (needed by hero badge) ──────
+model_info = load_model_info()
+_model_badge = model_info["latest"]["display_name"] if model_info["latest"] else "No Model"
+
 # ── Hero Section ───────────────────────────────────────
 render_hero(
     title="📊 Football Monitoring Dashboard",
@@ -212,7 +232,7 @@ render_hero(
              "and manage bankroll risk — all in one place.",
     badges=[
         ("Auto-refresh: 120s", "🔄"),
-        (config.train.model_type.upper(), "⚙️"),
+        (_model_badge, "🤖"),
         ("v0.1.0", "📊"),
         (datetime.now().strftime("%B %d, %Y"), "📅"),
     ],
@@ -221,8 +241,6 @@ render_hero(
 
 # ── System Health Section ──────────────────────────────
 section_header("🔋 System Health", "🔋")
-
-model_info = load_model_info()
 pipeline = detect_data_pipeline_status()
 reports_dir_path = Path("reports")
 report_count = len(list(reports_dir_path.rglob("*.json"))) if reports_dir_path.exists() else 0
@@ -232,8 +250,8 @@ col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     if model_info["latest"]:
-        delta_str = f"Latest: {model_info['latest']['name'][:20]}..."
-        metric_card(col1, str(model_info["total"]), "Trained Models", delta=delta_str, up=True)
+        display = model_info["latest"].get("display_name", model_info["latest"]["name"][:20])
+        metric_card(col1, str(model_info["total"]), "Trained Models", delta=f"Active: {display}", up=True)
     else:
         metric_card(col1, "0", "Trained Models", delta="No model found", up=False)
 
