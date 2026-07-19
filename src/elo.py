@@ -487,6 +487,51 @@ class EloSystem:
         p_away = 1.0 - E_home - p_draw / 2.0
         return p_away, p_draw, p_home
 
+    # ── Dedicated BTTS Prediction ────────────────────────────
+
+    def predict_btts(self, home_team: str, away_team: str) -> float:
+        """Predict Both Teams To Score probability using Elo-derived expected goals.
+
+        Computes expected goals from the Elo difference, then applies the
+        Poisson BTTS formula:
+            P(BTTS) = 1 - P(home=0) - P(away=0) + P(both=0)
+                    = 1 - e^{-λ_home} - e^{-λ_away} + e^{-(λ_home + λ_away)}
+
+        This is a **direct** method — not derived from 1X2 probabilities via
+        conditional rates. The expected goals are approximated from the Elo
+        rating difference between the two teams.
+
+        Parameters
+        ----------
+        home_team : str
+            Home team name.
+        away_team : str
+            Away team name.
+
+        Returns
+        -------
+        float
+            BTTS probability (0.0 to 1.0).
+        """
+        R_home = self._ratings.get(home_team, float(self.initial_rating))
+        R_away = self._ratings.get(away_team, float(self.initial_rating))
+        elo_diff = R_home - R_away
+
+        # Expected goals approximated from Elo difference
+        exp_home_goals = 1.0 + (elo_diff / 400.0)
+        exp_away_goals = 2.0 - exp_home_goals
+        if exp_away_goals < 0.1:
+            exp_away_goals = 0.1
+        if exp_home_goals < 0.1:
+            exp_home_goals = 0.1
+
+        # Poisson BTTS formula
+        p_h0 = float(np.exp(-exp_home_goals))
+        p_a0 = float(np.exp(-exp_away_goals))
+        btts_prob = 1.0 - p_h0 - p_a0 + (p_h0 * p_a0)
+
+        return float(np.clip(btts_prob, 0.0, 1.0))
+
     # ── sklearn-compatible predict_proba ─────────────────────
 
     def predict_proba(

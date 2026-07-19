@@ -223,9 +223,9 @@ def get_available_seasons() -> list[str]:
     resp.raise_for_status()
 
     # Extract all ``<a href="...">`` links containing season folders
-    pattern = re.compile(rf'({MMZ_PATH})/\d{{4}}')
-    matches = pattern.findall(resp.text)
-    seasons = sorted({m.split("/")[1] for m in matches})
+    # The capture group is the 4-digit season code itself, e.g. "2425"
+    pattern = re.compile(rf'{MMZ_PATH}/(\d{{4}})')
+    seasons = sorted(set(pattern.findall(resp.text)))
     logger.info("Found %d available seasons", len(seasons))
     return seasons
 

@@ -1,0 +1,59 @@
+{
+  "generated": "2026-07-19 10:10:03",
+  "training_config": {
+    "data_sources": [
+      "EPL",
+      "La_Liga",
+      "Bundesliga",
+      "Serie_A",
+      "Ligue_1",
+      "WorldCup"
+    ],
+    "n_seasons": 5,
+    "total_preprocessed": 9189
+  },
+  "weights": {
+    "1X2": {
+      "poisson": 0.51,
+      "elo": 0.43,
+      "xgb": 0.06
+    },
+    "Over2.5": {
+      "poisson": 0.38,
+      "elo": 0.48,
+      "xgb": 0.14
+    },
+    "Over3.5": {
+      "poisson": 0.5,
+      "elo": 0.0,
+      "xgb": 0.5
+    },
+    "BTTS": {
+      "poisson": 0.29,
+      "elo": 0.16,
+      "xgb": 0.55
+    }
+  },
+  "metrics": {
+    "1X2": {
+      "brier_score": 0.6375,
+      "log_loss": 1.0568,
+      "accuracy": 0.4699
+    },
+    "Over2.5": {
+      "brier_score": 0.2487,
+      "log_loss": 0.6905,
+      "accuracy": 0.512
+    },
+    "BTTS": {
+      "brier_score": 0.2501,
+      "log_loss": 0.6934,
+      "accuracy": 0.5076
+    },
+    "Over3.5": {
+      "brier_score": 0.3083,
+      "log_loss": 0.8117,
+      "accuracy": 0.2712
+    }
+  }
+}

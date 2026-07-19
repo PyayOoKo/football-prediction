@@ -663,6 +663,39 @@ class ExtendedFeaturesConfig:
 
 
 @dataclass
+class BlendConfig:
+    """Settings for the 3-model blend integration.
+
+    Controls whether the ``PredictionEngine`` uses the market-specific
+    3-model blend (Poisson + Elo + XGBoost) for Over/Under and BTTS
+    markets, falling back to the current ensemble for 1X2.
+
+    Attributes
+    ----------
+    enabled : bool
+        Whether the 3-model blend is loaded and used (default ``True``).
+        Set to ``False`` to revert to the legacy single-model behaviour.
+    markets : tuple[str, ...]
+        Which markets to route to the blend. The current model is still
+        used for 1X2 regardless; this controls whether Over2.5, BTTS,
+        and Over3.5 predictions come from the blend or the legacy model.
+        Default: ``("Over2.5", "BTTS", "Over3.5")``.
+    weights_path : str | None
+        Path to a JSON file with optimal per-market weights. If ``None``,
+        the ``DEFAULT_WEIGHTS`` in ``ThreeModelBlend`` are used.
+        Default: ``"config/three_model_weights.json"``.
+    use_blend_for_1x2 : bool
+        If ``True``, also route 1X2 predictions through the 3-model blend
+        (default ``False`` — keep current ensemble for 1X2).
+    """
+
+    enabled: bool = True
+    markets: tuple[str, ...] = ("Over2.5", "BTTS", "Over3.5")
+    weights_path: str | None = "config/three_model_weights.json"
+    use_blend_for_1x2: bool = False
+
+
+@dataclass
 class EvalConfig:
     """Evaluation metrics and visualisation settings."""
 
@@ -838,9 +871,14 @@ class Config:
     extended_features: ExtendedFeaturesConfig = field(
         default_factory=ExtendedFeaturesConfig
     )
-    worldcup: WorldCupConfig = field(default_factory=WorldCupConfig)
+    worldcup: WorldCupConfig = field(
+        default_factory=WorldCupConfig
+    )
     feature_selection: FeatureSelectionConfig = field(
         default_factory=FeatureSelectionConfig
+    )
+    blend: BlendConfig = field(
+        default_factory=BlendConfig
     )
 
     # Global toggle

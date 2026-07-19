@@ -72,6 +72,18 @@ class PredictionResult:
         Name of the model used.
     processing_time_ms : float
         Time taken to generate this prediction.
+    over_2_5_prob : float | None
+        Probability of Over 2.5 goals (from 3-model blend, if enabled).
+    under_2_5_prob : float | None
+        Probability of Under 2.5 goals.
+    over_3_5_prob : float | None
+        Probability of Over 3.5 goals.
+    under_3_5_prob : float | None
+        Probability of Under 3.5 goals.
+    btts_prob : float | None
+        Probability of Both Teams To Score (from 3-model blend, if enabled).
+    btts_no_prob : float | None
+        Probability of no BTTS.
     metadata : dict
         Additional info (feature count, calibration status, etc.).
     """
@@ -85,6 +97,12 @@ class PredictionResult:
     confidence: float = 0.0
     model_name: str = ""
     processing_time_ms: float = 0.0
+    over_2_5_prob: float | None = None
+    under_2_5_prob: float | None = None
+    over_3_5_prob: float | None = None
+    under_3_5_prob: float | None = None
+    btts_prob: float | None = None
+    btts_no_prob: float | None = None
     metadata: dict = field(default_factory=dict)
 
     @property
@@ -106,6 +124,12 @@ class PredictionResult:
             "confidence": round(self.confidence, 4),
             "model_name": self.model_name,
             "processing_time_ms": round(self.processing_time_ms, 2),
+            "over_2_5_prob": round(self.over_2_5_prob, 4) if self.over_2_5_prob is not None else None,
+            "under_2_5_prob": round(self.under_2_5_prob, 4) if self.under_2_5_prob is not None else None,
+            "over_3_5_prob": round(self.over_3_5_prob, 4) if self.over_3_5_prob is not None else None,
+            "under_3_5_prob": round(self.under_3_5_prob, 4) if self.under_3_5_prob is not None else None,
+            "btts_prob": round(self.btts_prob, 4) if self.btts_prob is not None else None,
+            "btts_no_prob": round(self.btts_no_prob, 4) if self.btts_no_prob is not None else None,
         }
 
 
@@ -398,6 +422,11 @@ class PredictionEngine:
         Fraction of full Kelly to use (default 0.25).
     bankroll : float
         Default bankroll for stake calculations (default 1000.0).
+    use_blend : bool
+        Whether to load and use the 3-model blend for Over/Under and BTTS
+        markets (default True). When enabled, Over2.5, Over3.5, BTTS
+        probabilities come from the blend while 1X2 continues to use the
+        current ensemble model.
     """
 
     def __init__(
@@ -407,6 +436,8 @@ class PredictionEngine:
         min_ev: float = 0.0,
         kelly_fraction: float = 0.25,
         bankroll: float = 1000.0,
+        use_blend: bool = True,
+        blend_config: Any | None = None,
     ) -> None:
         self.model: Any = None
         self.model_metadata: dict = {"model_type": "none", "name": "none", "loaded": False}
@@ -417,12 +448,18 @@ class PredictionEngine:
         self.bankroll = bankroll
 
         self._feature_builder = FeatureBuilder()
+        self._blend_model: Any = None
+        self._blend_loaded: bool = False
 
         # Load model immediately if path given, or auto-detect
         if model_path is not None:
             self.load_model(str(model_path))
         else:
             self.load_model()  # auto-detect
+
+        # Optionally load the 3-model blend for secondary markets
+        if use_blend:
+            self.load_three_model_blend(config=blend_config)
 
     # ── Model Loading ──────────────────────────────────────
 
@@ -451,6 +488,137 @@ class PredictionEngine:
             logger.warning("PredictionEngine: no model loaded — predictions will use fallback")
         return loaded
 
+    def load_three_model_blend(
+        self,
+        config: Any | None = None,
+    ) -> bool:
+        """Load the 3-model blend for Over/Under and BTTS market predictions.
+
+        The blend combines Poisson + Elo + XGBoost with market-specific
+        optimised weights. Falls back gracefully if any component is
+        unavailable.
+
+        Parameters
+        ----------
+        config : Config, optional
+            Config instance with blend settings. Uses global config if
+            ``None``.
+
+        Returns
+        -------
+        bool
+            ``True`` if the blend was loaded successfully.
+        """
+        if config is None:
+            from config import config as _cfg
+            config = _cfg
+
+        blend_cfg = config.blend
+
+        if not blend_cfg.enabled:
+            logger.info("3-model blend disabled via config.blend.enabled")
+            self._blend_loaded = False
+            self._blend_model = None
+            return False
+
+        try:
+            from src.models.three_model_blend import (
+                ConditionalRates, ThreeModelBlend, DEFAULT_WEIGHTS,
+            )
+            from src.poisson_model import PoissonModel
+            from src.elo import EloSystem
+            import joblib
+
+            # Load historical data for conditional rates and feature building
+            historical = self._feature_builder.load_historical_data()
+            if historical is None or historical.empty:
+                logger.warning(
+                    "No historical data for 3-model blend — blend disabled"
+                )
+                self._blend_loaded = False
+                return False
+
+            # Fit Poisson model
+            logger.info("Fitting Poisson model for 3-model blend...")
+            poisson = PoissonModel()
+            poisson.fit(historical)
+
+            # Fit Elo system
+            logger.info("Fitting Elo system for 3-model blend...")
+            elo = EloSystem()
+            elo.process_matches(historical)
+
+            # Load XGBoost model (try multiple paths)
+            xgb = None
+            for candidate in [
+                config.paths.models / "xgboost_model.joblib",
+                config.paths.models / "worldcup_lightgbm.joblib",
+                Path("models/xgboost_model.joblib"),
+                Path("models/worldcup_lightgbm.joblib"),
+            ]:
+                if candidate.exists():
+                    xgb = joblib.load(candidate)
+                    logger.info("Loaded XGBoost model: %s", candidate.name)
+                    break
+
+            if xgb is None:
+                logger.warning(
+                    "No XGBoost model found for 3-model blend — "
+                    "blend will use Poisson + Elo only"
+                )
+
+            # Compute conditional rates from historical data
+            cond_rates = ConditionalRates.from_data(historical)
+
+            # Load optimised weights from config file if available
+            weights = None
+            if blend_cfg.weights_path:
+                w_path = Path(blend_cfg.weights_path)
+                if w_path.exists():
+                    try:
+                        with open(w_path) as f:
+                            w_data = json.load(f)
+                        weights = w_data.get("weights", None)
+                        logger.info(
+                            "Loaded optimised blend weights from %s",
+                            w_path.name,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Failed to load blend weights from %s: %s",
+                            w_path, exc,
+                        )
+
+            if weights is None:
+                weights = dict(DEFAULT_WEIGHTS)
+                logger.info("Using default blend weights")            # 1X2 routing: when use_blend_for_1x2=False (default),
+            # the blend is still loaded but predict_matches() only
+            # uses it for binary markets (Over/Under, BTTS).
+            # 1X2 predictions continue to use the current ensemble model.
+            self._blend_model = ThreeModelBlend(
+                poisson_model=poisson,
+                elo_model=elo,
+                xgb_model=xgb,
+                weights=weights,
+                conditional_rates=cond_rates,
+                historical_df=historical,
+            )
+            self._blend_loaded = True
+            logger.info(
+                "3-model blend loaded: %d markets, %s",
+                len(self._blend_model.available_markets),
+                f"Poisson={'yes'}, Elo={'yes'}, XGBoost={'yes' if xgb else 'no'}",
+            )
+            return True
+
+        except Exception as exc:
+            logger.warning(
+                "Failed to load 3-model blend: %s — blend disabled", exc,
+            )
+            self._blend_loaded = False
+            self._blend_model = None
+            return False
+
     @property
     def model_loaded(self) -> bool:
         """Whether a model is currently loaded."""
@@ -477,6 +645,66 @@ class PredictionEngine:
         if mtype == "phase3":
             return hasattr(self.model, "predict_matches")
         return hasattr(self.model, "predict_proba") or hasattr(self.model, "predict")
+
+    @property
+    def blend_loaded(self) -> bool:
+        """Whether the 3-model blend is loaded."""
+        return self._blend_loaded and self._blend_model is not None
+
+    # ── Market-Specific Blend Predictions ──────────────────
+
+    def predict_over_under(
+        self,
+        home_team: str,
+        away_team: str,
+        threshold: float = 2.5,
+    ) -> dict[str, float] | None:
+        """Predict Over/Under for a goal threshold using the 3-model blend.
+
+        Parameters
+        ----------
+        home_team : str
+        away_team : str
+        threshold : float
+            Goal threshold (2.5, 3.5, etc.). Default 2.5.
+
+        Returns
+        -------
+        dict or None
+            ``{"Over": prob, "Under": prob}`` or ``None`` if blend not loaded.
+        """
+        if not self._blend_loaded or self._blend_model is None:
+            return None
+        try:
+            return self._blend_model.predict_over_under(home_team, away_team, threshold)
+        except Exception as exc:
+            logger.debug("Blend OU prediction failed: %s", exc)
+            return None
+
+    def predict_btts(
+        self,
+        home_team: str,
+        away_team: str,
+    ) -> dict[str, float] | None:
+        """Predict Both Teams To Score probability using the 3-model blend.
+
+        Parameters
+        ----------
+        home_team : str
+        away_team : str
+
+        Returns
+        -------
+        dict or None
+            ``{"BTTS": prob, "No BTTS": prob}`` or ``None`` if blend not loaded.
+        """
+        if not self._blend_loaded or self._blend_model is None:
+            return None
+        try:
+            return self._blend_model.predict_btts(home_team, away_team)
+        except Exception as exc:
+            logger.debug("Blend BTTS prediction failed: %s", exc)
+            return None
 
     # ── Single Match Prediction ────────────────────────────
 
@@ -552,8 +780,13 @@ class PredictionEngine:
         self,
         fixtures: list[dict[str, Any]],
         use_fallback: bool = True,
+        include_blend_markets: bool = True,
     ) -> list[PredictionResult]:
         """Predict outcomes for multiple fixtures.
+
+        When the 3-model blend is loaded, also computes Over/Under and
+        BTTS probabilities for each fixture and attaches them to the
+        ``PredictionResult``.
 
         Parameters
         ----------
@@ -561,12 +794,15 @@ class PredictionEngine:
             Each dict must contain ``home_team`` and ``away_team``.
         use_fallback : bool
             Whether to fall back to deterministic estimation.
+        include_blend_markets : bool
+            Whether to enrich results with Over/Under/BTTS from the
+            3-model blend (default ``True``).
 
         Returns
         -------
         list[PredictionResult]
         """
-        results: list[PredictionResult] = []            # Try batch feature engineering
+        results: list[PredictionResult] = []
         X_batch = None
         if self.model_loaded:
             try:
@@ -585,7 +821,8 @@ class PredictionEngine:
                     row = X_batch.iloc[i:i+1]
                     probs = self._predict_with_model(row)
                     if probs is not None:
-                        results.append(self._make_result(probs, fixture, start))
+                        result = self._make_result(probs, fixture, start)
+                        results.append(result)
                         continue
                 except Exception as exc:
                     logger.warning(
@@ -619,6 +856,30 @@ class PredictionEngine:
                 )
                 probs_list = [probs["away_win"], probs["draw"], probs["home_win"]]
                 results.append(self._make_result(probs_list, fixture, time.perf_counter() - start))
+
+        # Enrich with 3-model blend markets (Over/Under, BTTS)
+        if include_blend_markets and self._blend_loaded and self._blend_model is not None:
+            for result in results:
+                ht, at = result.home_team, result.away_team
+                try:
+                    ou = self._blend_model.predict_over_under(ht, at, 2.5)
+                    if ou:
+                        result.over_2_5_prob = ou["Over"]
+                        result.under_2_5_prob = ou["Under"]
+
+                    ou35 = self._blend_model.predict_over_under(ht, at, 3.5)
+                    if ou35:
+                        result.over_3_5_prob = ou35["Over"]
+                        result.under_3_5_prob = ou35["Under"]
+
+                    btts = self._blend_model.predict_btts(ht, at)
+                    if btts:
+                        result.btts_prob = btts["BTTS"]
+                        result.btts_no_prob = btts["No BTTS"]
+                except Exception as exc:
+                    logger.debug(
+                        "Blend enrichment failed for %s vs %s: %s", ht, at, exc,
+                    )
 
         return results
 
@@ -976,6 +1237,8 @@ class PredictionEngine:
             "model_name": self.model_name,
             "model_type": self.model_type,
             "supports_proba": self.supports_predict_proba,
+            "blend_loaded": self.blend_loaded,
+            "blend_markets": list(self._blend_model.available_markets) if self._blend_model else [],
             "kelly_fraction": self.kelly_fraction,
             "min_confidence": self.min_confidence,
             "min_ev": self.min_ev,
@@ -983,17 +1246,24 @@ class PredictionEngine:
 
     def summary(self) -> str:
         """Print a human-readable summary of the engine state."""
+        blend_market_count = (
+            len(self._blend_model.available_markets)
+            if self._blend_model
+            else 0
+        )
         lines = [
             "=" * 55,
             "  PREDICTION ENGINE SUMMARY",
             "=" * 55,
-            f"  Model loaded:  {'YES' if self.model_loaded else 'NO'}",
-            f"  Model name:    {self.model_name}",
-            f"  Model type:    {self.model_type}",
+            f"  Model loaded:   {'YES' if self.model_loaded else 'NO'}",
+            f"  Model name:     {self.model_name}",
+            f"  Model type:     {self.model_type}",
             f"  Supports proba: {self.supports_predict_proba}",
-            f"  Kelly frac:    {self.kelly_fraction}",
+            f"  Blend loaded:   {'YES' if self.blend_loaded else 'NO'}",
+            f"  Blend markets:  {blend_market_count}",
+            f"  Kelly frac:     {self.kelly_fraction}",
             f"  Min confidence: {self.min_confidence}",
-            f"  Min EV:        {self.min_ev}",
+            f"  Min EV:         {self.min_ev}",
             "=" * 55,
         ]
         return "\n".join(lines)
