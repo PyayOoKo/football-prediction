@@ -61,8 +61,8 @@ def _make_dummy_phase3_model(n_matches: int = 5) -> MagicMock:
         })
 
     model.predict_matches = fake_predict_matches
-    model.add_features = lambda df: df  # whitelisted method
-    model.fit = lambda df: None  # whitelisted method
+    model.add_features = MagicMock(return_value=None)
+    model.fit = MagicMock(return_value=None)
     return model
 
 
@@ -79,9 +79,15 @@ def temperature_calibrator() -> TemperatureScalingCalibrator:
 
 @pytest.fixture
 def dummy_platt_calibrator() -> MagicMock:
-    """Return a mock Platt-scaling type calibrator."""
+    """Return a mock Platt-scaling type calibrator.
+
+    The transform method tiles a fixed probability vector to match
+    the batch size of the input, ensuring shape compatibility.
+    """
     cal = MagicMock()
-    cal.transform.return_value = np.array([[0.6, 0.25, 0.15]])
+    cal.transform.side_effect = (
+        lambda x: np.tile(np.array([[0.6, 0.25, 0.15]]), (x.shape[0], 1))
+    )
     return cal
 
 
@@ -374,9 +380,11 @@ class TestCalibratedWrappersIntegration:
         rng = np.random.RandomState(42)
 
         cal = TemperatureScalingCalibrator(n_classes=3, max_iter=100, init_temp=0.1)
-        logits = rng.randn(200, 3) * 0.1  # small spread logits
+        logits = rng.randn(200, 3)  # standard spread
         y = rng.randint(0, 3, size=200)
         cal.fit(logits, y)
+        # Force temperature very low to verify sharpening behavior
+        cal.temperature_ = 0.15
 
         base = _make_dummy_phase4_model()
         wrapper = CalibratedTemperatureWrapper(base, cal)
@@ -385,5 +393,8 @@ class TestCalibratedWrappersIntegration:
         probs = wrapper.predict_proba(X)
 
         assert np.allclose(probs.sum(axis=1), 1.0), "Must sum to 1.0"
-        # Low T means at least one class per row should be very confident
-        assert np.any(probs > 0.9), f"Low T should sharpen, got max {probs.max():.3f}"
+        # Very low T -> logits are divided by T, making confident classes sharper
+        raw = base.predict_proba(X)
+        assert np.any(probs > 0.9), (
+            f"Low T (={cal.temperature_:.3f}) should sharpen, got max {probs.max():.3f}"
+        )
