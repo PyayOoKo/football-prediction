@@ -345,4 +345,85 @@ python run_dashboard.py                              # launch Streamlit dashboar
 
 ---
 
-*Last updated: 2026-07-27 — Added enrichment pipeline (matches.csv + league_all merge), null league backfill (team-to-league mapping), league column fix (download + daily pipeline), updated preprocessing to auto-detect data sources.*
+---
+
+## 13. Recent Activity — 2026-07-28 (Phase 3: Infrastructure & Quality)
+
+### 🔥 Soft Delete System — Implemented
+
+**Implementation:** Added `SoftDeleteMixin` to `src/database/base.py` with a nullable `deleted_at` timestamp column, `is_deleted` property, and `soft_delete()` method (returns `self` for chaining). Applied to `Match`, `Prediction`, and `Team` models via multiple inheritance.
+
+**Files changed:**
+| File | Change |
+|------|--------|
+| `src/database/base.py` | Added `SoftDeleteMixin` class with `deleted_at`, `is_deleted`, `soft_delete()` |
+| `src/database/models/match.py` | Now inherits `(Base, SoftDeleteMixin)` |
+| `src/database/models/prediction.py` | Now inherits `(Base, SoftDeleteMixin)` |
+| `src/database/models/team.py` | Now inherits `(Base, SoftDeleteMixin)` |
+| `alembic/versions/007_add_soft_delete.py` | Migration: adds `deleted_at` columns + partial indexes (`WHERE deleted_at IS NULL`) to 3 tables |
+
+### 🔥 Connection Pooling & PgBouncer — Implemented
+
+**pool_recycle config:**
+| File | Change |
+|------|--------|
+| `src/config/settings.py` | Added `pool_recycle: int = 3600` to `DatabaseConfig`, configurable via `DB_POOL_RECYCLE` env var |
+| `src/database/session.py` | Wired `pool_recycle=cfg.pool_recycle` into `create_engine()` |
+| `alembic/versions/008_postgres_connection_timeouts.py` | Migration: sets `idle_in_transaction_session_timeout=60s`, `statement_timeout=5min`, TCP keepalives |
+
+**PgBouncer deployment:**
+| File | Change |
+|------|--------|
+| `config/pgbouncer/pgbouncer.ini` | Production config: transaction mode, `pool_size=20`, separate ETL session pool, admin console |
+| `config/pgbouncer/userlist.txt` | Auth template with scram-sha-256 entries |
+| `docker-compose.yml` | Added `pgbouncer` service between `db` and `app`. App → `pgbouncer:6432`, migrations bypass → `db:5432` |
+| `src/config/settings.py` | `sa_url` appends `?prepared_statement_cache_size=0&keepalives=1` when `USE_PGBOUNCER=true`; +`_replace_url_port()` helper for `PGBOUNCER_PORT` env var |
+
+**Timeout chain (3 layers aligned):**
+| Layer | Setting | Value |
+|-------|---------|:-----:|
+| SQLAlchemy | `pool_recycle` | 3,600 s |
+| PgBouncer | `server_lifetime` | 3,600 s |
+| PgBouncer | `query_timeout` | 300 s |
+| PostgreSQL (mig. 008) | `statement_timeout` | 300 s |
+| PostgreSQL (mig. 008) | `idle_in_transaction_session_timeout` | 60 s |
+| PgBouncer | `server_idle_timeout` | 600 s |
+
+### ✅ Unit Tests Added — 32 New
+
+| Test File | Tests | Coverage |
+|-----------|:-----:|----------|
+| `tests/test_database/test_soft_delete.py` | 12 | SoftDeleteMixin lifecycle (default, is_deleted, soft_delete, persistence, schema, multi-model) |
+| `tests/test_config/test_pool_config.py` | 20 | pool defaults (pool_recycle=3600, pool_size=10), env overrides, sa_url PgBouncer params (`?` vs `&`), PGBOUNCER_PORT substitution, engine kwarg forwarding |
+
+### ✅ Stale Test Assertions Fixed
+
+| File | Fix |
+|------|-----|
+| `tests/test_automation.py` | `assert len(cfg.tasks) == 10` → `13` |
+| `tests/test_scheduler/test_models.py` | Two assertions: `len(cfg.tasks) == 10` → `13`, `len(d["tasks"]) == 10` → `13` |
+
+### ✅ Warning Cleanup — 99.7% Reduction
+
+| Warning | Before | After | Fix |
+|---------|:------:|:-----:|-----|
+| `UserWarning: dayfirst=True` | ~50 | **0** | Added `format="mixed"` to `pd.to_datetime()` in `src/data/preprocessing.py:246` |
+| `ResourceWarning: unclosed file` | ~20 | **0** | Added `h.close()` before `handlers.clear()` in `src/config/logging.py` + all test `finally` blocks in `test_logging.py` |
+| `ResourceWarning: unclosed database` | ~6,000 | **~16** (SA internals) | Added `engine.dispose()` in `test_experiment_tracking/conftest.py` + `test_feature_store/conftest.py`; removed `session.close()` from `db_session` fixture in `tests/conftest.py` |
+| **Total** | **~6,131** | **~16** (99.7% ↓) | All 4 categories addressed |
+
+The remaining 16 warnings come from deep inside SQLAlchemy internals (`.venv/Lib/.../sqlalchemy/sql/`) — not resolvable from application code.
+
+### 📊 Full Test Suite Status
+
+| Metric | Count |
+|--------|:-----:|
+| Tests passing | **2,009** ✅ |
+| Tests failing | **2** (pre-existing stale assertions in odds API tests) |
+| Tests skipped | 2 |
+| Coverage | 32 new tests added |
+| Run time | ~3 min 12 sec |
+
+---
+
+*Last updated: 2026-07-28 — Phase 3: Soft deletes, connection pooling, PgBouncer deployment, 32 new tests, warning cleanup (99.7% reduction), stale assertion fixes.*
