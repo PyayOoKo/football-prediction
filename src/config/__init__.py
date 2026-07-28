@@ -13,8 +13,8 @@ logging
     Structured logging setup (console + file) with rotation.
 """
 
-from src.config.settings import Config, config
 from src.config.logging import configure_logging
+from src.config.settings import Config, config
 
 __all__ = [
     "Config",

@@ -415,7 +415,6 @@ class EloSystem:
 
         has_season = season_col is not None and season_col in df.columns
         has_xg = home_xg_col is not None and home_xg_col in df.columns
-        has_hosts = host_nations is not None
 
         # Pre-extract columns for fast itertuples access
         _check_season = self.check_season_change

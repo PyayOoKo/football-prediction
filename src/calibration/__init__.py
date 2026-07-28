@@ -11,31 +11,28 @@ See the sub-modules for detailed documentation:
 # Re-export everything for backward compatibility.
 # All existing ``from src.calibration import X`` statements continue to work.
 
-from src.calibration.utils import (
-    _renormalise_probs,
-    _validate_probs_input,
-    renormalise_probs,
-    validate_probs_input,
-)
-
 from src.calibration.calibrators import (
     HybridTailCalibrator,
     IsotonicRegressionCalibrator,
     PlattScalingCalibrator,
     TemperatureScalingCalibrator,
 )
-
+from src.calibration.reporting import (
+    calibration_curve,
+    calibration_report,
+)
+from src.calibration.utils import (
+    _renormalise_probs,
+    _validate_probs_input,
+    renormalise_probs,
+    validate_probs_input,
+)
 from src.calibration.wrappers import (
     CalibratedModel,
     CalibratedStatsModel,
     CalibratedTemperatureWrapper,
     _fit_calibrators,
     calibrate_model,
-)
-
-from src.calibration.reporting import (
-    calibration_curve,
-    calibration_report,
 )
 
 __all__ = [

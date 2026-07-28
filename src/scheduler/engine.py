@@ -8,10 +8,9 @@ parallel groups, abort-on-failure, retry, and structured reporting.
 from __future__ import annotations
 
 import logging
-import threading
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Callable
 
 from src.scheduler.models import (
     RunReport,

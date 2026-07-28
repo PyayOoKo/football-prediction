@@ -17,11 +17,9 @@ Usage
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.experiment_tracking.models import Experiment, Run
 from src.experiment_tracking.tracker import ExperimentTracker
 
 logger = logging.getLogger(__name__)
@@ -145,7 +143,7 @@ def export_to_wandb(
                 feat_values = [run.feature_importance[n] for n in feat_names]
                 fi_table = wandb.Table(
                     columns=["feature", "importance"],
-                    data=list(zip(feat_names, feat_values)),
+                    data=list(zip(feat_names, feat_values, strict=False)),
                 )
                 wandb_run.log({"feature_importance": wandb.plot.bar(
                     fi_table, "feature", "importance",

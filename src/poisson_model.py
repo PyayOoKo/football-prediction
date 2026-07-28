@@ -755,6 +755,7 @@ class PoissonModel:
                     days_gap = max((cur_date - prev_date).days, 0)
                     decay = np.exp(-ln2 * days_gap / self.decay_halflife_days)
                 except Exception:
+                    logger.debug("Date gap computation failed, defaulting decay to 1.0")
                     decay = 1.0
 
             # Apply decay to all running aggregates
@@ -813,10 +814,10 @@ class PoissonModel:
         df["Expected_Home_Goals"] = expected_home
         df["Expected_Away_Goals"] = expected_away
         df["Expected_Total_Goals"] = [
-            e_h + e_a for e_h, e_a in zip(expected_home, expected_away)
+            e_h + e_a for e_h, e_a in zip(expected_home, expected_away, strict=False)
         ]
         df["Expected_Goal_Difference"] = [
-            e_h - e_a for e_h, e_a in zip(expected_home, expected_away)
+            e_h - e_a for e_h, e_a in zip(expected_home, expected_away, strict=False)
         ]
         df["Home_Attack_Strength"] = home_attack_str
         df["Home_Defense_Strength"] = home_defense_str

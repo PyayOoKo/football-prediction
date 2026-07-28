@@ -39,7 +39,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 from src.monitoring.monitor import Monitor
 
 logger = logging.getLogger(__name__)
@@ -138,7 +137,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
     """Print storage statistics."""
     monitor = _create_monitor(args)
     stats = monitor.store.get_stats()
-    print(f"\n  📊 Monitoring Store Statistics")
+    print("\n  📊 Monitoring Store Statistics")
     print(f"  {'─' * 45}")
     print(f"  Database:    {stats['db_path']}")
     print(f"  Retention:   {stats['retention_days']} days")
@@ -168,7 +167,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
 
     server = HTTPServer(("localhost", port), _Handler)
     print(f"  🌐 Monitoring dashboard at http://localhost:{port}/dashboard.html")
-    print(f"  Press Ctrl+C to stop")
+    print("  Press Ctrl+C to stop")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

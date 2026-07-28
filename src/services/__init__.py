@@ -151,8 +151,8 @@ def load_and_prepare(
 
 
 # Late imports to avoid circular dependencies between the two services
-from src.services.prediction_service import PredictionService  # noqa: E402
-from src.services.training_service import TrainingService  # noqa: E402
-from src.services.data_collection_service import DataCollectionService  # noqa: E402
 from src.services.backtesting_service import BacktestingService  # noqa: E402
 from src.services.betting_service import ValueBettingService  # noqa: E402
+from src.services.data_collection_service import DataCollectionService  # noqa: E402
+from src.services.prediction_service import PredictionService  # noqa: E402
+from src.services.training_service import TrainingService  # noqa: E402

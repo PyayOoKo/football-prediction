@@ -14,8 +14,8 @@ from src.data_collection.collector import (
     collect_all,
     collect_league,
     collect_worldcup,
-    list_worldcup_teams,
     list_worldcup_groups,
+    list_worldcup_teams,
     update,
 )
 

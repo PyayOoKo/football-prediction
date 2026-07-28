@@ -128,12 +128,12 @@ def _wrap_collector_fn(fn: Callable[..., Any], source: str, league_fn: Callable[
 
         start = time.perf_counter()
         result = fn(*args, **kwargs)
-        elapsed = time.perf_counter() - start
+        time.perf_counter() - start
 
         if isinstance(result, dict):
             # Collector functions return dict reports
             path = result.get("path", "")
-            n_rows = result.get("rows", result.get("total_matches", 0))
+            result.get("rows", result.get("total_matches", 0))
             league = league or result.get("league", "")
             season = result.get("season", str(result.get("season", "")))
 
@@ -184,7 +184,7 @@ def patch_importer() -> None:
         def _versioned_import(self: Any, league: str, season: str) -> Any:
             start = time.perf_counter()
             report = original_import(self, league, season)
-            elapsed = time.perf_counter() - start
+            time.perf_counter() - start
 
             if report.success and report.rows_imported > 0:
                 # Load the imported file and version it

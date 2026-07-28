@@ -123,7 +123,7 @@ class Aggregator:
 
         result = []
         for key, agg_values in groups.items():
-            out = dict(zip(self.group_by, key))
+            out = dict(zip(self.group_by, key, strict=False))
             for col, agg_fn in self.aggregations.items():
                 values = agg_values[col]
                 if not values:

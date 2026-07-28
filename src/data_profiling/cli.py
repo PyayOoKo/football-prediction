@@ -26,6 +26,7 @@ All commands write output to ``reports/profiling/`` by default.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import logging
 import sys
@@ -34,7 +35,7 @@ from typing import Any
 
 import pandas as pd
 
-from src.data_profiling import DataProfiler, DataDriftDetector
+from src.data_profiling import DataDriftDetector, DataProfiler
 from src.data_profiling.profiler import ProfilingReport
 
 logger = logging.getLogger(__name__)
@@ -61,10 +62,8 @@ def _load_report(path: str) -> ProfilingReport:
     # Populate metadata
     if "timestamp" in data:
         from datetime import datetime
-        try:
+        with contextlib.suppress(ValueError, TypeError, KeyError):
             report.timestamp = datetime.fromisoformat(data["timestamp"])
-        except (ValueError, TypeError, KeyError):
-            pass
     report.n_rows = data.get("n_rows", 0)
     report.n_columns = data.get("n_columns", 0)
     report.duration_seconds = data.get("duration_seconds", 0.0)

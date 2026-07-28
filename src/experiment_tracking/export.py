@@ -24,9 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.experiment_tracking.models import (
-    BestModel,
     Experiment,
-    ModelArtifact,
     Run,
 )
 
@@ -466,13 +464,7 @@ def _build_runs_table_html(runs: list[dict[str, Any]]) -> str:
             val = run.get("metrics", {}).get(m)
             if val is None:
                 continue
-            if best_val is None:
-                best_val = val
-                best_rid = run.get("id", "")
-            elif lower_is_better and val < best_val:
-                best_val = val
-                best_rid = run.get("id", "")
-            elif not lower_is_better and val > best_val:
+            if best_val is None or lower_is_better and val < best_val or not lower_is_better and val > best_val:
                 best_val = val
                 best_rid = run.get("id", "")
 

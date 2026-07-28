@@ -53,16 +53,16 @@ from __future__ import annotations
 import json
 import logging
 import math
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 
 from src.betting.ev import calculate_ev
-from src.betting.staking import StakingStrategy, StakingFactory
 from src.betting.filtering import BetFilter
+from src.betting.staking import StakingFactory, StakingStrategy
 
 logger = logging.getLogger(__name__)
 

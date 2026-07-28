@@ -173,7 +173,7 @@ if predict_clicked:
             if pred_class == 2:
                 outcome_html = f'<span class="outcome-home">🏠 {home_team} Win</span>'
             elif pred_class == 1:
-                outcome_html = f'<span class="outcome-draw">🤝 Draw</span>'
+                outcome_html = '<span class="outcome-draw">🤝 Draw</span>'
             else:
                 outcome_html = f'<span class="outcome-away">✈️ {away_team} Win</span>'
 
@@ -201,7 +201,7 @@ if predict_clicked:
             # Draw
             st.markdown("")
             draw_pct = probs[1] * 100
-            st.markdown(f"🤝 **Draw**")
+            st.markdown("🤝 **Draw**")
             st.progress(draw_pct / 100)
             st.markdown(
                 f'<div style="display:flex;justify-content:space-between">'

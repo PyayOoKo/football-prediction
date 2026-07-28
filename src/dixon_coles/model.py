@@ -15,15 +15,9 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
 from scipy.stats import poisson
 
 from src.dixon_coles.tau import dixon_coles_tau
-from src.dixon_coles.weights import (
-    TOURNAMENT_IMPORTANCE,
-    compute_recency_weight,
-    get_tournament_importance,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -261,7 +255,6 @@ class DixonColesModel:
 
     def scoreline_table(self, home_team: str, away_team: str, max_goals: int | None = None) -> pd.DataFrame:
         """Generate a probability table for all scorelines."""
-        from src.dixon_coles.tau import dixon_coles_tau
         max_g = max_goals or self.max_goals_table
         lam, mu = self.expected_goals(home_team, away_team)
         records: list[dict[str, Any]] = []

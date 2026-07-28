@@ -20,11 +20,8 @@ from sklearn.metrics import log_loss
 
 from src.calibration.calibrators import (
     HybridTailCalibrator,
-    IsotonicRegressionCalibrator,
-    PlattScalingCalibrator,
     TemperatureScalingCalibrator,
 )
-from src.calibration.utils import renormalise_probs
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +97,6 @@ class CalibratedStatsModel:
 
     def predict_matches(self, df: Any) -> Any:
         """Predict with calibrated probabilities."""
-        import pandas as pd  # noqa: PLC0415
 
         preds = self._base_model.predict_matches(df)
 

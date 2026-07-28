@@ -24,9 +24,8 @@ from __future__ import annotations
 import io
 import logging
 import re
-import zipfile
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Any
 from urllib.parse import urljoin
 
 import pandas as pd
@@ -35,7 +34,6 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from config import config as _global_config
-from src.data_collection.cleaners import MATCH_KEY_COLS
 
 logger = logging.getLogger(__name__)
 
@@ -375,10 +373,7 @@ def _generate_season_codes(n: int) -> list[str]:
     today = date.today()
     # A season starts in August; if we're before August, the current season
     # started the previous calendar year.
-    if today.month >= 8:
-        end_year = today.year + 1
-    else:
-        end_year = today.year
+    end_year = today.year + 1 if today.month >= 8 else today.year
 
     seasons: list[str] = []
     for i in range(n):

@@ -8,7 +8,7 @@ Provides:
 from __future__ import annotations
 
 import numpy as np
-from sklearn.metrics import brier_score_loss, log_loss
+from sklearn.metrics import log_loss
 
 
 def calibration_curve(

@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import log_loss
 
-from config import EnsembleConfig, config
+from config import config
 from src.models.protocol import IModel, ensure_predict_proba
 
 logger = logging.getLogger(__name__)
@@ -136,7 +136,7 @@ class WeightedEnsemble:
             raw = type(model._model).__name__
         else:
             raw = type(model).__name__
-        
+
         if raw == "XGBClassifier":
             return "XGBoost"
         if raw == "LGBMClassifier":
@@ -221,12 +221,12 @@ class WeightedEnsemble:
         df_raw: pd.DataFrame | None,
     ) -> np.ndarray:
         """Get (n, 3) probability array from a single model.
-        
+
         All models are wrapped with IModel protocol adapters that provide
         a unified predict_proba(X, df_raw) interface.
         """
         n = len(X) if hasattr(X, "__len__") else 0
-        
+
         try:
             probs = model.predict_proba(X=X, df_raw=df_raw)
             return np.asarray(probs, dtype=np.float64)
@@ -350,7 +350,7 @@ class WeightedEnsemble:
         preds_list: list[np.ndarray] = []
         individual_losses: dict[str, float] = {}
 
-        for model, weight in self._members:
+        for model, _weight in self._members:
             probs = self._predict_single(model, X_val, df_val)
             name = self._model_name(model)
             preds_list.append(probs)
@@ -452,7 +452,7 @@ class WeightedEnsemble:
 
         # Individual predictions
         individual_losses: dict[str, float] = {}
-        for model, weight in self._members:
+        for model, _weight in self._members:
             name = self._model_name(model)
             probs = self._predict_single(model, X_test, df_test)
             try:

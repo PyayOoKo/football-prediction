@@ -28,7 +28,6 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Any
 
 from src.data_versioning import VersionManager
 
@@ -250,7 +249,7 @@ def cmd_compare(args: argparse.Namespace, mgr: VersionManager) -> int:
         print(f"\n  Changed columns: {', '.join(diff.changed_columns)}")
 
     if diff.metadata_changes:
-        print(f"\n  Metadata changes:")
+        print("\n  Metadata changes:")
         for field, (old, new) in diff.metadata_changes.items():
             print(f"    {field:<15}: {old} → {new}")
 
@@ -305,7 +304,7 @@ def cmd_verify(args: argparse.Namespace, mgr: VersionManager) -> int:
     if all_valid:
         print(f"\n  ✅ All {len(results)} version(s) passed integrity check.")
     else:
-        print(f"\n  ❌ Some versions failed integrity check!")
+        print("\n  ❌ Some versions failed integrity check!")
         return 1
     return 0
 

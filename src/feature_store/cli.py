@@ -58,21 +58,15 @@ from src.feature_store import (
     FeatureCategory,
     FeatureComputationEngine,
     FeatureRegistry,
-    FeatureStore,
     FeatureStatus,
+    FeatureStore,
     FeatureValidator,
 )
 from src.feature_store.cache import FeatureCache
 from src.feature_store.lineage import FeatureLineage
-from src.feature_store.store import FeatureStore
 
 # Import models so tables get created
-from src.feature_store.models import (
-    FeatureComputationBatch,
-    FeatureDependency,
-    FeatureValue,
-    FeatureVersion,
-)
+from src.feature_store.store import FeatureStore
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +81,7 @@ def _get_session(db_url: str = "sqlite:///data/feature_store.db") -> Any:
 
     Uses SQLite by default for CLI usage; can override with ``--db-url``.
     """
-    from sqlalchemy.orm import Session, sessionmaker
+    from sqlalchemy.orm import sessionmaker
 
     engine = create_engine(db_url, echo=False)
     Base.metadata.create_all(engine)
@@ -225,11 +219,11 @@ def cmd_show(args: argparse.Namespace) -> None:
     print(f"Updated:       {d['updated_at']}")
 
     if d['computation_params']:
-        print(f"\nComputation Params:")
+        print("\nComputation Params:")
         print(f"  {json.dumps(d['computation_params'], indent=2)}")
 
     if d['validation_rules']:
-        print(f"\nValidation Rules:")
+        print("\nValidation Rules:")
         print(f"  {json.dumps(d['validation_rules'], indent=2)}")
 
     if d['dependencies']:
@@ -725,8 +719,8 @@ def cmd_cache_stats(args: argparse.Namespace) -> None:
 
     stats = feature_cache.cache_stats()
 
-    print(f"Cache Statistics:")
-    print(f"  Namespace:    feature")
+    print("Cache Statistics:")
+    print("  Namespace:    feature")
     print(f"  Hits:         {stats.hits}")
     print(f"  Misses:       {stats.misses}")
     print(f"  Hit Ratio:    {stats.hit_ratio:.1%}")
@@ -793,16 +787,16 @@ def _build_parser() -> argparse.ArgumentParser:
 Examples:
   # Register a new feature
   python -m src.feature_store.cli register elo_rating --type elo --category elo_rating --entity team --status active
-  
+
   # List active features
   python -m src.feature_store.cli list --status active
-  
+
   # Show feature details
   python -m src.feature_store.cli show elo_rating
-  
+
   # Set a feature value
   python -m src.feature_store.cli set elo_rating --team-id 42 --numeric 1500.0
-  
+
   # Show provenance
   python -m src.feature_store.cli provenance elo_rating --team-id 42
         """,

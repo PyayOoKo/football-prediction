@@ -5,9 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import numpy as np
 import pandas as pd
-from sklearn.metrics import log_loss, accuracy_score
 
 from src.ensemble.training import EnsembleModel
 

@@ -78,7 +78,7 @@ from __future__ import annotations
 import json
 import logging
 import math
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -88,8 +88,8 @@ import pandas as pd
 
 from src.backtesting import BacktestMetrics
 from src.betting.ev import calculate_ev
-from src.betting.staking import StakingStrategy, StakingFactory
 from src.betting.filtering import BetFilter
+from src.betting.staking import StakingFactory, StakingStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -614,9 +614,9 @@ class Backtester:
                 self._bets.append(record)
                 bets_this_match += 1
 
-        self._metrics = self._compute_metrics(allowed_markets=list(set(
+        self._metrics = self._compute_metrics(allowed_markets=list({
             b.market for b in self._bets
-        )))
+        }))
 
         logger.info(
             "Backtest complete — %d bets placed (W:%d L:%d P:%d), "

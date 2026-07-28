@@ -16,7 +16,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
 from urllib.parse import urlparse, urlunparse
 
 from dotenv import load_dotenv

@@ -73,8 +73,8 @@ class BacktestingService:
         dict
             Backtest results with metrics, bet records, and output paths.
         """
+
         from src.backtesting import BacktestEngine
-        import joblib
 
         logger.info("Running backtest (bankroll=%.0f, kelly=%.0f%%)", initial_bankroll, kelly_fraction * 100)
 
@@ -83,7 +83,7 @@ class BacktestingService:
 
         # ── 2. Load & prepare data ───────────────────────────
         data_path = resolve_data_path(data_path, config=self._config)
-        
+
         # For backtesting, we need preprocessed data
         if not data_path.exists():
             # Try processed directory
@@ -101,7 +101,7 @@ class BacktestingService:
 
         # ── 3. Prepare features and splits ───────────────────
         from src.feature_engineering import build_features, train_val_test_split
-        
+
         # Add target column if missing
         if "target" not in df.columns:
             result_to_target = {"H": 2, "D": 1, "A": 0}
@@ -127,10 +127,10 @@ class BacktestingService:
         # This requires careful index matching
         odds_cols = ("BbAvA", "BbAvD", "BbAvH")
         team_cols = ("home_team", "away_team")
-        
+
         # Check if we have odds in the original df
         has_odds = all(col in df.columns for col in odds_cols)
-        
+
         if has_odds:
             # Need to align odds with test set - this is tricky
             # For now, pass the full df and let the engine handle it

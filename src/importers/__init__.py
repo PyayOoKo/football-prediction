@@ -24,9 +24,9 @@ Usage
 """
 
 from src.importers.downloader import DownloadManager
+from src.importers.football_data import FootballDataImporter
 from src.importers.parser import CSVParser
 from src.importers.resolver import EntityResolver
-from src.importers.football_data import FootballDataImporter
 
 __all__ = [
     "DownloadManager",

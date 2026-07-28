@@ -36,9 +36,8 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -611,7 +610,6 @@ def save_match_data(
 # ═══════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    import sys
 
     logging.basicConfig(
         level=logging.INFO,

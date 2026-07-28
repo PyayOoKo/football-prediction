@@ -294,7 +294,7 @@ class TeamFormTransformer(FeatureTransformer):
     def _resolve_windows(self) -> tuple[int, ...]:
         windows = self.params.get("windows", _DEFAULT_WINDOWS)
         if isinstance(windows, (list, tuple)):
-            resolved = tuple(sorted(set(int(w) for w in windows if w > 0)))
+            resolved = tuple(sorted({int(w) for w in windows if w > 0}))
             if not resolved:
                 return _DEFAULT_WINDOWS
             return resolved
@@ -393,7 +393,7 @@ class TeamFormTransformer(FeatureTransformer):
         # ── 5. Merge all context features onto original DF ─
         df = self._merge_features(df, context_dfs, team_stats)
 
-        n_new = len([c for c in df.columns if c not in df.columns  # already in original
+        len([c for c in df.columns if c not in df.columns  # already in original
                      if c not in (
                          set(df.columns) - set(self._resolved_outputs))])
         # Simpler: count how many of our output columns are now in df
@@ -554,7 +554,7 @@ class TeamFormTransformer(FeatureTransformer):
         # ── Result-derived indicators ─────────────────────
         result = df["result"].values
         n = len(df)
-        is_home_arr = np.concatenate([np.ones(n), np.zeros(n)]).astype(bool)
+        np.concatenate([np.ones(n), np.zeros(n)]).astype(bool)
 
         # Map result strings to binary indicators
         # Use pandas Series.str for robust NaN handling
@@ -612,8 +612,8 @@ class TeamFormTransformer(FeatureTransformer):
         # ── Derived optional metrics (xga, xgd) ────────────
         # xga is the opponent's xG — swap the source arrays
         if "xg" in team_stats.columns and "xga" in opts_active:
-            home_xg_col_actual = optional.get(f"home_xg")
-            away_xg_col_actual = optional.get(f"away_xg")
+            home_xg_col_actual = optional.get("home_xg")
+            away_xg_col_actual = optional.get("away_xg")
             if home_xg_col_actual is not None and away_xg_col_actual is not None:
                 home_xg_vals = pd.to_numeric(df[home_xg_col_actual], errors="coerce").values
                 away_xg_vals = pd.to_numeric(df[away_xg_col_actual], errors="coerce").values

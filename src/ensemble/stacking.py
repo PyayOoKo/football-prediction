@@ -9,10 +9,8 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
-from sklearn.model_selection import KFold
 
 from config import config
-from src.models.protocol import ensure_predict_proba
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +110,7 @@ class StackingEnsemble:
         if total > 0:
             importances = importances / total
 
-        parts = [f"  {name}: {imp:.3f}" for name, imp in zip(model_names, importances)]
+        parts = [f"  {name}: {imp:.3f}" for name, imp in zip(model_names, importances, strict=False)]
         return "Meta-learner importance:\n" + "\n".join(parts)
 
     # ── Fit ───────────────────────────────────────────────
@@ -142,7 +140,7 @@ class StackingEnsemble:
         dict with keys: ``base_log_losses``, ``meta_log_loss``, ``val_log_loss``
         """
         logger.info("Fitting %s with %d base models", self.name, len(self.model_names))
-        col_means = X_train.mean().fillna(0)
+        X_train.mean().fillna(0)
 
         # 1. Train base models
         self._train_base_models(X_train, y_train)
@@ -155,7 +153,7 @@ class StackingEnsemble:
 
         # 3. Train meta-learner
         logger.info("Training meta-learner on %d meta-features", meta_train.shape[1])  # type: ignore[attr-defined]
-        X_meta = X_train.copy() if hasattr(X_train, "copy") else X_train
+        X_train.copy() if hasattr(X_train, "copy") else X_train
         # Get meta-features
         meta_probs = self._get_meta_features(
             X_train, self.base_models, meta_train,
@@ -273,8 +271,9 @@ class StackingEnsemble:
 
         Uses 3-fold TimeSeriesSplit to avoid target leakage.
         """
-        from src.time_series_cv import create_time_series_folds
         from sklearn.model_selection import cross_val_predict
+
+        from src.time_series_cv import create_time_series_folds
 
         oof: dict[str, np.ndarray] = {}
 

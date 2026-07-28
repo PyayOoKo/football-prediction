@@ -16,12 +16,12 @@ from src.experiment_tracking.integrations.mlflow_adapter import (
     export_to_mlflow,
     import_from_mlflow,
 )
+from src.experiment_tracking.integrations.tensorboard_adapter import (
+    export_to_tensorboard,
+)
 from src.experiment_tracking.integrations.wandb_adapter import (
     export_to_wandb,
     import_from_wandb,
-)
-from src.experiment_tracking.integrations.tensorboard_adapter import (
-    export_to_tensorboard,
 )
 
 __all__ = [

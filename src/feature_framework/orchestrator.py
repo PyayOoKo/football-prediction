@@ -50,11 +50,11 @@ import os
 import time
 import uuid
 from collections import deque
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -64,10 +64,8 @@ from src.feature_framework.config import FeatureConfig, FeatureDefinitionSchema
 from src.feature_framework.exceptions import (
     FeatureComputationError,
     FeatureDependencyCycleError,
-    FeatureNotFoundError,
 )
 from src.feature_framework.models import TransformContext
-from src.feature_framework.parallel import ParallelComputer
 from src.feature_framework.plugins import FeaturePluginRegistry
 
 logger = logging.getLogger(__name__)
@@ -683,8 +681,8 @@ class FeatureOrchestrator:
         )
 
         # Build computer registry
-        from src.feature_store.computers import ComputerRegistry
         from src.feature_store.computation import FeatureComputationEngine
+        from src.feature_store.computers import ComputerRegistry
         from src.feature_store.registry import FeatureRegistry
         from src.feature_store.store import FeatureStore
 
@@ -1037,7 +1035,7 @@ class FeatureOrchestrator:
         dag: dict[str, list[str]],
     ) -> list[str]:
         """Topological sort using Kahn's algorithm."""
-        in_degree: dict[str, int] = {node: 0 for node in dag}
+        in_degree: dict[str, int] = dict.fromkeys(dag, 0)
         successors: dict[str, list[str]] = {node: [] for node in dag}
 
         for node, deps in dag.items():
@@ -1092,10 +1090,7 @@ class FeatureOrchestrator:
         if cached_meta is None:
             return False
 
-        if cached_meta.get("n_rows") != len(df):
-            return False
-
-        return True
+        return cached_meta.get("n_rows") == len(df)
 
     def _cache_key(self, feature_name: str) -> str:
         """Generate a cache key for a feature."""
@@ -1358,10 +1353,7 @@ class _TransformerComputer:
         self.transformer.init(self.context)
 
     def validate(self, result: dict[str, Any]) -> bool:
-        for col in self.transformer.output_columns:
-            if col not in result:
-                return False
-        return True
+        return all(col in result for col in self.transformer.output_columns)
 
     def to_dict(self) -> dict[str, Any]:
         return self.transformer.to_dict()

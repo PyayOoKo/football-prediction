@@ -82,7 +82,7 @@ class UnderstatParser:
         teams: list[TeamXG] = []
         season_str = str(year)
 
-        for team_id, team_info in teams_data.items():
+        for _team_id, team_info in teams_data.items():
             if not isinstance(team_info, dict):
                 continue
 
@@ -286,7 +286,7 @@ class UnderstatParser:
         seen_match_ids: set[int] = set()
         matches: list[MatchXG] = []
 
-        for team_id, match_list in dates_data.items():
+        for _team_id, match_list in dates_data.items():
             if not isinstance(match_list, list):
                 continue
 

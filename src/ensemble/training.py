@@ -11,10 +11,8 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 from sklearn.preprocessing import LabelBinarizer
-from xgboost import XGBClassifier
 
 from config import EnsembleConfig, config
-from src.models.protocol import ensure_predict_proba
 from src.poisson_model import PoissonModel
 
 logger = logging.getLogger(__name__)
@@ -170,7 +168,7 @@ class EnsembleModel:
         names = [n for n in self.cfg.model_names if n != "poisson"]
         col_means = X_train.mean().fillna(0)
         X_train_clean = X_train.fillna(col_means)
-        X_val_clean = X_val.fillna(col_means) if X_val is not None else None
+        X_val.fillna(col_means) if X_val is not None else None
 
         for name in names:
             logger.info("Training sub-model: %s", name)
@@ -439,7 +437,7 @@ class EnsembleModel:
                 continue
             seen.add(norm)
 
-            weighted = self._apply_weights(preds, dict(zip(model_names, norm)))
+            weighted = self._apply_weights(preds, dict(zip(model_names, norm, strict=False)))
             loss = float(log_loss(y_val, weighted))
 
             if loss < best_loss:
@@ -450,7 +448,7 @@ class EnsembleModel:
             "Weight optimisation complete - best val log-loss: %.4f",
             best_loss,
         )
-        return dict(zip(model_names, best_weights))
+        return dict(zip(model_names, best_weights, strict=False))
 
     def _apply_weight_constraints(self) -> None:
         """Enforce min/max weight ranges for each model in the ensemble.

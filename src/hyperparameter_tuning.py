@@ -809,7 +809,7 @@ class HyperTuner:
 
         # ── Best model callout ────────────────────────────
         lines.append(f"  {'★' * 30}  BEST MODEL  {'★' * 30}")
-        lines.append(f"")
+        lines.append("")
         lines.append(f"    {best_row['Model']}")
         lines.append(f"      Validation log-loss: {best_row['Baseline LogLoss']:.4f} → "
                       f"{best_row['Tuned LogLoss']:.4f} "
@@ -817,7 +817,7 @@ class HyperTuner:
         lines.append(f"      Validation accuracy: {best_row['Baseline Accuracy']:.2%} → "
                       f"{best_row['Tuned Accuracy']:.2%} "
                       f"(Δ = {best_row['Accuracy Δ']:+.4f})")
-        lines.append(f"")
+        lines.append("")
         lines.append(f"  {'★' * 76}")
 
         # ── Parameter details ─────────────────────────────
@@ -925,6 +925,7 @@ def _get_params(model: Any) -> dict[str, Any]:
     try:
         return model.get_params()
     except Exception:
+        logger.debug("Failed to get params for %s, returning empty dict", type(model).__name__)
         return {}
 
 
@@ -1034,6 +1035,7 @@ class OptunaTuner:
                         probs = model.predict_proba(X_vl)
                     losses.append(float(log_loss(y_vl, probs)))
                 except Exception:
+                    logger.debug("Optuna trial failed for %s, returning penalty", model_type)
                     return 1.0  # Penalty for failed trial
             return float(np.mean(losses)) if losses else 1.0
 

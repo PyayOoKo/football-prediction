@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.experiment_tracking.models import BestModel, Experiment, Run
+from src.experiment_tracking.models import BestModel, Run
 
 logger = logging.getLogger(__name__)
 
@@ -316,7 +316,7 @@ class ModelRegistry:
         """Get all currently promoted models."""
         stmt = (
             select(BestModel)
-            .where(BestModel.is_promoted == True)
+            .where(BestModel.is_promoted)
             .order_by(BestModel.metric_name)
         )
         return list(self._session.execute(stmt).scalars().all())

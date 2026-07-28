@@ -33,22 +33,18 @@ Usage
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Any, Literal
+from typing import Any
 
-import numpy as np
 import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-
-from src.database.base import Base
-from src.database.session import get_session
-from src import database  # ensure models registered
 
 logger = logging.getLogger(__name__)
 
@@ -140,8 +136,8 @@ def match_to_database(
     list[ClosingOddsRecord]
         Records with ``match_id`` populated where matched.
     """
+
     from src.database.models.match import Match
-    from sqlalchemy import or_
 
     unmatched: list[ClosingOddsRecord] = []
     matched_count = 0
@@ -489,30 +485,24 @@ class FootballDataClosingOddsCollector(BaseClosingOddsCollector):
             for csv_col, rec_field in cols_1x2.items():
                 val = row.get(csv_col)
                 if val is not None and not pd.isna(val):
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         setattr(rec, rec_field, float(val))
-                    except (ValueError, TypeError):
-                        pass
 
             # BTTS odds
             if cols_btts:
                 for csv_col, rec_field in cols_btts.items():
                     val = row.get(csv_col)
                     if val is not None and not pd.isna(val):
-                        try:
+                        with contextlib.suppress(ValueError, TypeError):
                             setattr(rec, rec_field, float(val))
-                        except (ValueError, TypeError):
-                            pass
 
             # Over/Under odds
             if cols_ou:
                 for csv_col, rec_field in cols_ou.items():
                     val = row.get(csv_col)
                     if val is not None and not pd.isna(val):
-                        try:
+                        with contextlib.suppress(ValueError, TypeError):
                             setattr(rec, rec_field, float(val))
-                        except (ValueError, TypeError):
-                            pass
 
             records.append(rec)
 
@@ -527,7 +517,7 @@ class FootballDataClosingOddsCollector(BaseClosingOddsCollector):
 
         Returns the first mapping where all keys exist in the DataFrame columns.
         """
-        cols_lower = set(c.lower() for c in df.columns)
+        cols_lower = {c.lower() for c in df.columns}
         for mapping in column_maps:
             if all(k in cols_lower for k in mapping):
                 return mapping
@@ -696,7 +686,7 @@ class OddsPortalClosingOddsCollector(BaseClosingOddsCollector):
         for match in row_pattern.finditer(html):
             date_text = match.group(1).strip()
             home_text = match.group(2).strip()
-            score_text = match.group(3).strip()
+            match.group(3).strip()
             away_text = match.group(4).strip()
             odds_1 = match.group(5).strip()
             odds_x = match.group(6).strip()
@@ -902,8 +892,8 @@ class BetExplorerClosingOddsCollector(BaseClosingOddsCollector):
         for match in row_pattern.finditer(html):
             date_text = match.group(1).strip()
             home_text = match.group(2).strip()
-            score_h = match.group(3).strip()
-            score_a = match.group(4).strip()
+            match.group(3).strip()
+            match.group(4).strip()
             away_text = match.group(5).strip()
             odds_1 = match.group(6).strip()
             odds_x = match.group(7).strip()

@@ -49,14 +49,12 @@ Usage
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import os
 import pickle
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import pandas as pd
 
@@ -66,7 +64,6 @@ from src.data_collection.sources.fbref.models import (
     COMPETITION_IDS,
     FBrefTable,
     MatchStats,
-    PlayerStats,
     SquadStats,
     StatCategory,
 )
@@ -302,7 +299,7 @@ class FBrefScraper:
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for cat, result in zip(categories, results):
+        for cat, result in zip(categories, results, strict=False):
             if isinstance(result, Exception):
                 logger.warning(
                     "Failed to fetch %s for %s: %s",
@@ -467,7 +464,7 @@ class FBrefScraper:
 
         if categories is None:
             categories = [
-                c.value for c in CATEGORY_URL_MAP.keys()
+                c.value for c in CATEGORY_URL_MAP
                 if c != StatCategory.MATCH_STATS
             ]
 
@@ -597,7 +594,6 @@ class FBrefScraper:
     @staticmethod
     def _competition_id(name: str) -> str:
         """Convert competition name to FBref ID."""
-        from src.data_collection.sources.fbref.models import COMPETITION_IDS
 
         return COMPETITION_IDS.get(name, name)
 

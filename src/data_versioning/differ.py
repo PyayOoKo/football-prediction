@@ -11,7 +11,6 @@ import hashlib
 import logging
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from src.data_versioning.models import ChangeType, VersionDiff
@@ -86,7 +85,7 @@ def compute_delta(
 
     # Build fingerprint → row content hash for common rows
     # (hash of all non-key columns to detect updates)
-    all_columns = [c for c in old_df.columns]
+    all_columns = list(old_df.columns)
     compare_columns = [c for c in all_columns if c not in key_columns]
 
     old_content_hash = old_df.apply(lambda r: _row_hash(r, compare_columns), axis=1)

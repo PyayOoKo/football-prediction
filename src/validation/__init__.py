@@ -37,7 +37,7 @@ Usage
 """
 
 from src.validation.engine import ValidationEngine
-from src.validation.models import ValidationResult, CheckResult, Severity
+from src.validation.models import CheckResult, Severity, ValidationResult
 
 __all__ = [
     "ValidationEngine",

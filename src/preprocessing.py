@@ -25,9 +25,8 @@ Typical usage::
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -393,9 +392,7 @@ def backfill_league(
             home_league = mapping.get(home_raw.lower())
             away_league = mapping.get(away_raw.lower())
 
-            if home_league and away_league and home_league == away_league:
-                df.at[idx, "league"] = home_league
-            elif home_league and not away_league:
+            if home_league and away_league and home_league == away_league or home_league and not away_league:
                 df.at[idx, "league"] = home_league
             elif away_league and not home_league:
                 df.at[idx, "league"] = away_league
@@ -511,7 +508,7 @@ def enrich_from_league_all(
     league_subset = league[merge_cols].copy()
 
     # ── Merge strategy: 2-pass join ─────────────────────────
-    before = len(df)
+    len(df)
 
     # Pass 1: join on (date, league, home_team, away_team)
     # Use a left join so we keep all primary rows
@@ -921,10 +918,7 @@ def _remove_duplicates(
         pass  # league is part of MATCH_KEY_COLS but not always relevant
 
     # To handle near-duplicates: count non-nulls per row, keep row with most data
-    if "league" in df.columns:
-        dedup_subset = existing_key + ["league"]
-    else:
-        dedup_subset = existing_key
+    dedup_subset = existing_key + ["league"] if "league" in df.columns else existing_key
 
     # Rank rows within each duplicate group by completeness, keep the most complete
     completeness = df.notna().sum(axis=1)

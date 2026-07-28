@@ -36,13 +36,13 @@ CLI
 
 from __future__ import annotations
 
+from src.data_quality.coverage import CoverageAnalyzer
+from src.data_quality.dashboard import DataQualityDashboard
 from src.data_quality.models import (
     CoverageMetrics,
     DataQualitySnapshot,
     DataQualitySummary,
 )
-from src.data_quality.coverage import CoverageAnalyzer
-from src.data_quality.dashboard import DataQualityDashboard
 
 __all__ = [
     "CoverageMetrics",

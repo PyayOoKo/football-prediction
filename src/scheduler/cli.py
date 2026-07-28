@@ -172,8 +172,8 @@ def cmd_install(args: argparse.Namespace) -> int:
     """Execute the ``install`` command."""
     if args.platform == "windows":
         from src.scheduler.windows_scheduler import (
-            WindowsScheduleTask,
             WindowsScheduler,
+            WindowsScheduleTask,
         )
 
         scheduler = WindowsScheduler()
@@ -212,7 +212,6 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
     if args.platform == "windows":
         from src.scheduler.windows_scheduler import (
-            WindowsScheduleTask,
             WindowsScheduler,
         )
 
@@ -247,7 +246,7 @@ def cmd_status(args: argparse.Namespace) -> int:
             print(format_report_dict(data))
         else:
             print("  No run reports found.")
-            print(f"  Run a pipeline first: python -m src.scheduler.cli run")
+            print("  Run a pipeline first: python -m src.scheduler.cli run")
     else:
         print(f"  Report directory not found: {report_dir}")
 
@@ -258,7 +257,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         scheduler = WindowsScheduler()
         tasks = scheduler.list_tasks()
         if tasks:
-            print(f"\n  Windows Scheduled Tasks:")
+            print("\n  Windows Scheduled Tasks:")
             for t in tasks:
                 print(f"    {t['name']}: {t['status']} (next: {t['next_run']})")
 
@@ -299,7 +298,7 @@ def format_report_dict(data: dict[str, Any]) -> str:
     ]
 
     if data.get("errors"):
-        lines.append(f"  Errors:")
+        lines.append("  Errors:")
         for e in data["errors"][:5]:
             lines.append(f"    - {e[:120]}")
 

@@ -73,13 +73,13 @@ class HTMLReport(ReportGenerator):
 
     CHART_LAYOUT: dict[str, Any] = {
         "template": "plotly_white",
-        "margin": dict(l=50, r=20, t=40, b=40),
-        "font": dict(family="Segoe UI, Arial, sans-serif", size=12),
+        "margin": {"l": 50, "r": 20, "t": 40, "b": 40},
+        "font": {"family": "Segoe UI, Arial, sans-serif", "size": 12},
         "paper_bgcolor": COLORS["bg"],
         "plot_bgcolor": COLORS["bg"],
         "hovermode": "x unified",
-        "xaxis": dict(gridcolor=COLORS["grid"], zeroline=False),
-        "yaxis": dict(gridcolor=COLORS["grid"], zeroline=False),
+        "xaxis": {"gridcolor": COLORS["grid"], "zeroline": False},
+        "yaxis": {"gridcolor": COLORS["grid"], "zeroline": False},
     }
 
     def generate(self, days: int = 30) -> Path:
@@ -134,8 +134,8 @@ class HTMLReport(ReportGenerator):
                 y=[r["duration_seconds"] for r in etl_sorted],
                 mode="lines+markers",
                 name="Duration (s)",
-                line=dict(color=COLORS["primary"], width=2),
-                marker=dict(size=5),
+                line={"color": COLORS["primary"], "width": 2},
+                marker={"size": 5},
             ))
             fig.add_trace(go.Bar(
                 x=ts,
@@ -146,10 +146,10 @@ class HTMLReport(ReportGenerator):
                 opacity=0.5,
             ))
             layout = {**self.CHART_LAYOUT}
-            layout["yaxis2"] = dict(
-                overlaying="y", side="right",
-                gridcolor=COLORS["grid"], zeroline=False,
-            )
+            layout["yaxis2"] = {
+                "overlaying": "y", "side": "right",
+                "gridcolor": COLORS["grid"], "zeroline": False,
+            }
             layout["title"] = "📊 ETL Pipeline Performance"
             fig.update_layout(**layout)
             figures.append(pio.to_html(fig, include_plotlyjs=False, full_html=False))
@@ -164,14 +164,14 @@ class HTMLReport(ReportGenerator):
                 y=[r["download_speed_mbps"] for r in etl_sorted],
                 mode="lines+markers",
                 name="Download Speed (Mbps)",
-                line=dict(color=COLORS["purple"], width=2),
+                line={"color": COLORS["purple"], "width": 2},
             ))
             fig.add_trace(go.Scatter(
                 x=ts,
                 y=[r["processing_speed_rows_s"] for r in etl_sorted],
                 mode="lines+markers",
                 name="Processing Speed (rows/s)",
-                line=dict(color=COLORS["teal"], width=2),
+                line={"color": COLORS["teal"], "width": 2},
             ))
             layout = {**self.CHART_LAYOUT}
             layout["title"] = "📈 Throughput Speed"
@@ -186,29 +186,29 @@ class HTMLReport(ReportGenerator):
             fig.add_trace(go.Scatter(
                 x=ts, y=[r["cpu_percent"] for r in sys_sorted],
                 mode="lines+markers", name="CPU %",
-                line=dict(color=COLORS["warning"], width=2),
+                line={"color": COLORS["warning"], "width": 2},
             ))
             fig.add_trace(go.Scatter(
                 x=ts, y=[r["memory_percent"] for r in sys_sorted],
                 mode="lines+markers", name="Memory %",
-                line=dict(color=COLORS["danger"], width=2),
+                line={"color": COLORS["danger"], "width": 2},
             ))
             fig.add_trace(go.Scatter(
                 x=ts, y=[r["disk_usage_pct"] for r in sys_sorted],
                 mode="lines+markers", name="Disk %",
-                line=dict(color=COLORS["primary"], width=2),
+                line={"color": COLORS["primary"], "width": 2},
             ))
             fig.add_trace(go.Scatter(
                 x=ts, y=[r["db_size_mb"] for r in sys_sorted],
                 mode="lines+markers", name="DB Size (MB)",
-                line=dict(color=COLORS["purple"], width=2),
+                line={"color": COLORS["purple"], "width": 2},
                 yaxis="y2",
             ))
             layout = {**self.CHART_LAYOUT}
-            layout["yaxis2"] = dict(
-                overlaying="y", side="right",
-                gridcolor=COLORS["grid"], zeroline=False,
-            )
+            layout["yaxis2"] = {
+                "overlaying": "y", "side": "right",
+                "gridcolor": COLORS["grid"], "zeroline": False,
+            }
             layout["title"] = "🖥 System Resources"
             fig.update_layout(**layout)
             figures.append(pio.to_html(fig, include_plotlyjs=False, full_html=False))
@@ -221,12 +221,12 @@ class HTMLReport(ReportGenerator):
             fig.add_trace(go.Scatter(
                 x=ts, y=[r["null_pct"] for r in dq_sorted],
                 mode="lines+markers", name="Null %",
-                line=dict(color=COLORS["danger"], width=2),
+                line={"color": COLORS["danger"], "width": 2},
             ))
             fig.add_trace(go.Scatter(
                 x=ts, y=[r["duplicate_pct"] for r in dq_sorted],
                 mode="lines+markers", name="Duplicate %",
-                line=dict(color=COLORS["warning"], width=2),
+                line={"color": COLORS["warning"], "width": 2},
             ))
             fig.add_trace(go.Bar(
                 x=ts, y=[r["n_rows"] for r in dq_sorted],
@@ -234,10 +234,10 @@ class HTMLReport(ReportGenerator):
                 marker_color=COLORS["primary"], opacity=0.4,
             ))
             layout = {**self.CHART_LAYOUT}
-            layout["yaxis2"] = dict(
-                overlaying="y", side="right",
-                gridcolor=COLORS["grid"], zeroline=False,
-            )
+            layout["yaxis2"] = {
+                "overlaying": "y", "side": "right",
+                "gridcolor": COLORS["grid"], "zeroline": False,
+            }
             layout["title"] = "✅ Data Quality"
             fig.update_layout(**layout)
             figures.append(pio.to_html(fig, include_plotlyjs=False, full_html=False))
@@ -250,20 +250,20 @@ class HTMLReport(ReportGenerator):
             fig.add_trace(go.Scatter(
                 x=ts, y=[r["hit_rate"] for r in cache_sorted],
                 mode="lines+markers", name="Hit Rate",
-                line=dict(color=COLORS["success"], width=2),
+                line={"color": COLORS["success"], "width": 2},
                 fill="tozeroy",
             ))
             fig.add_trace(go.Scatter(
                 x=ts, y=[r["entries"] for r in cache_sorted],
                 mode="lines+markers", name="Entries",
-                line=dict(color=COLORS["teal"], width=2),
+                line={"color": COLORS["teal"], "width": 2},
                 yaxis="y2",
             ))
             layout = {**self.CHART_LAYOUT}
-            layout["yaxis2"] = dict(
-                overlaying="y", side="right",
-                gridcolor=COLORS["grid"], zeroline=False,
-            )
+            layout["yaxis2"] = {
+                "overlaying": "y", "side": "right",
+                "gridcolor": COLORS["grid"], "zeroline": False,
+            }
             layout["title"] = "🎯 Cache Performance"
             fig.update_layout(**layout)
             figures.append(pio.to_html(fig, include_plotlyjs=False, full_html=False))
@@ -492,9 +492,9 @@ class DailySummaryReport(ReportGenerator):
         date_label = label or datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         lines: list[str] = [
-            f"╔══════════════════════════════════════════╗",
+            "╔══════════════════════════════════════════╗",
             f"║  {date_label:<35s} ║",
-            f"╚══════════════════════════════════════════╝",
+            "╚══════════════════════════════════════════╝",
             "",
         ]
 

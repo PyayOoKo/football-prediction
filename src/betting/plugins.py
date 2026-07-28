@@ -13,7 +13,6 @@ registers its module(s) into the ``BettingRegistry``.
 from __future__ import annotations
 
 import importlib
-import inspect
 import logging
 import pkgutil
 from typing import Any

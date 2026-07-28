@@ -11,18 +11,15 @@ from __future__ import annotations
 
 import json
 import logging
-import math
-import os
 import pickle
 import sqlite3
 import threading
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Set, cast
+from typing import Any, Set
 
-from src.cache.models import CacheEntry, CacheStats, CacheKey
+from src.cache.models import CacheEntry, CacheStats
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +189,7 @@ class SQLiteBackend(CacheBackend):
             )
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
-            conn.execute(f"PRAGMA cache_size=-8000")  # 8 MB cache
+            conn.execute("PRAGMA cache_size=-8000")  # 8 MB cache
             conn.row_factory = sqlite3.Row
             self._local.conn = conn
         return self._local.conn  # type: ignore[return-value, unused-ignore, no-any-return]
@@ -552,6 +549,7 @@ class RedisBackend(CacheBackend):
                 self._hits += 1
             return entry
         except Exception:
+            logger.warning("Cache read error for key %s, treating as miss", key, exc_info=True)
             with self._lock:
                 self._misses += 1
             return None
@@ -650,7 +648,7 @@ class RedisBackend(CacheBackend):
         data_list = await self._redis.mget(*full_keys)
 
         results: dict[str, CacheEntry[Any] | None] = {}
-        for key, data in zip(keys, data_list):
+        for key, data in zip(keys, data_list, strict=False):
             if data is None:
                 with self._lock:
                     self._misses += 1
@@ -668,6 +666,7 @@ class RedisBackend(CacheBackend):
                         with self._lock:
                             self._hits += 1
                 except Exception:
+                    logger.warning("Redis get_many deserialization error for key %s", key, exc_info=True)
                     results[key] = None
                     with self._lock:
                         self._misses += 1

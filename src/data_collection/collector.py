@@ -34,7 +34,6 @@ from src.data_collection.cleaners import (
 from src.data_collection.sources import football_data_co_uk as fdc
 from src.data_collection.sources import worldcup as wc_source
 
-
 logger = logging.getLogger(__name__)
 
 

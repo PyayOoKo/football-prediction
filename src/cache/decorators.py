@@ -44,9 +44,7 @@ import inspect
 import logging
 from typing import Any, Callable, Coroutine, ParamSpec, TypeVar
 
-from src.cache.backend import CacheBackend
 from src.cache.manager import CacheManager
-from src.cache.models import CacheKey
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +185,6 @@ class cached:
 
     def _decorate_sync(self, func: Callable[..., T]) -> Callable[..., T]:
         """Wrap a sync function."""
-        import threading
 
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> T:
@@ -365,13 +362,12 @@ def _run_async(coro: Any) -> Any:
     (by using ``asyncio.run``).
     """
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
     except RuntimeError:
         # No running loop — use asyncio.run
         return asyncio.run(coro)
 
     # Loop is running — schedule in a new thread
-    import concurrent.futures
     import threading
 
     result: list[Any] = []

@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -299,6 +298,7 @@ class GAPModel:
                     weight = np.exp(-np.log(2) * days_ago / self.decay_halflife_days)
                     weight = max(weight, 0.01)
                 except Exception:
+                    logger.debug("GAP weight computation failed, using default weight=1.0")
                     weight = 1.0
 
             # Update ratings using STANDARDISED stats

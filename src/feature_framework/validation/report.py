@@ -7,11 +7,10 @@ formatted as text, or converted to a pandas DataFrame for analysis.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import Any
 
 import pandas as pd
-
 
 # ═══════════════════════════════════════════════════════════════
 #  Validation Report
@@ -376,7 +375,7 @@ class FeatureImportancePlaceholder:
             "=" * 50,
             f"  Features:  {self.n_features}",
             f"  Model:     {self.model_type}",
-            f"  Status:    ⏳ Placeholder — no model trained yet",
+            "  Status:    ⏳ Placeholder — no model trained yet",
             f"  {self.message}",
         ]
         if self.feature_names:

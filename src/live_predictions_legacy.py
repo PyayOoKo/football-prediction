@@ -24,9 +24,9 @@ Usage
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
-import os
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -211,7 +211,7 @@ class LivePrediction:
         outcomes = []
         for outcome, ev in zip(
             OUTCOME_NAMES,
-            [self.away_ev, self.draw_ev, self.home_ev],
+            [self.away_ev, self.draw_ev, self.home_ev], strict=False,
         ):
             if ev > 0:
                 outcomes.append(outcome)
@@ -820,10 +820,8 @@ class LivePredictionEngine:
         )
         while len(data_files) > max_files:
             oldest = data_files.pop(0)
-            try:
+            with contextlib.suppress(OSError):
                 oldest.unlink()
-            except OSError:
-                pass
 
     # ── Monitoring ────────────────────────────────────────
 
@@ -1065,8 +1063,8 @@ def task_live_predictions(cfg: Any) -> dict[str, Any]:
 # ═══════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    import sys
     import argparse
+    import sys
 
     logging.basicConfig(
         level=logging.INFO,

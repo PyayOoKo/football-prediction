@@ -186,13 +186,7 @@ class ExperimentComparator:
                 val = data["metrics"].get(metric)
                 if val is None:
                     continue
-                if best_value is None:
-                    best_value = val
-                    best_run_id = run_id
-                elif lower_is_better and val < best_value:
-                    best_value = val
-                    best_run_id = run_id
-                elif not lower_is_better and val > best_value:
+                if best_value is None or lower_is_better and val < best_value or not lower_is_better and val > best_value:
                     best_value = val
                     best_run_id = run_id
 

@@ -47,21 +47,30 @@ Usage
 
 from __future__ import annotations
 
-from src.monitoring.models import (
-    ETLMetric, SystemMetric, DataQualityMetric, CacheMetric,
-    MetricSnapshot, TrendLine,
-)
+from src.monitoring.cli import main as cli_main
 from src.monitoring.collectors import (
-    SystemCollector, ETLMetricCollector,
-    DataQualityCollector, CacheMetricCollector,
+    CacheMetricCollector,
+    DataQualityCollector,
+    ETLMetricCollector,
+    SystemCollector,
+)
+from src.monitoring.models import (
+    CacheMetric,
+    DataQualityMetric,
+    ETLMetric,
+    MetricSnapshot,
+    SystemMetric,
+    TrendLine,
+)
+from src.monitoring.monitor import Monitor
+from src.monitoring.reports import (
+    CSVReport,
+    DailySummaryReport,
+    HTMLReport,
+    JSONReport,
+    ReportGenerator,
 )
 from src.monitoring.store import MonitoringStore
-from src.monitoring.reports import (
-    ReportGenerator,
-    HTMLReport, JSONReport, CSVReport, DailySummaryReport,
-)
-from src.monitoring.cli import main as cli_main
-from src.monitoring.monitor import Monitor
 
 __all__ = [
     "ETLMetric", "SystemMetric", "DataQualityMetric", "CacheMetric",

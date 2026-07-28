@@ -1,12 +1,13 @@
-import time
 import csv
 import os
+import time
+
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 def create_driver():
@@ -123,7 +124,7 @@ def scrape_season(driver, year, max_pages=20):
             EC.presence_of_element_located((By.CSS_SELECTOR, ".eventRow"))
         )
     except TimeoutException:
-        print(f"    No event rows found")
+        print("    No event rows found")
         return []
     accept_cookies(driver)
     time.sleep(2)

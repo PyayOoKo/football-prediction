@@ -19,10 +19,9 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from typing import Any
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
 from src.experiment_tracking.comparator import ExperimentComparator
 from src.experiment_tracking.export import export_csv, export_html, export_json
@@ -136,7 +135,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
                 print(f"    {m}: {v:.4f}{suffix}")
 
     if best:
-        print(f"\n  Best by metric:")
+        print("\n  Best by metric:")
         for metric, info in sorted(best.items()):
             print(f"    {metric}: {info['value']:.4f} ({info['model_type']})")
 
@@ -240,7 +239,10 @@ def _cmd_api(args: argparse.Namespace) -> int:
 def _cmd_mlflow(args: argparse.Namespace) -> int:
     """Export/import experiments to/from MLflow."""
     session = _get_session(args.db_url)
-    from src.experiment_tracking.integrations import export_to_mlflow, import_from_mlflow
+    from src.experiment_tracking.integrations import (
+        export_to_mlflow,
+        import_from_mlflow,
+    )
 
     if args.action == "export":
         count = export_to_mlflow(

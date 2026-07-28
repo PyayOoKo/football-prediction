@@ -38,9 +38,9 @@ from __future__ import annotations
 from src.data_collection.sources.fbref.client import FBrefClient
 from src.data_collection.sources.fbref.models import (
     FBrefTable,
-    SquadStats,
     MatchStats,
     PlayerStats,
+    SquadStats,
     StatCategory,
 )
 from src.data_collection.sources.fbref.parser import FBrefTableParser

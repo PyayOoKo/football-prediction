@@ -10,7 +10,6 @@ from typing import Any
 from sqlalchemy import and_, or_, select
 
 from src.database.models.match import Match
-from src.database.models.team import Team
 from src.database.repositories.base import BaseRepository
 
 

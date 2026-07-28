@@ -32,7 +32,7 @@ from typing import Any, Callable
 
 import pandas as pd
 
-from src.data_profiling import DataProfiler, DataDriftDetector
+from src.data_profiling import DataDriftDetector, DataProfiler
 
 logger = logging.getLogger(__name__)
 

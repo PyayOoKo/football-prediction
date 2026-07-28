@@ -14,8 +14,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from src.betting.models import BetSlip, PortfolioResult
-
 logger = logging.getLogger(__name__)
 
 

@@ -11,12 +11,10 @@ import json
 import logging
 import shutil
 import subprocess
-import subprocess
 import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
 
 from src.scheduler.models import (
     ScheduleConfig,
@@ -116,8 +114,9 @@ def update_database(cfg: ScheduleConfig) -> TaskResult:
 
     try:
         # Step 1: Check DB connection
-        from src.database.session import get_session
         from sqlalchemy import text
+
+        from src.database.session import get_session
 
         with get_session() as session:
             session.execute(text("SELECT 1"))
@@ -174,7 +173,7 @@ def update_database(cfg: ScheduleConfig) -> TaskResult:
         model_path.parent.mkdir(parents=True, exist_ok=True)
         ensemble.save(str(model_path))
 
-        inserted = getattr(store_result, "records_out", 0) or 0
+        getattr(store_result, "records_out", 0) or 0
         weights_str = ", ".join(
             f"{k}={v:.3f}" for k, v in sorted(fit_report.get("weights", {}).items())
         )
@@ -215,10 +214,10 @@ def validate_data(cfg: ScheduleConfig) -> TaskResult:
     start = time.perf_counter()
 
     try:
-        from src.validation import ValidationEngine
-
         # Load the most recent import data
         import pandas as pd
+
+        from src.validation import ValidationEngine
 
         data_path = Path("data/processed/results_clean.csv")
         if not data_path.exists():

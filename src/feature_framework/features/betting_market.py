@@ -572,8 +572,8 @@ class BettingMarketTransformer(FeatureTransformer):
         features["market_confidence"] = fav_probs_max
 
         # ── Team-level favorite/underdog indicators ───────
-        home_team = df["home_team"].values
-        away_team = df["away_team"].values
+        df["home_team"].values
+        df["away_team"].values
 
         h_is_fav = np.full(n, np.nan)
         a_is_fav = np.full(n, np.nan)

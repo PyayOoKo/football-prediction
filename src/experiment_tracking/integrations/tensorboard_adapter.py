@@ -18,11 +18,9 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.experiment_tracking.models import Experiment, Run
 from src.experiment_tracking.tracker import ExperimentTracker
 
 logger = logging.getLogger(__name__)

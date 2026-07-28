@@ -34,27 +34,14 @@ from __future__ import annotations
 
 from src.feature_store.cache import FeatureCache
 from src.feature_store.computation import (
-    FeatureComputationEngine,
     ComputationReport,
-    LazyFeature,
-    LazyFeatureSet,
-)
-from src.feature_store.cache import FeatureCache
-from src.feature_store.computation import (
     FeatureComputationEngine,
-    ComputationReport,
     LazyFeature,
     LazyFeatureSet,
 )
 from src.feature_store.computers import (
-    FeatureComputer,
     ComputerRegistry,
-)
-from src.feature_store.lineage import (
-    FeatureLineage,
-    FeatureLineageEntry,
-    LineageNode,
-    LineageProvenance,
+    FeatureComputer,
 )
 from src.feature_store.lineage import (
     FeatureLineage,
@@ -63,25 +50,25 @@ from src.feature_store.lineage import (
     LineageProvenance,
 )
 from src.feature_store.models import (
+    EntityType,
+    FeatureCategory,
+    FeatureComputationBatch,
     FeatureDefinition,
     FeatureDependency,
+    FeatureStatus,
     FeatureValue,
     FeatureVersion,
-    FeatureComputationBatch,
-    FeatureStatus,
-    FeatureCategory,
-    EntityType,
 )
 from src.feature_store.registry import FeatureRegistry
 from src.feature_store.store import FeatureStore
 from src.feature_store.validation import (
-    FeatureValidator,
-    ValidationRule,
-    RangeRule,
-    NotNullRule,
     CardinalityRule,
     ConsistencyRule,
+    FeatureValidator,
+    NotNullRule,
+    RangeRule,
     ValidationResult,
+    ValidationRule,
 )
 
 __all__ = [

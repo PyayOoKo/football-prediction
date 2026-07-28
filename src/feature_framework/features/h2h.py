@@ -177,7 +177,7 @@ class H2HTransformer(FeatureTransformer):
     def _resolve_windows(self) -> tuple[int, ...]:
         windows = self.params.get("windows", _DEFAULT_WINDOWS)
         if isinstance(windows, (list, tuple)):
-            resolved = tuple(sorted(set(int(w) for w in windows if w > 0)))
+            resolved = tuple(sorted({int(w) for w in windows if w > 0}))
             if not resolved:
                 return _DEFAULT_WINDOWS
             return resolved
@@ -500,7 +500,7 @@ class H2HTransformer(FeatureTransformer):
                 # Map rolling values back to the full group by match_id
                 match_ids = compute_on["match_id"].values
                 for col_name, arr in rolling_cols.items():
-                    val_map = dict(zip(match_ids, arr))
+                    val_map = dict(zip(match_ids, arr, strict=False))
                     grp[col_name] = grp["match_id"].map(val_map)
 
             result_frames.append(grp)

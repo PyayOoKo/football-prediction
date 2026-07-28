@@ -11,18 +11,13 @@ Run with:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pandas as pd
-import streamlit as st
-import plotly.graph_objects as go
 import plotly.express as px
-
-import logging
-
-from config import config as _global_config
-
-from typing import Any
+import plotly.graph_objects as go
+import streamlit as st
 
 logger = logging.getLogger(__name__)
 
@@ -257,9 +252,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    f"<p>📊 Live predictions and analysis for the Premier League, La Liga, Bundesliga, "
-    f"Serie A, and Ligue 1 — powered by the 5-Model Blend "
-    f"(Dixon-Coles + Elo + XGBoost + LightGBM + CatBoost).</p>",
+    "<p>📊 Live predictions and analysis for the Premier League, La Liga, Bundesliga, "
+    "Serie A, and Ligue 1 — powered by the 5-Model Blend "
+    "(Dixon-Coles + Elo + XGBoost + LightGBM + CatBoost).</p>",
     unsafe_allow_html=True,
 )
 st.markdown("</div>", unsafe_allow_html=True)
@@ -280,7 +275,7 @@ with cols[2]:
 with cols[3]:
     st.markdown(f'<div class="metric-tile"><div class="value">{avg_home_win:.0%}</div><div class="label">🏠 Home Win Rate</div></div>', unsafe_allow_html=True)
 with cols[4]:
-    st.markdown(f'<div class="metric-tile"><div class="value">5</div><div class="label">🏆 Leagues</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="metric-tile"><div class="value">5</div><div class="label">🏆 Leagues</div></div>', unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -312,7 +307,7 @@ if not standings.empty:
     # Top 6 highlighted
     top6 = standings.head(6)
     st.markdown("**Top 6 — Champions League spots**")
-    
+
     # Mini table
     for pos, (_, row) in enumerate(top6.iterrows(), 1):
         color = "#4caf50" if pos <= 4 else "#ffc107" if pos <= 6 else "#8b8fa3"
@@ -356,10 +351,10 @@ if not standings.empty:
     fig.update_traces(textposition="outside")
     fig.update_layout(
         height=350,
-        margin=dict(l=0, r=0, t=10, b=0),
+        margin={"l": 0, "r": 0, "t": 10, "b": 0},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#8b8fa3"),
+        font={"color": "#8b8fa3"},
         xaxis_tickangle=-45,
     )
     fig.update_xaxes(gridcolor="#2a2d3a")
@@ -475,7 +470,7 @@ for league in LEAGUE_ORDER:
     })
 
 if league_stats:
-    st.markdown(f'<div class="league-card">', unsafe_allow_html=True)
+    st.markdown('<div class="league-card">', unsafe_allow_html=True)
     st.dataframe(
         pd.DataFrame(league_stats),
         use_container_width=True,
@@ -492,20 +487,20 @@ if league_stats:
             name=league_name,
             x=[league_name],
             y=[ls["Avg Goals"]],
-            marker=dict(color=LEAGUE_COLORS.get(
+            marker={"color": LEAGUE_COLORS.get(
                 LEAGUE_ORDER[[l["League"] for l in league_stats].index(league_name)],
                 "#888"
-            ) if league_name in [l["League"] for l in league_stats] else "#888"),
+            ) if league_name in [l["League"] for l in league_stats] else "#888"},
             text=[f'{ls["Avg Goals"]}'],
             textposition="outside",
         ))
     fig_goals.update_layout(
         height=300,
-        margin=dict(l=0, r=0, t=10, b=0),
+        margin={"l": 0, "r": 0, "t": 10, "b": 0},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#8b8fa3"),
-        yaxis=dict(title="Goals per Match", gridcolor="#2a2d3a"),
+        font={"color": "#8b8fa3"},
+        yaxis={"title": "Goals per Match", "gridcolor": "#2a2d3a"},
         showlegend=False,
     )
     st.plotly_chart(fig_goals, use_container_width=True)
@@ -522,21 +517,21 @@ if league_stats:
             name=league_name,
             x=["Home Win", "Draw", "Away Win"],
             y=[hw_pct, dr_pct, aw_pct],
-            marker=dict(color=LEAGUE_COLORS.get(
+            marker={"color": LEAGUE_COLORS.get(
                 LEAGUE_ORDER[[l["League"] for l in league_stats].index(league_name)],
                 "#888"
-            ) if league_name in [l["League"] for l in league_stats] else "#888"),
+            ) if league_name in [l["League"] for l in league_stats] else "#888"},
             opacity=0.8,
         ))
     fig_results.update_layout(
         barmode="group",
         height=350,
-        margin=dict(l=0, r=0, t=10, b=0),
+        margin={"l": 0, "r": 0, "t": 10, "b": 0},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#8b8fa3"),
-        yaxis=dict(title="Proportion", tickformat=".0%", gridcolor="#2a2d3a"),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+        font={"color": "#8b8fa3"},
+        yaxis={"title": "Proportion", "tickformat": ".0%", "gridcolor": "#2a2d3a"},
+        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "center", "x": 0.5},
     )
     st.plotly_chart(fig_results, use_container_width=True)
 
@@ -551,21 +546,21 @@ if league_stats:
             name=league_name,
             x=["BTTS", "Over 2.5"],
             y=[btts, ou25],
-            marker=dict(color=LEAGUE_COLORS.get(
+            marker={"color": LEAGUE_COLORS.get(
                 LEAGUE_ORDER[[l["League"] for l in league_stats].index(league_name)],
                 "#888"
-            ) if league_name in [l["League"] for l in league_stats] else "#888"),
+            ) if league_name in [l["League"] for l in league_stats] else "#888"},
             opacity=0.8,
         ))
     fig_binary.update_layout(
         barmode="group",
         height=300,
-        margin=dict(l=0, r=0, t=10, b=0),
+        margin={"l": 0, "r": 0, "t": 10, "b": 0},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#8b8fa3"),
-        yaxis=dict(title="Rate", tickformat=".0%", gridcolor="#2a2d3a"),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+        font={"color": "#8b8fa3"},
+        yaxis={"title": "Rate", "tickformat": ".0%", "gridcolor": "#2a2d3a"},
+        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "center", "x": 0.5},
     )
     st.plotly_chart(fig_binary, use_container_width=True)
 
@@ -651,7 +646,7 @@ st.markdown(
 
 
 # ── Sidebar ─────────────────────────────────────────────
-st.sidebar.markdown(f"## 🏆 Top 5 European Leagues")
+st.sidebar.markdown("## 🏆 Top 5 European Leagues")
 st.sidebar.markdown("---")
 
 st.sidebar.markdown("### Season Overview")

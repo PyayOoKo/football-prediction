@@ -47,9 +47,8 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from sqlalchemy import text as sa_text
 
@@ -58,9 +57,9 @@ from src.database.session import get_session
 from src.etl.store import DatabaseStore
 from src.importers.downloader import (
     LEAGUE_MAP,
-    _guess_season_range,
-    _current_season_code,
     DownloadManager,
+    _current_season_code,
+    _guess_season_range,
 )
 from src.importers.parser import CSVParser
 from src.importers.resolver import EntityResolver
@@ -540,10 +539,7 @@ class FootballDataImporter:
     @staticmethod
     def _season_name(season_code: str) -> str:
         """Convert 4-digit code to human-readable name, or pass through."""
-        if season_code == "current":
-            code = _current_season_code()
-        else:
-            code = season_code
+        code = _current_season_code() if season_code == "current" else season_code
         try:
             start = int(code[:2])
             end = int(code[2:])

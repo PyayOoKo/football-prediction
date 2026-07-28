@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
@@ -316,7 +316,7 @@ def _scrape_transfer_history(
         total_fees = sum(r["fee_meur"] for r in rows if r.get("fee_meur") and r["fee_meur"] > 0)
 
         # Map to window (use season modulo to match arrivals/departures)
-        window_label = "Summer" if "summer" in heading_text or not "winter" in heading_text else "Winter"
+        window_label = "Summer" if "summer" in heading_text or "winter" not in heading_text else "Winter"
 
         if is_arrival:
             windows.append(TransferWindow(

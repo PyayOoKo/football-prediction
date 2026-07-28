@@ -895,7 +895,7 @@ class EloEngine:
             return None
 
         ratings_arr = np.array(list(self._ratings.values()))
-        teams = list(self._ratings.keys())
+        list(self._ratings.keys())
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
 
@@ -925,7 +925,7 @@ class EloEngine:
         ax2.set_xlabel("Elo Rating")
         ax2.invert_yaxis()
 
-        for bar, val in zip(bars, ratings_vals):
+        for bar, val in zip(bars, ratings_vals, strict=False):
             ax2.text(val + 5, bar.get_y() + bar.get_height() / 2,
                      f"{val:.0f}", va="center", fontsize=8)
 

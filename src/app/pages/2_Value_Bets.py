@@ -9,13 +9,11 @@ import pandas as pd
 import streamlit as st
 
 from src.app.utils import (
-    build_feature_matrix,
-    get_available_odds_cols,
     get_available_teams,
     load_clean_data,
     load_latest_value_bets,
-    load_value_bets_meta,
     load_model,
+    load_value_bets_meta,
 )
 from src.feature_engineering import build_features
 from src.value_betting import compute_value_bets, get_calculation_guide

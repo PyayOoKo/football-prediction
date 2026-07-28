@@ -16,12 +16,11 @@ Usage
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from src.etl.extract import BaseExtractor, RetryWithBackoff
+from src.etl.extract import BaseExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -187,11 +186,10 @@ class StatsBombExtractor(BaseExtractor):
     def _extract(self, **kwargs: Any) -> list[dict[str, Any]]:
         """Extract StatsBomb data for the given competition/match."""
         from src.data_collection.sources.statsbomb_open import (
-            list_matches,
             get_match_events,
-            get_match_lineups,
-            shots_to_dataframe,
+            list_matches,
             matches_to_dataframe,
+            shots_to_dataframe,
         )
 
         competition_name = kwargs.get("competition_name", "")
@@ -279,7 +277,6 @@ def get_extractor(name: str, **kwargs: Any) -> BaseExtractor:
 # ═══════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    import sys
 
     logging.basicConfig(
         level=logging.INFO,

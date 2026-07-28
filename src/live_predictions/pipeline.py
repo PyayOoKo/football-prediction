@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-import pandas as pd
-
-from src.live_predictions.engine import LivePredictionEngine, DEFAULT_SPORT_KEY
+from src.live_predictions.engine import DEFAULT_SPORT_KEY, LivePredictionEngine
 from src.scheduler.models import TaskResult, TaskStatus
 
 __all__ = ["live_predictions", "live_value_bets", "task_live_predictions"]

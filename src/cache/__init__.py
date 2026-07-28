@@ -39,10 +39,10 @@ See Also
 
 from __future__ import annotations
 
-from src.cache.backend import CacheBackend, SQLiteBackend, RedisBackend
+from src.cache.backend import CacheBackend, RedisBackend, SQLiteBackend
 from src.cache.decorators import cached, invalidate, set_cache
 from src.cache.manager import CacheManager
-from src.cache.models import CacheEntry, CacheStats, CacheKey
+from src.cache.models import CacheEntry, CacheKey, CacheStats
 
 __all__ = [
     "CacheBackend",

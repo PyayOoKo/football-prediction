@@ -12,20 +12,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
-from decimal import Decimal
 from typing import Any
 
 from src.betting.engine import BettingEngine
 from src.betting.factory import EngineFactory
 from src.betting.models import (
-    Bankroll,
     BetFilterConfig,
     BetSlip,
     BettingSessionReport,
     MarketFilterConfig,
-    Outcome,
-    PortfolioResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -121,7 +116,6 @@ class BettingAPI:
         if isinstance(request, dict):
             request = EvaluateBetsRequest(**request)
 
-        errors: list[str] = []
 
         # Create a fresh engine for this request
         engine = EngineFactory.create(

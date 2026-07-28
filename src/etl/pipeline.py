@@ -40,14 +40,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from src.etl.extract import BaseExtractor
-from src.etl.validate import DataValidator
 from src.etl.clean import DataCleaner
-from src.etl.normalize import DataNormalizer
-from src.etl.transform import DataTransformer
-from src.etl.store import DataStore
-from src.etl.tracker import JobTracker
-from src.etl.progress import ProgressReporter
+from src.etl.extract import BaseExtractor
 from src.etl.models import (
     ETLConfig,
     ETLResult,
@@ -55,6 +49,12 @@ from src.etl.models import (
     StageResult,
     StageStatus,
 )
+from src.etl.normalize import DataNormalizer
+from src.etl.progress import ProgressReporter
+from src.etl.store import DataStore
+from src.etl.tracker import JobTracker
+from src.etl.transform import DataTransformer
+from src.etl.validate import DataValidator
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +144,7 @@ class ETLPipeline:
             source=self.source,
             started_at=datetime.now(timezone.utc),
         )
-        start_total = datetime.now(timezone.utc)
+        datetime.now(timezone.utc)
 
         # Checkpoint: try to resume
         resume_from: PipelineStage | None = None

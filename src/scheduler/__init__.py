@@ -55,7 +55,7 @@ from __future__ import annotations
 from src.scheduler.cli import main as cli_main
 from src.scheduler.engine import TaskEngine
 from src.scheduler.models import ScheduleConfig, Task, TaskResult, TaskStatus
-from src.scheduler.notifications import Notifier, NotificationConfig
+from src.scheduler.notifications import NotificationConfig, Notifier
 from src.scheduler.tasks import (
     backup_database,
     clean_data,

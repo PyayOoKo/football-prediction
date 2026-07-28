@@ -64,7 +64,6 @@ def fit_dixon_coles_model(
     DixonColesModel
         Self (fitted).
     """
-    from src.dixon_coles.weights import compute_recency_weight, get_tournament_importance
 
     df = df.copy()
     n = len(df)
@@ -277,7 +276,7 @@ def fit_dixon_coles_predict(
     DixonColesResult
     """
     from src.dixon_coles.model import DixonColesModel
-    
+
     model = DixonColesModel(
         decay_halflife_days=decay_halflife_days,
         use_importance=use_importance,

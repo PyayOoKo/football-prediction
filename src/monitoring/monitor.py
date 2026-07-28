@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import logging
 import threading
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -43,9 +42,7 @@ from src.monitoring.collectors import (
 )
 from src.monitoring.models import (
     CacheMetric,
-    DataQualityMetric,
     ETLMetric,
-    SystemMetric,
 )
 from src.monitoring.reports import (
     CSVReport,

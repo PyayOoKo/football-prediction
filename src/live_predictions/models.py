@@ -124,6 +124,6 @@ class LivePrediction:
     @property
     def value_outcomes(self) -> list[str]:
         return [
-            outcome for outcome, ev in zip(OUTCOME_NAMES, [self.away_ev, self.draw_ev, self.home_ev])
+            outcome for outcome, ev in zip(OUTCOME_NAMES, [self.away_ev, self.draw_ev, self.home_ev], strict=False)
             if ev > 0
         ]

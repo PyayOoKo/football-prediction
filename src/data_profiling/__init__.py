@@ -40,9 +40,9 @@ CLI
 
 from __future__ import annotations
 
-from src.data_profiling.profiler import DataProfiler, ProfilingReport, ProfileSection
+from src.data_profiling.drift import DataDriftDetector, DriftMetric, DriftReport
+from src.data_profiling.profiler import DataProfiler, ProfileSection, ProfilingReport
 from src.data_profiling.reports import ReportGenerator
-from src.data_profiling.drift import DataDriftDetector, DriftReport, DriftMetric
 
 __all__ = [
     "DataProfiler",

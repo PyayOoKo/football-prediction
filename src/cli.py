@@ -20,9 +20,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
-from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -225,23 +223,23 @@ def _handle_train(args: argparse.Namespace) -> int:
     logger.info("Training model...")
     try:
         from src.services import TrainingService
-        
+
         service = TrainingService()
-        
+
         if args.model_type:
             # Override config model type for this training run
             service._config.train.model_type = args.model_type
 
         if args.tune:
             logger.info("Running hyperparameter tuning before training...")
-        
+
         report = service.train(
             data_path=None,
             model_type=args.model_type,
             tune_hyperparams=args.tune,
         )
-        
-        print(f"\n  Training completed successfully!")
+
+        print("\n  Training completed successfully!")
         print(f"  Model saved to: {report.get('model_path', 'N/A')}")
         if 'metrics' in report:
             metrics = report['metrics']
@@ -249,7 +247,7 @@ def _handle_train(args: argparse.Namespace) -> int:
                 print(f"  Accuracy: {metrics['accuracy']:.4f}")
             if 'log_loss' in metrics:
                 print(f"  Log loss: {metrics['log_loss']:.4f}")
-        
+
         return 0
 
     except FileNotFoundError as exc:
@@ -273,16 +271,16 @@ def _handle_predict(args: argparse.Namespace) -> int:
     logger.info("Generating predictions...")
     try:
         from src.services import PredictionService
-        
+
         service = PredictionService()
-        
+
         predictions = service.predict_upcoming(
             data_path=args.fixtures,
             model_name=args.model,
             limit=10,
             output_path=args.output,
         )
-        
+
         print(f"\n  Generated {len(predictions)} predictions")
         if predictions:
             print("\n  Top predictions:")
@@ -293,12 +291,12 @@ def _handle_predict(args: argparse.Namespace) -> int:
                       f"Away: {pred['away_win_prob']:.1%}")
                 print(f"      Prediction: {pred['prediction']} "
                       f"(confidence: {pred['confidence']:.1%})")
-        
+
         if args.output:
             print(f"\n  Results saved to: {args.output}")
-        
+
         return 0
-        
+
     except FileNotFoundError as exc:
         logger.error("Prediction failed: %s", exc)
         print(f"  Error: {exc}")
@@ -316,25 +314,25 @@ def _handle_collect(args: argparse.Namespace) -> int:
     logger.info("Collecting data: %s", source)
     try:
         from src.services import DataCollectionService
-        
+
         service = DataCollectionService()
-        
+
         if source == "all":
             sources = None  # Collect all sources
         else:
             sources = [source]
-        
+
         results = service.collect_all(sources=sources)
-        
-        print(f"\n  Data collection completed:")
+
+        print("\n  Data collection completed:")
         for src, df in results.items():
             if len(df) > 0:
                 print(f"    {src}: {len(df)} records")
             else:
                 print(f"    {src}: No data collected")
-        
+
         return 0
-        
+
     except Exception as exc:
         logger.error("Data collection failed: %s", exc)
         print(f"  Error: {exc}")
@@ -346,19 +344,19 @@ def _handle_backtest(args: argparse.Namespace) -> int:
     logger.info("Running backtest...")
     try:
         from src.services import BacktestingService
-        
+
         service = BacktestingService()
-        
-        report = service.run_backtest(
+
+        service.run_backtest(
             model_name=args.model,
             data_path=None,
             initial_bankroll=1000.0,
             kelly_fraction=0.25,
             min_ev=0.0,
         )
-        
+
         return 0
-        
+
     except FileNotFoundError as exc:
         logger.error("Backtest failed: %s", exc)
         print(f"  Error: {exc}")
@@ -384,8 +382,9 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
         model = None
         model_name = "unknown"
 
-        import joblib
         from pathlib import Path
+
+        import joblib
 
         if model_path:
             p = Path(model_path)
@@ -453,8 +452,11 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
                 preds = model.predict(X_test) if has_predict else probs.argmax(axis=1)
 
                 from sklearn.metrics import (
-                    accuracy_score, log_loss, brier_score_loss,
-                    classification_report, confusion_matrix,
+                    accuracy_score,
+                    brier_score_loss,
+                    classification_report,
+                    confusion_matrix,
+                    log_loss,
                 )
 
                 metrics["accuracy"] = float(accuracy_score(y_test, preds))
@@ -500,7 +502,7 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
 
         if "classification_report" in metrics:
             cls_report: dict[str, Any] = metrics["classification_report"]
-            print(f"\n  Per-class performance:")
+            print("\n  Per-class performance:")
             for cls, cls_metrics in cls_report.items():
                 if isinstance(cls_metrics, dict) and "precision" in cls_metrics:
                     print(f"    Class {cls}: prec={cls_metrics['precision']:.3f} "
@@ -510,7 +512,7 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
 
         if "confusion_matrix" in metrics:
             cm_data: list[list[int]] = metrics["confusion_matrix"]
-            print(f"\n  Confusion matrix:")
+            print("\n  Confusion matrix:")
             for row in cm_data:
                 print(f"    {row}")
 
@@ -646,26 +648,31 @@ def _handle_run_all(args: argparse.Namespace) -> int:
     """Handle the ``run-all`` subcommand."""
     logger.info("Running complete pipeline...")
     try:
-        from src.services import DataCollectionService, TrainingService, PredictionService, ValueBettingService
-        
+        from src.services import (
+            DataCollectionService,
+            PredictionService,
+            TrainingService,
+            ValueBettingService,
+        )
+
         # Step 1: Collect data (if not skipped)
         if not args.skip_collect:
             print("\n  [Step 1/4] Collecting data...")
             collect_service = DataCollectionService()
             collect_service.collect_all()
-        
+
         # Step 2: Train model (unless predict-only)
         if not args.predict_only:
             print("\n  [Step 2/4] Training model...")
             train_service = TrainingService()
             train_service.train(model_type=args.model if args.model else None)
-        
+
         # Step 3: Generate predictions
         print("\n  [Step 3/4] Generating predictions...")
         pred_service = PredictionService()
         predictions = pred_service.predict_upcoming(limit=10)
         print(f"    Generated {len(predictions)} predictions")
-        
+
         # Step 4: Value bets (if not skipped and not predict-only)
         if not args.skip_value_bets and not args.predict_only:
             print("\n  [Step 4/4] Finding value bets...")
@@ -673,7 +680,7 @@ def _handle_run_all(args: argparse.Namespace) -> int:
             vb_results = vb_service.find_value_bets(predictions)
             n_positive = int(vb_results["positive_ev"].sum()) if "positive_ev" in vb_results.columns else 0
             print(f"    Found {n_positive} value bets")
-        
+
         # Launch dashboard (if not skipped)
         if not args.skip_dashboard and not args.predict_only:
             print("\n  Launching dashboard...")
@@ -685,10 +692,10 @@ def _handle_run_all(args: argparse.Namespace) -> int:
                 "--browser.serverAddress", "localhost",
                 "--server.headless", "true",
             ])
-        
+
         print("\n  ✓ Pipeline completed successfully!")
         return 0
-        
+
     except Exception as exc:
         logger.error("Run-all failed: %s", exc)
         print(f"  Error: {exc}")
@@ -698,7 +705,7 @@ def _handle_run_all(args: argparse.Namespace) -> int:
 def _handle_pipeline(args: argparse.Namespace) -> int:
     """Handle the ``pipeline`` subcommand."""
     logger.info("Running prediction pipeline...")
-    
+
     # Build command args for compatibility
     cmd_args = []
     if args.skip_download:
@@ -709,8 +716,8 @@ def _handle_pipeline(args: argparse.Namespace) -> int:
         cmd_args.append("--lightweight")
 
     try:
-        from src.services import TrainingService, PredictionService
-        
+        from src.services import PredictionService, TrainingService
+
         # If lightweight or skip both, just predict
         if args.lightweight or (args.skip_download and args.skip_train):
             print("\n  Running prediction only (lightweight mode)...")
@@ -718,21 +725,21 @@ def _handle_pipeline(args: argparse.Namespace) -> int:
             predictions = pred_service.predict_upcoming(limit=10)
             print(f"    Generated {len(predictions)} predictions")
             return 0
-        
+
         # Full pipeline
         if not args.skip_train:
             print("\n  [Step 1/2] Training model...")
             train_service = TrainingService()
             train_service.train()
-        
+
         print("\n  [Step 2/2] Generating predictions...")
         pred_service = PredictionService()
         predictions = pred_service.predict_upcoming(limit=10)
         print(f"    Generated {len(predictions)} predictions")
-        
+
         print("\n  ✓ Pipeline completed successfully!")
         return 0
-        
+
     except Exception as exc:
         logger.error("Pipeline failed: %s", exc)
         print(f"  Error: {exc}")

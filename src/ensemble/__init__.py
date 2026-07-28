@@ -11,10 +11,10 @@ training : EnsembleModel class for full training pipeline
 utils : Utility functions for ensemble operations
 """
 
-from src.ensemble.weighted import WeightedEnsemble
 from src.ensemble.stacking import StackingEnsemble
 from src.ensemble.training import EnsembleModel
 from src.ensemble.utils import train_ensemble
+from src.ensemble.weighted import WeightedEnsemble
 
 __all__ = [
     "WeightedEnsemble",

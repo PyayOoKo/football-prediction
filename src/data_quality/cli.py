@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import argparse
 import http.server
-import json
 import logging
 import sys
 import webbrowser
@@ -133,7 +132,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
         df_previous=df_previous,
     )
 
-    print(f"  🔍 Building data quality snapshot ...")
+    print("  🔍 Building data quality snapshot ...")
     results = dq.generate(days=args.days)
 
     for fmt, path_str in results.items():
@@ -186,23 +185,23 @@ def cmd_serve(args: argparse.Namespace) -> int:
     dashboard_dir = Path(args.dir)
     if not dashboard_dir.exists():
         print(f"  ✗ Dashboard directory not found: {dashboard_dir}")
-        print(f"    Run 'python -m src.data_quality.cli generate' first.")
+        print("    Run 'python -m src.data_quality.cli generate' first.")
         return 1
 
     html_path = dashboard_dir / "data_quality.html"
     if not html_path.exists():
         print(f"  ✗ Dashboard file not found: {html_path}")
-        print(f"    Run 'python -m src.data_quality.cli generate' first.")
+        print("    Run 'python -m src.data_quality.cli generate' first.")
         return 1
 
     port = args.port
     host = "127.0.0.1"
     url = f"http://{host}:{port}/data_quality.html"
 
-    print(f"  🌐 Serving Data Quality Dashboard")
+    print("  🌐 Serving Data Quality Dashboard")
     print(f"     URL:  {url}")
     print(f"     Dir:  {dashboard_dir.resolve()}")
-    print(f"     Press Ctrl+C to stop")
+    print("     Press Ctrl+C to stop")
 
     if args.open:
         webbrowser.open(url)
@@ -224,7 +223,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     store = MonitoringStore()
     snap = store.get_latest()
 
-    print(f"\n  📊 Latest Data Quality Snapshot")
+    print("\n  📊 Latest Data Quality Snapshot")
     print(f"  {'─' * 48}")
 
     if snap.etl:

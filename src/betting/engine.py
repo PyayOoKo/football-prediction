@@ -25,7 +25,6 @@ from src.betting.models import (
     BetFilterConfig,
     BetOutcome,
     BetSlip,
-    BetStatus,
     BettingSessionReport,
     MarketFilterConfig,
     MatchOdds,

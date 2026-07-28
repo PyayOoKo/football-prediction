@@ -14,9 +14,9 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 
-from src.prediction_engine.models import PredictionResult, BetRecommendation
-from src.prediction_engine.loader import ModelLoader
 from src.prediction_engine.features import FeatureBuilder
+from src.prediction_engine.loader import ModelLoader
+from src.prediction_engine.models import BetRecommendation, PredictionResult
 
 logger = logging.getLogger(__name__)
 
@@ -84,12 +84,15 @@ class PredictionEngine:
             return False
 
         try:
-            from src.models.three_model_blend import (
-                ConditionalRates, ThreeModelBlend, DEFAULT_WEIGHTS,
-            )
+            import joblib
+
             from src.dixon_coles import DixonColesModel
             from src.elo import EloSystem
-            import joblib
+            from src.models.three_model_blend import (
+                DEFAULT_WEIGHTS,
+                ConditionalRates,
+                ThreeModelBlend,
+            )
 
             historical = self._feature_builder.load_historical_data()
             if historical is None or historical.empty:
@@ -421,11 +424,7 @@ class PredictionEngine:
                 probs = self.model.predict_proba(X)
                 return self._align_proba_order(probs)
 
-            elif mtype == "ensemble_model":
-                probs = self.model.predict_proba(X)
-                return np.asarray(probs, dtype=np.float64)
-
-            elif mtype == "weighted_ensemble":
+            elif mtype == "ensemble_model" or mtype == "weighted_ensemble":
                 probs = self.model.predict_proba(X)
                 return np.asarray(probs, dtype=np.float64)
 
@@ -501,10 +500,7 @@ class PredictionEngine:
         if arr.shape[0] != 3:
             arr = np.array([0.33, 0.34, 0.33])
         total = arr.sum()
-        if total <= 0:
-            arr = np.array([0.33, 0.34, 0.33])
-        else:
-            arr = arr / total
+        arr = np.array([0.33, 0.34, 0.33]) if total <= 0 else arr / total
 
         return {
             "away_win": float(arr[0]),

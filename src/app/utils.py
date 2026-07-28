@@ -8,10 +8,8 @@ Handles model loading, data loading, feature building, and prediction
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -202,11 +200,16 @@ def run_model_diagnostic(
     - ``prediction_dist`` / ``actual_dist``
     - ``class_labels`` (list of 3 strings)
     """
-    from src.feature_engineering import build_features, train_val_test_split
     from sklearn.metrics import (
-        accuracy_score, precision_score, recall_score, f1_score,
-        log_loss, confusion_matrix,
+        accuracy_score,
+        confusion_matrix,
+        f1_score,
+        log_loss,
+        precision_score,
+        recall_score,
     )
+
+    from src.feature_engineering import build_features, train_val_test_split
 
     try:
         X, y = build_features(df, is_training=True)

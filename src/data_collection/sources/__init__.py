@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
-from src.data_collection.sources import worldcup, transfermarkt
-from src.data_collection.sources import transfers, weather_api, referee_stats, statsbomb_open
+from src.data_collection.sources import (
+    referee_stats,
+    statsbomb_open,
+    transfermarkt,
+    transfers,
+    weather_api,
+    worldcup,
+)
 
 __all__ = [
     "worldcup",

@@ -64,13 +64,12 @@ from typing import Any
 
 import pandas as pd
 
-from src.feature_store.computers import ComputerRegistry, FeatureComputer
+from src.feature_store.computers import ComputerRegistry
 from src.feature_store.models import (
     FeatureCategory,
     FeatureComputationBatch,
     FeatureDefinition,
     FeatureStatus,
-    FeatureValue,
 )
 from src.feature_store.registry import FeatureRegistry
 from src.feature_store.store import FeatureStore
@@ -540,7 +539,7 @@ class FeatureComputationEngine:
             # Compute for each entity
             for eid in stale_ids:
                 try:
-                    kwargs = {entity_type + "_id": eid}
+                    {entity_type + "_id": eid}
                     context: dict[str, Any] = {"match_id": eid} if entity_type == "match" else {"team_id": eid}
 
                     result = computer.compute_one(eid, **context)
@@ -600,7 +599,7 @@ class FeatureComputationEngine:
         batch_id: str | None = None,
     ) -> None:
         """Validate a computation result and persist to the store."""
-        for feature_name, value in result.items():
+        for _feature_name, value in result.items():
             kwargs: dict[str, Any] = {
                 "numeric_value": value if isinstance(value, (int, float)) else None,
                 "json_value": value if isinstance(value, dict) else None,
@@ -667,9 +666,8 @@ class FeatureComputationEngine:
         """
         import hashlib
         import time as _time
-        from pathlib import Path
-
         from datetime import datetime, timezone
+        from pathlib import Path
 
         from src.feature_engineering import build_features
 

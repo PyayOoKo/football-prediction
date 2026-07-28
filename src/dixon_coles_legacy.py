@@ -8,10 +8,10 @@ This model extends the standard independent Poisson model with three key innovat
 
 1. **Tau (ρ) correction** — corrects the systematic underestimation of low-scoring
    results (0-0, 1-0, 0-1, 1-1) by introducing a dependence parameter ρ.
-   
+
 2. **Recency weighting** — older matches contribute less to the likelihood via
    exponential time decay, so recent form matters more than results from years ago.
-   
+
 3. **Tournament importance weighting** — World Cup matches matter more than
    friendlies; each competition type gets a weight multiplier.
 
@@ -53,7 +53,7 @@ Core Equations
 **Recency weight:**
 
     w_recency(t) = exp(-ln(2) × days_ago / halflife_days)
-    
+
     Default halflife = 1460 days (~4 years): a match 4 years ago has 50% weight.
 
 **Tournament importance weights:**
@@ -71,25 +71,25 @@ Usage
 ::
 
     from src.dixon_coles import DixonColesModel
-    
+
     # Fit the model to historical match data
     model = DixonColesModel(decay_halflife_days=1460)
     model.fit(df)
-    
+
     # Predict a single match
     result = model.predict("Brazil", "Argentina")
     print(result.home_win_prob)   # 0.42
     print(result.draw_prob)       # 0.28
     print(result.away_win_prob)   # 0.30
-    
+
     # Add Dixon-Coles features to a DataFrame (leakage-free)
     df = model.add_features(df)
 """
 
 from __future__ import annotations
 
-import warnings
 import logging
+import warnings
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any

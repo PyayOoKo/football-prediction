@@ -22,7 +22,6 @@ Usage
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -117,10 +116,7 @@ class RecentFormAdjuster:
         all_teams = set(df["home_team"].unique()) | set(df["away_team"].unique())
 
         # Sort by date if not already
-        if "date" in df.columns:
-            df_sorted = df.sort_values("date")
-        else:
-            df_sorted = df
+        df_sorted = df.sort_values("date") if "date" in df.columns else df
 
         for team in all_teams:
             # Get all matches involving this team, most recent first
@@ -145,7 +141,7 @@ class RecentFormAdjuster:
                     total_points += 1.0
 
             max_possible = len(team_matches) * 3.0
-            expected = len(team_matches) * 1.5  # league-average expectation
+            len(team_matches) * 1.5  # league-average expectation
 
             # Form score: -1 to +1
             form_score = (total_points / max_possible) * 2.0 - 1.0

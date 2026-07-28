@@ -24,20 +24,14 @@ import pandas as pd
 
 from src.feature_framework.base import FeaturePipelineABC, FeatureTransformer
 from src.feature_framework.config import FeatureConfig, FeatureDefinitionSchema
-from src.feature_framework.validation import FeatureValidator
 from src.feature_framework.exceptions import (
     FeatureComputationError,
     FeatureDependencyCycleError,
-    FeatureNotFoundError,
-    FeatureValidationError,
 )
 from src.feature_framework.models import (
-    ComputationResult,
-    FeatureSet,
     PipelineReport,
     TransformContext,
 )
-from src.feature_framework.parallel import ParallelComputer
 from src.feature_framework.plugins import FeaturePluginRegistry
 
 logger = logging.getLogger(__name__)
@@ -357,7 +351,7 @@ class FeaturePipeline(FeaturePipelineABC):
             except ImportError:
                 pass
 
-        for idx, name in enumerate(sorted_names):
+        for _idx, name in enumerate(sorted_names):
             transformer = transformers.get(name)
             if transformer is None:
                 if pbar:
@@ -435,8 +429,8 @@ class FeaturePipeline(FeaturePipelineABC):
 
         report.n_entities = len(entity_ids)
 
-        from src.feature_store.computers import ComputerRegistry
         from src.feature_store.computation import FeatureComputationEngine
+        from src.feature_store.computers import ComputerRegistry
         from src.feature_store.registry import FeatureRegistry
         from src.feature_store.store import FeatureStore
 
@@ -533,7 +527,7 @@ class FeaturePipeline(FeaturePipelineABC):
         # Build in-degree and successor maps from the predecessor DAG.
         # dag[node] = [dependencies] means "node depends on dep"
         # successor[dep] = [nodes that depend on dep]
-        in_degree: dict[str, int] = {node: 0 for node in dag}
+        in_degree: dict[str, int] = dict.fromkeys(dag, 0)
         successors: dict[str, list[str]] = {node: [] for node in dag}
 
         for node, deps in dag.items():
@@ -680,10 +674,7 @@ class _TransformerComputer:
 
     def validate(self, result: dict[str, Any]) -> bool:
         """Validate computed values."""
-        for col in self.transformer.output_columns:
-            if col not in result:
-                return False
-        return True
+        return all(col in result for col in self.transformer.output_columns)
 
     def to_dict(self) -> dict[str, Any]:
         return self.transformer.to_dict()

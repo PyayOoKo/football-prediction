@@ -21,13 +21,11 @@ Usage
 
 from __future__ import annotations
 
+import contextlib
 import logging
-from datetime import datetime, timezone
-from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.experiment_tracking.models import Experiment, Run
 from src.experiment_tracking.tracker import ExperimentTracker
 
 logger = logging.getLogger(__name__)
@@ -94,7 +92,7 @@ def export_to_mlflow(
             with mlflow.start_run(
                 experiment_id=mlflow_exp_id,
                 run_name=run.run_name or run.model_type,
-            ) as mlflow_run:
+            ):
                 # Log parameters
                 params = dict(run.hyperparameters or {})
                 params["model_type"] = run.model_type
@@ -217,10 +215,8 @@ def import_from_mlflow(
         for key, value in run_dict.items():
             if key.startswith("metrics."):
                 metric_key = key.replace("metrics.", "")
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     metrics[metric_key] = float(value)
-                except (ValueError, TypeError):
-                    pass
 
         # Start and finish run
         local_run = tracker.start_run(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import time
@@ -12,7 +13,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.live_predictions.models import OddsSnapshot, LivePrediction
+from src.live_predictions.models import LivePrediction, OddsSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -347,10 +348,8 @@ class LivePredictionEngine:
         data_files = sorted([p for p in directory.iterdir() if p.suffix == suffix], key=lambda p: p.stat().st_mtime)
         while len(data_files) > max_files:
             oldest = data_files.pop(0)
-            try:
+            with contextlib.suppress(OSError):
                 oldest.unlink()
-            except OSError:
-                pass
 
     def _init_monitoring(self) -> None:
         try:

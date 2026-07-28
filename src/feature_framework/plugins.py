@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any
 from src.feature_framework.base import FeatureTransformer
 
 if TYPE_CHECKING:
-    from src.feature_framework.pipeline import FeaturePipeline
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -140,15 +140,15 @@ class FeaturePluginRegistry:
             import src.feature_framework.transformers as pkg
             if not hasattr(pkg, "__path__"):
                 return 0
-            import pkgutil
             import importlib
+            import pkgutil
             for _importer, modname, _is_pkg in pkgutil.iter_modules(
                 pkg.__path__, prefix="src.feature_framework.transformers.",
             ):
                 try:
                     mod = importlib.import_module(modname)
                     # Auto-register all FeatureTransformer subclasses in the module
-                    for name, obj in inspect.getmembers(mod):
+                    for _name, obj in inspect.getmembers(mod):
                         if (inspect.isclass(obj) and issubclass(obj, FeatureTransformer)
                                 and obj is not FeatureTransformer):
                             self.register(obj)

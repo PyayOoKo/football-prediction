@@ -44,7 +44,7 @@ from __future__ import annotations
 import json
 import logging
 import math
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -438,8 +438,6 @@ def compute_streaks(bets: list[BetResult]) -> tuple[int, int, int, int]:
     if not bets:
         return 0, 0, 0, 0
 
-    longest_win = 0
-    longest_lose = 0
     current_win = 0
     current_lose = 0
     max_win = 0
@@ -774,24 +772,24 @@ class MetricsCalculator:
 
         # ── P&L ──
         pnl_str = f"+{m.total_profit:.2f}" if m.total_profit >= 0 else f"{m.total_profit:.2f}"
-        lines.append(f"")
-        lines.append(f"  P&L")
+        lines.append("")
+        lines.append("  P&L")
         lines.append(f"  {'-' * 40}")
         lines.append(f"    Total Profit/Loss:      {pnl_str}")
         lines.append(f"    Return on Bankroll:     {m.total_profit_pct:+.2f}%")
         lines.append(f"    Final Bankroll:         {m.final_bankroll:.2f}")
 
         # ── Performance ratios (user-specified) ──
-        lines.append(f"")
-        lines.append(f"  Performance Ratios (user-specified)")
+        lines.append("")
+        lines.append("  Performance Ratios (user-specified)")
         lines.append(f"  {'-' * 40}")
         lines.append(f"    ROI (profit / staked):     {m.roi:.4f}  ({m.roi*100:+.2f}%)")
         lines.append(f"    Yield (profit / bet):      {m.yield_per_bet:.4f}")
         lines.append(f"    Profit Factor (returns / staked): {m.profit_factor:.4f}")
 
         # ── Risk ──
-        lines.append(f"")
-        lines.append(f"  Risk Metrics")
+        lines.append("")
+        lines.append("  Risk Metrics")
         lines.append(f"  {'-' * 40}")
         lines.append(f"    Max Drawdown:           {m.max_drawdown_pct:.2f}%  "
                       f"({m.max_drawdown_amount:.2f})")
@@ -802,15 +800,15 @@ class MetricsCalculator:
 
         # ── CLV ──
         if m.avg_clv != 0.0:
-            lines.append(f"")
-            lines.append(f"  Closing Line Value")
+            lines.append("")
+            lines.append("  Closing Line Value")
             lines.append(f"  {'-' * 40}")
             lines.append(f"    Avg CLV:                {m.avg_clv:+.6f}")
             lines.append(f"    Positive CLV:           {m.positive_clv_pct:.1f}%")
 
         # ── Additional ──
-        lines.append(f"")
-        lines.append(f"  Additional")
+        lines.append("")
+        lines.append("  Additional")
         lines.append(f"  {'-' * 40}")
         lines.append(f"    Avg Odds:               {m.avg_odds:.4f}")
         lines.append(f"    Avg Stake:              {m.avg_stake:.2f}")
@@ -818,8 +816,8 @@ class MetricsCalculator:
         lines.append(f"    Longest Lose Streak:    {m.longest_lose_streak}")
 
         # ── Standard alternatives ──
-        lines.append(f"")
-        lines.append(f"  Standard Alternatives (for reference)")
+        lines.append("")
+        lines.append("  Standard Alternatives (for reference)")
         lines.append(f"  {'-' * 40}")
         lines.append(f"    ROI on Bankroll:        {m.roi_on_bankroll_pct:+.2f}%")
         lines.append(f"    Yield on Staked:        {m.yield_on_staked_pct:+.2f}%")
@@ -827,8 +825,8 @@ class MetricsCalculator:
 
         # ── Market breakdown ──
         if m.bets_per_market:
-            lines.append(f"")
-            lines.append(f"  Market Breakdown")
+            lines.append("")
+            lines.append("  Market Breakdown")
             lines.append(f"  {'-' * 40}")
             for market in sorted(m.bets_per_market.keys()):
                 n = m.bets_per_market[market]

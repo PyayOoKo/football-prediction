@@ -12,7 +12,6 @@ Provides:
 from __future__ import annotations
 
 import logging
-import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -480,9 +479,7 @@ class FeatureStore:
         stale: list[int] = []
         for eid in entity_ids:
             value = existing.get(eid)
-            if value is None:
-                stale.append(eid)
-            elif value.computed_at.timestamp() < cutoff:
+            if value is None or value.computed_at.timestamp() < cutoff:
                 stale.append(eid)
 
         return stale

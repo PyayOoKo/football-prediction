@@ -8,8 +8,6 @@ normalizing schemas, and storing in the database or CSV files.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import Any
 
 import pandas as pd
 
@@ -52,14 +50,14 @@ class DataCollectionService:
             Combined World Cup match data.
         """
         logger.info("Collecting World Cup data...")
-        
+
         try:
             from collect_all_worldcups import main as wc_main
             # We need to refactor this to not rely on script-level main
             # For now, we'll call the script's main function
             wc_main()
             logger.info("World Cup data collection completed")
-            
+
             # Load the saved data
             output_path = self._data_dir / "worldcup_all.csv"
             if output_path.exists():
@@ -69,7 +67,7 @@ class DataCollectionService:
             else:
                 logger.warning("World Cup data file not found after collection")
                 return pd.DataFrame()
-                
+
         except Exception as exc:
             logger.error(f"World Cup data collection failed: {exc}")
             raise
@@ -90,12 +88,12 @@ class DataCollectionService:
             League match data.
         """
         logger.info("Collecting league data...")
-        
+
         try:
             from collect_leagues import main as league_main
             league_main()
             logger.info("League data collection completed")
-            
+
             # Try to load the most recent league data
             candidates = [
                 self._data_dir / "leagues.csv",
@@ -106,10 +104,10 @@ class DataCollectionService:
                     df = pd.read_csv(path, low_memory=False)
                     logger.info(f"Loaded {len(df)} league matches")
                     return df
-                    
+
             logger.warning("League data file not found after collection")
             return pd.DataFrame()
-            
+
         except Exception as exc:
             logger.error(f"League data collection failed: {exc}")
             raise
@@ -130,12 +128,12 @@ class DataCollectionService:
             Player data.
         """
         logger.info("Collecting player data...")
-        
+
         try:
             from collect_player_data import main as player_main
             player_main()
             logger.info("Player data collection completed")
-            
+
             # Try to load player data
             candidates = [
                 self._data_dir / "players.csv",
@@ -146,10 +144,10 @@ class DataCollectionService:
                     df = pd.read_csv(path, low_memory=False)
                     logger.info(f"Loaded {len(df)} player records")
                     return df
-                    
+
             logger.warning("Player data file not found after collection")
             return pd.DataFrame()
-            
+
         except Exception as exc:
             logger.error(f"Player data collection failed: {exc}")
             raise
@@ -170,9 +168,9 @@ class DataCollectionService:
         """
         if sources is None:
             sources = ['worldcup', 'leagues', 'players']
-        
+
         results = {}
-        
+
         for source in sources:
             try:
                 if source == 'worldcup':
@@ -186,5 +184,5 @@ class DataCollectionService:
             except Exception as exc:
                 logger.error(f"Failed to collect {source}: {exc}")
                 results[source] = pd.DataFrame()
-        
+
         return results

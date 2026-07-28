@@ -58,7 +58,7 @@ from typing import Any
 
 import numpy as np
 
-from src.betting.kelly import calculate_kelly, calculate_fractional_kelly
+from src.betting.kelly import calculate_fractional_kelly, calculate_kelly
 
 logger = logging.getLogger(__name__)
 

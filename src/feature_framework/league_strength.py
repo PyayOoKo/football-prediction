@@ -56,7 +56,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -673,7 +673,7 @@ class LeagueStrengthEngine:
             teams_by_season_league[key].add(str(row[team_col]))
 
         # For each season, compare with previous to detect movement
-        seasons = sorted(set(k[0] for k in teams_by_season_league))
+        seasons = sorted({k[0] for k in teams_by_season_league})
         if len(seasons) < 2:
             return
 
@@ -693,9 +693,9 @@ class LeagueStrengthEngine:
                 prev_season = seasons[i - 1]
 
                 # Collect all leagues seen
-                all_leagues = sorted(set(
+                all_leagues = sorted({
                     k[1] for k in teams_by_season_league
-                ))
+                })
 
                 for league in all_leagues:
                     curr_teams = teams_by_season_league.get((season, league), set())

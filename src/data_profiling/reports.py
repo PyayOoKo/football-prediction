@@ -7,8 +7,6 @@ Each metric section includes an interactive Plotly visualization.
 
 from __future__ import annotations
 
-import base64
-import json
 import logging
 from typing import Any
 
@@ -16,7 +14,6 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 from src.data_profiling.profiler import ProfileSection, ProfilingReport
 
@@ -202,16 +199,16 @@ class ReportGenerator:
             x=list(top.values()),
             y=list(top.keys()),
             orientation="h",
-            marker=dict(color=["#ef4444" if v > 50 else "#f59e0b" if v > 20 else "#3b82f6" for v in top.values()]),
+            marker={"color": ["#ef4444" if v > 50 else "#f59e0b" if v > 20 else "#3b82f6" for v in top.values()]},
             text=[f"{v:.1f}%" for v in top.values()],
             textposition="outside",
         ))
         fig.update_layout(
-            height=250, margin=dict(l=0, r=0, t=0, b=0),
-            xaxis=dict(title="Null %", showgrid=True, gridcolor="#2a2d3a"),
-            yaxis=dict(title="", autorange="reversed"),
+            height=250, margin={"l": 0, "r": 0, "t": 0, "b": 0},
+            xaxis={"title": "Null %", "showgrid": True, "gridcolor": "#2a2d3a"},
+            yaxis={"title": "", "autorange": "reversed"},
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#8b8fa3"),
+            font={"color": "#8b8fa3"},
         )
         return f"""<div class="desc">{mv.get('total_missing', 0):,} missing cells ({mv.get('missing_pct', 0):.1f}%) across {mv.get('columns_with_missing', 0)} columns</div>
 <div class="chart-container">{fig.to_html(full_html=False, include_plotlyjs=False, default_width='100%', default_height='100%')}</div>"""
@@ -256,17 +253,17 @@ class ReportGenerator:
                     name=labels.get(k, k),
                     x=[labels.get(k, k)],
                     y=[val],
-                    marker=dict(color=colors.get(k, "#888")),
+                    marker={"color": colors.get(k, "#888")},
                     text=[f"{val}<br>({data.get('percentages', {}).get(k, 0):.1f}%)"],
                     textposition="inside",
                 ))
 
         fig.update_layout(
-            height=250, margin=dict(l=0, r=0, t=0, b=0),
-            yaxis=dict(title="Count", showgrid=True, gridcolor="#2a2d3a"),
-            xaxis=dict(title=""),
+            height=250, margin={"l": 0, "r": 0, "t": 0, "b": 0},
+            yaxis={"title": "Count", "showgrid": True, "gridcolor": "#2a2d3a"},
+            xaxis={"title": ""},
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#8b8fa3"), showlegend=False,
+            font={"color": "#8b8fa3"}, showlegend=False,
         )
         return f'<div class="chart-container">{fig.to_html(full_html=False, include_plotlyjs=False, default_width="100%", default_height="100%")}</div>'
 
@@ -281,17 +278,17 @@ class ReportGenerator:
 
         fig = go.Figure()
         fig.add_trace(go.Bar(x=bins, y=hh[:len(bins)], name="🏠 Home Goals",
-                             marker=dict(color="#4caf50"), opacity=0.7))
+                             marker={"color": "#4caf50"}, opacity=0.7))
         fig.add_trace(go.Bar(x=bins, y=ah[:len(bins)], name="✈️ Away Goals",
-                             marker=dict(color="#f44336"), opacity=0.7))
+                             marker={"color": "#f44336"}, opacity=0.7))
 
         fig.update_layout(
-            barmode="overlay", height=250, margin=dict(l=0, r=0, t=0, b=0),
-            xaxis=dict(title="Goals", dtick=1, showgrid=True, gridcolor="#2a2d3a"),
-            yaxis=dict(title="Matches", showgrid=True, gridcolor="#2a2d3a"),
+            barmode="overlay", height=250, margin={"l": 0, "r": 0, "t": 0, "b": 0},
+            xaxis={"title": "Goals", "dtick": 1, "showgrid": True, "gridcolor": "#2a2d3a"},
+            yaxis={"title": "Matches", "showgrid": True, "gridcolor": "#2a2d3a"},
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#8b8fa3"),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+            font={"color": "#8b8fa3"},
+            legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "center", "x": 0.5},
         )
         return f"""<div class="desc">Mean: {data.get('home_mean', '?'):.2f} (home) / {data.get('away_mean', '?'):.2f} (away) — Max: {data.get('max_goals', '?')}</div>
 <div class="chart-container">{fig.to_html(full_html=False, include_plotlyjs=False, default_width="100%", default_height="100%")}</div>"""
@@ -304,16 +301,16 @@ class ReportGenerator:
         fig = go.Figure(go.Bar(
             x=["🏠 Home Win", "🤝 Draw", "✈️ Away Win"],
             y=[data["home_win_pct"], data["draw_pct"], data["away_win_pct"]],
-            marker=dict(color=["#4caf50", "#ffc107", "#f44336"]),
+            marker={"color": ["#4caf50", "#ffc107", "#f44336"]},
             text=[f"{data['home_win_pct']:.1f}%", f"{data['draw_pct']:.1f}%", f"{data['away_win_pct']:.1f}%"],
             textposition="outside",
         ))
         fig.update_layout(
-            height=200, margin=dict(l=0, r=0, t=0, b=0),
-            yaxis=dict(range=[0, 60], title="%", showgrid=True, gridcolor="#2a2d3a"),
-            xaxis=dict(title=""),
+            height=200, margin={"l": 0, "r": 0, "t": 0, "b": 0},
+            yaxis={"range": [0, 60], "title": "%", "showgrid": True, "gridcolor": "#2a2d3a"},
+            xaxis={"title": ""},
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#8b8fa3"), showlegend=False,
+            font={"color": "#8b8fa3"}, showlegend=False,
         )
         ha = data.get("home_advantage_pp", 0)
         return f"""<div class="desc">Home advantage: <strong>{ha:+.1f}pp</strong> (home {data['home_win_pct']:.1f}% vs away {data['away_win_pct']:.1f}%)</div>
@@ -337,14 +334,14 @@ class ReportGenerator:
             fig = go.Figure(go.Bar(
                 x=[f"{hb[i]:.1f}-{hb[i+1]:.1f}" for i in range(len(hb)-1)],
                 y=hc,
-                marker=dict(color="#3b82f6"),
+                marker={"color": "#3b82f6"},
             ))
             fig.update_layout(
-                height=200, margin=dict(l=0, r=0, t=0, b=0),
-                xaxis=dict(title="Odds", showgrid=True, gridcolor="#2a2d3a"),
-                yaxis=dict(title="Count", showgrid=True, gridcolor="#2a2d3a"),
+                height=200, margin={"l": 0, "r": 0, "t": 0, "b": 0},
+                xaxis={"title": "Odds", "showgrid": True, "gridcolor": "#2a2d3a"},
+                yaxis={"title": "Count", "showgrid": True, "gridcolor": "#2a2d3a"},
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#8b8fa3"), showlegend=False,
+                font={"color": "#8b8fa3"}, showlegend=False,
             )
             hist_html = f'<div class="chart-container">{fig.to_html(full_html=False, include_plotlyjs=False, default_width="100%", default_height="100%")}</div>'
 
@@ -366,22 +363,22 @@ class ReportGenerator:
             fig = go.Figure(go.Pie(
                 labels=keys, values=vals,
                 textinfo="label+percent",
-                marker=dict(colors=px.colors.qualitative.Plotly),
+                marker={"colors": px.colors.qualitative.Plotly},
             ))
         else:
             # Bar chart for high cardinality
             fig = go.Figure(go.Bar(
                 x=vals[:30], y=keys[:30],
                 orientation="h",
-                marker=dict(color="#3b82f6"),
+                marker={"color": "#3b82f6"},
                 text=[f"{v:,}" for v in vals[:30]],
             ))
-            fig.update_layout(yaxis=dict(autorange="reversed"))
+            fig.update_layout(yaxis={"autorange": "reversed"})
 
         fig.update_layout(
-            height=250, margin=dict(l=0, r=0, t=0, b=0),
+            height=250, margin={"l": 0, "r": 0, "t": 0, "b": 0},
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#8b8fa3"),
+            font={"color": "#8b8fa3"},
         )
         return f"""<div class="desc">{data.get('n_unique', 0)} unique values</div>
 <div class="chart-container">{fig.to_html(full_html=False, include_plotlyjs=False, default_width="100%", default_height="100%")}</div>"""
@@ -398,15 +395,15 @@ class ReportGenerator:
             x=list(top.values()),
             y=list(top.keys()),
             orientation="h",
-            marker=dict(color="#8bc34a"),
+            marker={"color": "#8bc34a"},
             text=[f"{v:,}" for v in top.values()],
         ))
         fig.update_layout(
-            height=400, margin=dict(l=0, r=0, t=0, b=0),
-            xaxis=dict(title="Matches", showgrid=True, gridcolor="#2a2d3a"),
-            yaxis=dict(title="", autorange="reversed"),
+            height=400, margin={"l": 0, "r": 0, "t": 0, "b": 0},
+            xaxis={"title": "Matches", "showgrid": True, "gridcolor": "#2a2d3a"},
+            yaxis={"title": "", "autorange": "reversed"},
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#8b8fa3"), showlegend=False,
+            font={"color": "#8b8fa3"}, showlegend=False,
         )
         return f"""<div class="desc">{data.get('n_unique_teams', 0)} teams, {data.get('n_matches', 0)} matches</div>
 <div class="chart-container">{fig.to_html(full_html=False, include_plotlyjs=False, default_width="100%", default_height="100%")}</div>"""
@@ -463,7 +460,7 @@ class ReportGenerator:
         for col, info in list(cols.items())[:40]:
             issue_badge = ""
             if info["issues"]:
-                issue_badge = f'<span class="badge badge-err">⚠</span>'
+                issue_badge = '<span class="badge badge-err">⚠</span>'
             rows_html += f"<tr><td>{self._esc(col)}</td><td>{info['dtype']}</td><td>{info['n_unique']}</td><td>{info['null_pct']:.1f}%</td><td>{issue_badge}</td></tr>"
 
         return f"""<div class="desc">{issues} columns with type issues</div>

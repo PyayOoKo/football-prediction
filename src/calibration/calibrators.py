@@ -19,7 +19,7 @@ from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 
-from src.calibration.utils import validate_probs_input, renormalise_probs
+from src.calibration.utils import renormalise_probs, validate_probs_input
 
 logger = logging.getLogger(__name__)
 

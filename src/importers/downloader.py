@@ -16,7 +16,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 

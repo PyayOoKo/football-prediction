@@ -41,8 +41,7 @@ _SKIP_HEADERS: set[str] = {
     "result", "squad", "opponent", "playing time", "performance",
     "expected", "sca", "gca", "passing", "pass types", "carries",
     "take-ons", "touches", "total", "short", "medium", "long",
-    "tklw", "att 3rd", "att", "mid 3rd", "def 3rd", "squad",
-    "formation", "pos", "age", "pksv", "90s", "starts",
+    "tklw", "att 3rd", "att", "mid 3rd", "def 3rd", "formation", "pos", "age", "pksv", "90s", "starts",
     "g+g", "ga90", "g-pk", "pkatt",
 }
 
@@ -365,7 +364,7 @@ class FBrefTableParser:
         new_rows: list[dict[str, Any]] = []
         for row in rows:
             new_row: dict[str, Any] = {}
-            for old_col, new_col in zip(columns, new_columns):
+            for old_col, new_col in zip(columns, new_columns, strict=False):
                 if old_col in row:
                     new_row[new_col] = row[old_col]
             new_rows.append(new_row)

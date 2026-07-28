@@ -5,10 +5,9 @@ profit/loss charts from the backtesting engine.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
 import streamlit as st
+
 from src.app.utils import (
     build_feature_matrix,
     get_available_odds_cols,

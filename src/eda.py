@@ -28,12 +28,11 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib
-import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch, Patch
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib.patches import Patch
 
 from config import config as _global_config
 
@@ -163,7 +162,7 @@ def _chart_win_distribution(df: pd.DataFrame) -> tuple[plt.Figure, str]:  # type
     colors = {"H": "#2ecc71", "D": "#f1c40f", "A": "#e74c3c"}
     bar_colors = [colors.get(r, "#95a5a6") for r in counts.index]
 
-    bars = ax.bar(range(len(counts)), counts.values, color=bar_colors, edgecolor="white",
+    ax.bar(range(len(counts)), counts.values, color=bar_colors, edgecolor="white",
                   width=0.55, alpha=0.9)
 
     # Annotate each bar with count and percentage
@@ -249,7 +248,7 @@ def _chart_goals_distribution(df: pd.DataFrame) -> tuple[plt.Figure, str]:  # ty
     )
     ax.text(0.98, 0.95, stats_text, transform=ax.transAxes, fontsize=9,
             verticalalignment="top", horizontalalignment="right",
-            bbox=dict(boxstyle="round,pad=0.5", facecolor="white", alpha=0.9))
+            bbox={"boxstyle": "round,pad=0.5", "facecolor": "white", "alpha": 0.9})
 
     explanation = (
         f"Goals Distribution — Home mean={home_mean:.2f}, "
@@ -300,13 +299,13 @@ def _chart_home_advantage(df: pd.DataFrame) -> tuple[plt.Figure, str]:  # type: 
                        edgecolor="white")
 
     # Annotate
-    for bar, pct in zip(bars_win, win_pcts):
+    for bar, pct in zip(bars_win, win_pcts, strict=False):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
                 f"{pct:.1f}%", ha="center", fontsize=10, fontweight="bold")
-    for bar, pct in zip(bars_draw, draw_pcts):
+    for bar, pct in zip(bars_draw, draw_pcts, strict=False):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
                 f"{pct:.1f}%", ha="center", fontsize=10, fontweight="bold")
-    for bar, pct in zip(bars_loss, loss_pcts):
+    for bar, pct in zip(bars_loss, loss_pcts, strict=False):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
                 f"{pct:.1f}%", ha="center", fontsize=10, fontweight="bold")
 
@@ -373,7 +372,7 @@ def _chart_team_statistics(df: pd.DataFrame) -> tuple[plt.Figure, str]:  # type:
     ax1.set_yticklabels(top_scorers.index, fontsize=9)
     ax1.set_xlabel("Total Goals Scored")
     ax1.set_title(f"Top {n_top} — Most Goals Scored", fontweight="bold", fontsize=13)
-    for bar, val in zip(bars1, top_scorers.values):
+    for bar, val in zip(bars1, top_scorers.values, strict=False):
         ax1.text(bar.get_width() + 3, bar.get_y() + bar.get_height() / 2,
                  f"{int(val)}", va="center", fontsize=9, fontweight="bold")
 
@@ -385,7 +384,7 @@ def _chart_team_statistics(df: pd.DataFrame) -> tuple[plt.Figure, str]:  # type:
     ax2.set_yticklabels(top_conceded.index, fontsize=9)
     ax2.set_xlabel("Total Goals Conceded")
     ax2.set_title(f"Top {n_top} — Most Goals Conceded", fontweight="bold", fontsize=13)
-    for bar, val in zip(bars2, top_conceded.values):
+    for bar, val in zip(bars2, top_conceded.values, strict=False):
         ax2.text(bar.get_width() + 3, bar.get_y() + bar.get_height() / 2,
                  f"{int(val)}", va="center", fontsize=9, fontweight="bold")
 
@@ -500,7 +499,7 @@ def _chart_missing_values(df: pd.DataFrame) -> tuple[plt.Figure, str]:  # type: 
         ax1.set_yticklabels(top_missing.index, fontsize=9)
         ax1.set_xlabel("Missing Value Count")
         ax1.set_title("Columns with Missing Values", fontweight="bold", fontsize=13)
-        for bar, cnt, pct in zip(bars, top_missing["Count"], top_missing["Percent"]):
+        for bar, cnt, pct in zip(bars, top_missing["Count"], top_missing["Percent"], strict=False):
             ax1.text(bar.get_width() + 5, bar.get_y() + bar.get_height() / 2,
                      f"{int(cnt)} ({pct:.1f}%)", va="center", fontsize=8)
     else:

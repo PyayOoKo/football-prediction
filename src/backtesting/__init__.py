@@ -283,10 +283,7 @@ class BacktestEngine:
                 ev = (mod_prob * dec_odds) - 1.0
 
                 # Kelly stake
-                if dec_odds > 1.0 and ev > 0:
-                    full_kelly = ev / (dec_odds - 1.0)
-                else:
-                    full_kelly = 0.0
+                full_kelly = ev / (dec_odds - 1.0) if dec_odds > 1.0 and ev > 0 else 0.0
                 kelly_pct = max(full_kelly * self.kelly_fraction, 0.0)
 
                 # Positive EV check
@@ -300,10 +297,7 @@ class BacktestEngine:
                     stake_amount = self._bankroll * kelly_pct
                     won = (j == int(actual_idx))
 
-                    if won:
-                        profit = stake_amount * (dec_odds - 1.0)
-                    else:
-                        profit = -stake_amount
+                    profit = stake_amount * (dec_odds - 1.0) if won else -stake_amount
 
                     bankroll_before = self._bankroll
                     self._bankroll += profit
@@ -601,7 +595,7 @@ class BacktestEngine:
                 f"Bets: {m.total_bets}",
                 transform=ax.transAxes, fontsize=9, verticalalignment="bottom",
                 horizontalalignment="right",
-                bbox=dict(boxstyle="round,pad=0.5", facecolor="white", alpha=0.9))
+                bbox={"boxstyle": "round,pad=0.5", "facecolor": "white", "alpha": 0.9})
 
         plt.tight_layout()
         path = str(out_dir / "01_bankroll_curve.png")
@@ -646,8 +640,8 @@ class BacktestEngine:
             xytext=(max_dd_idx, m.max_drawdown_pct * 1.3),
             ha="center",
             fontsize=9,
-            arrowprops=dict(arrowstyle="->", color="#c0392b", lw=1.2),
-            bbox=dict(boxstyle="round,pad=0.3", facecolor="#ffeaa7", alpha=0.8),
+            arrowprops={"arrowstyle": "->", "color": "#c0392b", "lw": 1.2},
+            bbox={"boxstyle": "round,pad=0.3", "facecolor": "#ffeaa7", "alpha": 0.8},
         )
 
         plt.tight_layout()
@@ -707,7 +701,7 @@ class BacktestEngine:
                 f"Profit factor: {m.profit_factor:.2f}",
                 transform=ax.transAxes, fontsize=9, verticalalignment="bottom",
                 horizontalalignment="right",
-                bbox=dict(boxstyle="round,pad=0.5", facecolor="white", alpha=0.9))
+                bbox={"boxstyle": "round,pad=0.5", "facecolor": "white", "alpha": 0.9})
 
         plt.tight_layout()
         path = str(out_dir / "03_cumulative_profit.png")
@@ -766,7 +760,7 @@ class BacktestEngine:
                 f"Avg stake: GBP{m.total_staked / m.total_bets:.1f}",
                 transform=ax.transAxes, fontsize=9, verticalalignment="bottom",
                 horizontalalignment="right",
-                bbox=dict(boxstyle="round,pad=0.5", facecolor="white", alpha=0.9))
+                bbox={"boxstyle": "round,pad=0.5", "facecolor": "white", "alpha": 0.9})
 
         # Zero-crossing buffer
         y_margin = max(abs(bets_df["profit"]).max() * 0.15, 5)
@@ -786,7 +780,7 @@ class BacktestEngine:
         if not self._bets:
             return history
         # Collect unique match indices
-        indices = sorted(set(b.match_index for b in self._bets))
+        indices = sorted({b.match_index for b in self._bets})
         for i in indices:
             bets_at_match = [b for b in self._bets if b.match_index == i]
             if bets_at_match:

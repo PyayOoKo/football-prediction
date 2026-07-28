@@ -50,7 +50,7 @@ Usage
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 

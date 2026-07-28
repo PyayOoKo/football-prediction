@@ -351,7 +351,7 @@ def _geocode_teams(team_names: list[str]) -> dict[str, tuple[float, float]]:
     """Look up GPS coordinates for unknown teams via OWM Geocoding API."""
     api_key = os.environ.get(_global_config.weather_collector.api_key_env, "")
     if not api_key:
-        return {name: (DEFAULT_LAT, DEFAULT_LON) for name in team_names}
+        return dict.fromkeys(team_names, (DEFAULT_LAT, DEFAULT_LON))
 
     sess = _session()
     results: dict[str, tuple[float, float]] = {}
@@ -465,7 +465,6 @@ _nat_team_coords: dict[str, tuple[float, float]] = {
 # ═══════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    import sys
 
     logging.basicConfig(
         level=logging.INFO,

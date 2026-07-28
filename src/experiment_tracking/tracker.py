@@ -12,22 +12,17 @@ Features:
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import platform
 import subprocess
-import time
-import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.experiment_tracking.models import (
-    BestModel,
     Experiment,
     ModelArtifact,
     Run,
@@ -81,6 +76,7 @@ def _capture_hardware() -> dict[str, Any]:
                 if len(lines) > 1:
                     info["cpu"] = lines[1]
     except Exception:
+        logger.debug("Failed to get CPU info from /proc/cpuinfo, using platform.processor()")
         info["cpu"] = platform.processor() or "unknown"
 
     # RAM
@@ -100,6 +96,7 @@ def _capture_hardware() -> dict[str, Any]:
             gpus = [g.strip() for g in result.stdout.strip().split("\n") if g.strip()]
             info["gpu"] = gpus
     except Exception:
+        logger.debug("Failed to get GPU info from nvidia-smi, defaulting to empty list")
         info["gpu"] = []
 
     return info
@@ -120,6 +117,7 @@ def _capture_git_commit() -> str | None:
         )
         return result.stdout.strip() if result.returncode == 0 else None
     except Exception:
+        logger.debug("Shell command failed, returning None")
         return None
 
 

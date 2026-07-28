@@ -170,7 +170,7 @@ class PredictionService:
             pred_class = int(preds[i])
             label = target_label_map.get(pred_class, "?")
             # Map probability columns by model.classes_ order
-            probs_i = dict(zip(classes, probs[i]))
+            probs_i = dict(zip(classes, probs[i], strict=False))
             home_win_prob = float(probs_i.get(2, probs[i][2]))
             draw_prob = float(probs_i.get(1, probs[i][1]))
             away_win_prob = float(probs_i.get(0, probs[i][0]))
@@ -444,9 +444,10 @@ class PredictionService:
         and stores it in ``self._encoder`` for use during feature
         engineering.
         """
-        from src.models.artifact import ModelArtifact
-        from src.features.encoding import SafeTargetEncoder
         import joblib
+
+        from src.features.encoding import SafeTargetEncoder
+        from src.models.artifact import ModelArtifact
 
         self._encoder = None  # Reset from previous load
 
@@ -532,7 +533,6 @@ class PredictionService:
             ``source``, ``arbitrage_available``, and per-outcome ``edges``
             with ``odds``, ``fair_prob``, ``edge_pp``, ``ev_pct``, ``is_value``.
         """
-        cfg = self._config
         logger.info("Predicting with odds enrichment (limit=%d)", limit)
 
         predictions = self.predict_upcoming(
@@ -647,10 +647,7 @@ def _resolve_class_mapping(model: Any) -> tuple[list[int], dict[int, str]]:
         ``model.classes_`` (or ``[0, 1, 2]`` fallback) and *label_map*
         maps integer class to ``"Away Win"`` / ``"Draw"`` / ``"Home Win"``.
     """
-    if hasattr(model, "classes_"):
-        classes = list(model.classes_)
-    else:
-        classes = [0, 1, 2]
+    classes = list(model.classes_) if hasattr(model, "classes_") else [0, 1, 2]
     label_map = {0: "Away Win", 1: "Draw", 2: "Home Win"}
     return classes, label_map
 
@@ -673,5 +670,5 @@ def _probs_by_class(model: Any, probs: np.ndarray) -> dict[int, float]:
     """
     if hasattr(model, "classes_"):
         classes = list(model.classes_)
-        return dict(zip(classes, probs))
-    return dict(zip([0, 1, 2], probs))
+        return dict(zip(classes, probs, strict=False))
+    return dict(zip([0, 1, 2], probs, strict=False))

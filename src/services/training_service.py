@@ -203,7 +203,7 @@ class TrainingService:
             )
 
         # ── 6. Train final model ───────────────────────────
-        from src.train import train_model, save_model
+        from src.train import save_model, train_model
 
         # Apply model type (save & restore original to avoid permanent config mutation)
         orig_model_type = cfg.train.model_type
@@ -454,7 +454,7 @@ class TrainingService:
 
             return {
                 "performed": True,
-                "best_params": {k: v for k, v in best_params.items()},
+                "best_params": dict(best_params.items()),
                 "cv_folds": n_folds or cfg_tune.train.cv_folds,
             }
         except Exception as exc:
@@ -491,7 +491,6 @@ class TrainingService:
         tuple[pd.DataFrame, object]
             Reduced training DataFrame and the fitted sklearn selector/pipeline.
         """
-        fs = self._config.feature_selection  # type: ignore[attr-defined]
 
         # ── Step 1: Drop highly-correlated redundant pairs ──
         selector = self._build_selector(X_train, y_train)
@@ -615,13 +614,13 @@ class TrainingService:
         # ── Step 1: Drop highly-correlated redundant pairs ──
         if fs.drop_redundant_first and fs.correlation_threshold < 1.0:
             try:
-                from src.feature_selection import find_redundant_pairs, drop_redundant
+                from src.feature_selection import drop_redundant, find_redundant_pairs
                 pairs = find_redundant_pairs(X, threshold=fs.correlation_threshold)
                 if pairs:
                     # Compute MI ranking for tie-breaking
                     from sklearn.feature_selection import mutual_info_classif
                     mi = mutual_info_classif(X, y, random_state=42)
-                    ranking = [f for _, f in sorted(zip(mi, feature_names), reverse=True)]
+                    ranking = [f for _, f in sorted(zip(mi, feature_names, strict=False), reverse=True)]
                     to_drop = drop_redundant(pairs, ranking)
                     X = X.drop(columns=[c for c in to_drop if c in X.columns], errors="ignore")
                     logger.info(
@@ -644,14 +643,14 @@ class TrainingService:
                 selector = SelectKBest(mutual_info_classif, k=n_target)
                 selector.fit(X, y)
                 mask = selector.get_support()
-                selected = [f for f, s in zip(feature_names, mask) if s]
+                selected = [f for f, s in zip(feature_names, mask, strict=False) if s]
                 keep = [c for c in selected if c in X.columns]
                 if keep:
                     X = X[keep]
 
             elif fs.method == "l1":
-                from sklearn.linear_model import LogisticRegression
                 from sklearn.feature_selection import SelectFromModel
+                from sklearn.linear_model import LogisticRegression
                 l1 = LogisticRegression(
                     penalty="l1", solver="saga", C=0.1,
                     max_iter=2000, random_state=42, n_jobs=1,
@@ -659,7 +658,7 @@ class TrainingService:
                 selector = SelectFromModel(l1, threshold="mean", max_features=n_target)
                 selector.fit(X, y)
                 mask = selector.get_support()
-                selected = [f for f, s in zip(feature_names, mask) if s]
+                selected = [f for f, s in zip(feature_names, mask, strict=False) if s]
                 keep = [c for c in selected if c in X.columns]
                 if keep:
                     X = X[keep]
@@ -674,7 +673,7 @@ class TrainingService:
                 rfe = RFE(estimator, n_features_to_select=n_target, step=0.2)
                 rfe.fit(X, y)
                 mask = rfe.support_
-                selected = [f for f, s in zip(feature_names, mask) if s]
+                selected = [f for f, s in zip(feature_names, mask, strict=False) if s]
                 keep = [c for c in selected if c in X.columns]
                 if keep:
                     X = X[keep]

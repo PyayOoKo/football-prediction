@@ -78,9 +78,9 @@ from __future__ import annotations
 
 from src.data_versioning.manager import VersionManager
 from src.data_versioning.models import (
-    VersionInfo,
-    VersionDiff,
     ChangeType,
+    VersionDiff,
+    VersionInfo,
     VersionSummary,
 )
 

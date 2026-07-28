@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from src.di_container import ConfigProvider, get_container
@@ -61,11 +60,11 @@ class ValueBettingService:
 
         valid_mask = [
             all(o > 0 for o in odds) and all(p >= 0 for p in probs)
-            for odds, probs in zip(odds_list, probs_list)
+            for odds, probs in zip(odds_list, probs_list, strict=False)
         ]
-        valid_odds = [o for o, v in zip(odds_list, valid_mask) if v]
-        valid_probs = [p for p, v in zip(probs_list, valid_mask) if v]
-        valid_teams = [t for t, v in zip(team_matches, valid_mask) if v]
+        valid_odds = [o for o, v in zip(odds_list, valid_mask, strict=False) if v]
+        valid_probs = [p for p, v in zip(probs_list, valid_mask, strict=False) if v]
+        valid_teams = [t for t, v in zip(team_matches, valid_mask, strict=False) if v]
 
         if not valid_odds:
             logger.warning("No odds data available for any match.")

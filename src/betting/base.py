@@ -38,17 +38,13 @@ from typing import Any, Protocol
 from src.betting.models import (
     Bankroll,
     BetFilterConfig,
-    BetOutcome,
     BetSlip,
-    BetStatus,
     MarketFilterConfig,
     MatchOdds,
     ModelPrediction,
     Outcome,
-    PortfolioAllocation,
     PortfolioResult,
 )
-
 
 # ═══════════════════════════════════════════════════════════
 #  Input modules

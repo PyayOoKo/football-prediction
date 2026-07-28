@@ -28,11 +28,18 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String, Text, func, select
-from sqlalchemy.orm import Session, Mapped, mapped_column
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    ForeignKey,
+    String,
+    func,
+    select,
+)
+from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from src.database.base import Base
 from src.feature_store.models import FeatureDefinition, FeatureValue
@@ -489,9 +496,9 @@ class FeatureLineage:
             )
         )
         model_entries = list(self._session.execute(model_stmt).scalars().all())
-        provenance.model_consumers = sorted(set(
+        provenance.model_consumers = sorted({
             e.source_name for e in model_entries
-        ))
+        })
 
         return provenance
 
@@ -609,10 +616,10 @@ class FeatureLineage:
         summary: list[dict[str, Any]] = []
         for source in sources:
             downstream = self.get_downstream(source.source_name)
-            feature_names = sorted(set(
+            feature_names = sorted({
                 d["name"] for d in downstream
                 if d["type"] == "feature"
-            ))
+            })
             summary.append({
                 "source_name": source.source_name,
                 "source_version": source.source_version,

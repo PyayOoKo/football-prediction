@@ -118,7 +118,7 @@ class DataQualityDashboard:
 
             # ── 7-8. Data Drift & Schema ──
             if self.df_previous is not None and not self.df_previous.empty:
-                from src.data_profiling import DataProfiler, DataDriftDetector
+                from src.data_profiling import DataDriftDetector, DataProfiler
 
                 profiler = DataProfiler()
                 curr_report = profiler.profile(df, source_name=self.source_name)
@@ -134,7 +134,6 @@ class DataQualityDashboard:
             snap.schema_ok = len(snap.coverage.columns_missing) == 0
 
             # ── 9. Validation ──
-            from src.validation.models import ValidationResult
 
             try:
                 data = df.to_dict(orient="records")
@@ -227,7 +226,6 @@ class DataQualityDashboard:
 
     def _generate_html(self, snap: DataQualitySnapshot, days: int = 30) -> Path:
         """Generate the self-contained HTML dashboard with Plotly."""
-        cove = snap.coverage
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
         # ── KPI Cards ─────────────────────────────────
@@ -405,12 +403,12 @@ class DataQualityDashboard:
         # 3. Odds Coverage
         oc = snap.coverage.odds_coverage_pct
         oc_sev = "good" if oc >= 90 else "warn" if oc >= 50 else "bad"
-        cards += c("Odds Coverage", f"{oc:.1f}%", f"of matches have odds data", "#3b82f6", oc_sev)
+        cards += c("Odds Coverage", f"{oc:.1f}%", "of matches have odds data", "#3b82f6", oc_sev)
 
         # 4. xG Coverage
         xg = snap.coverage.xg_coverage_pct
         xg_sev = "good" if xg >= 80 else "warn" if xg >= 30 else "bad"
-        cards += c("xG Coverage", f"{xg:.1f}%", f"of matches have xG data", "#a855f7", xg_sev)
+        cards += c("xG Coverage", f"{xg:.1f}%", "of matches have xG data", "#a855f7", xg_sev)
 
         # 5. League Coverage
         lc = snap.coverage.league_coverage_pct
@@ -420,7 +418,7 @@ class DataQualityDashboard:
 
         # 6. Season Coverage
         sc = snap.coverage.season_count
-        cards += c("Season Coverage", f"{sc}", f"distinct seasons", "#8bc34a", "good")
+        cards += c("Season Coverage", f"{sc}", "distinct seasons", "#8bc34a", "good")
 
         # 7. Data Drift
         if snap.drift_passed:
@@ -458,7 +456,7 @@ class DataQualityDashboard:
         # 12. Database Growth
         dbs = snap.db_size_mb
         dbsev = "good" if dbs < 100 else "warn" if dbs < 1000 else "bad"
-        cards += c("DB Size", f"{dbs:.1f} MB", f"database file size", "#00bcd4", dbsev)
+        cards += c("DB Size", f"{dbs:.1f} MB", "database file size", "#00bcd4", dbsev)
 
         return cards
 
@@ -487,20 +485,20 @@ class DataQualityDashboard:
             return '<p style="color:#888;padding:32px;text-align:center;">Plotly not installed — install with: pip install plotly</p>'
 
         figures = []
-        GRID = dict(gridcolor="#2a2d3a", zeroline=False)
+        GRID = {"gridcolor": "#2a2d3a", "zeroline": False}
         YAXIS2 = dict(overlaying="y", side="right", **GRID)
-        layout = dict(
-            template="plotly_dark",
-            margin=dict(l=40, r=16, t=30, b=40),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="Segoe UI, Arial, sans-serif", size=11, color="#8b8fa3"),
-            hovermode="x unified",
-            xaxis=GRID,
-            yaxis=GRID,
-            showlegend=True,
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
-        )
+        layout = {
+            "template": "plotly_dark",
+            "margin": {"l": 40, "r": 16, "t": 30, "b": 40},
+            "paper_bgcolor": "rgba(0,0,0,0)",
+            "plot_bgcolor": "rgba(0,0,0,0)",
+            "font": {"family": "Segoe UI, Arial, sans-serif", "size": 11, "color": "#8b8fa3"},
+            "hovermode": "x unified",
+            "xaxis": GRID,
+            "yaxis": GRID,
+            "showlegend": True,
+            "legend": {"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "center", "x": 0.5},
+        }
 
         # Chart 1: Pipeline Runtime + Rows Imported
         etl_data = self.monitor.get_etl_history(days=days)
@@ -511,7 +509,7 @@ class DataQualityDashboard:
             fig.add_trace(go.Scatter(
                 x=ts, y=[r["duration_seconds"] for r in etl_sorted],
                 mode="lines+markers", name="Runtime (s)",
-                line=dict(color=C["blue"], width=2), marker=dict(size=5),
+                line={"color": C["blue"], "width": 2}, marker={"size": 5},
             ))
             fig.add_trace(go.Bar(
                 x=ts, y=[r["rows_imported"] for r in etl_sorted],
@@ -534,12 +532,12 @@ class DataQualityDashboard:
             fig.add_trace(go.Scatter(
                 x=ts, y=[r.get("null_pct", 0) for r in dq_sorted],
                 mode="lines+markers", name="Null %",
-                line=dict(color=C["red"], width=2),
+                line={"color": C["red"], "width": 2},
             ))
             fig.add_trace(go.Scatter(
                 x=ts, y=[r.get("duplicate_pct", 0) for r in dq_sorted],
                 mode="lines+markers", name="Duplicate %",
-                line=dict(color=C["amber"], width=2),
+                line={"color": C["amber"], "width": 2},
             ))
             fig.add_trace(go.Bar(
                 x=ts, y=[r.get("n_rows", 0) for r in dq_sorted],
@@ -562,12 +560,12 @@ class DataQualityDashboard:
             fig.add_trace(go.Scatter(
                 x=ts, y=[r.get("db_size_mb", 0) for r in sys_sorted],
                 mode="lines+markers", name="DB Size (MB)",
-                line=dict(color=C["teal"], width=2), fill="tozeroy",
+                line={"color": C["teal"], "width": 2}, fill="tozeroy",
             ))
             fig.add_trace(go.Scatter(
                 x=ts, y=[r.get("cpu_percent", 0) for r in sys_sorted],
                 mode="lines+markers", name="CPU %",
-                line=dict(color=C["amber"], width=2), yaxis="y2",
+                line={"color": C["amber"], "width": 2}, yaxis="y2",
             ))
             fig.update_layout(
                 **layout,
@@ -589,19 +587,19 @@ class DataQualityDashboard:
             fig.add_trace(go.Scatter(
                 x=ts, y=[r.get("retry_count", 0) for r in etl_sorted],
                 mode="lines+markers", name="Retries",
-                line=dict(color=C["red"], width=2), yaxis="y2",
+                line={"color": C["red"], "width": 2}, yaxis="y2",
             ))
             # Add validation errors
             fig.add_trace(go.Scatter(
                 x=ts, y=[r.get("validation_failures", 0) for r in etl_sorted],
                 mode="lines+markers", name="Validation Failures",
-                line=dict(color=C["amber"], width=2, dash="dot"), yaxis="y2",
+                line={"color": C["amber"], "width": 2, "dash": "dot"}, yaxis="y2",
             ))
             fig.update_layout(
                 **layout,
                 title="📊 Import Success & Retries",
-                yaxis=dict(range=[-0.1, 1.3], gridcolor="#2a2d3a", zeroline=False,
-                           tickvals=[0, 1], ticktext=["Fail", "Success"]),
+                yaxis={"range": [-0.1, 1.3], "gridcolor": "#2a2d3a", "zeroline": False,
+                           "tickvals": [0, 1], "ticktext": ["Fail", "Success"]},
                 yaxis2=YAXIS2,
             )
             figures.append(f'<div class="chart-box">{pio.to_html(fig, include_plotlyjs=False, full_html=False, default_width="100%", default_height="300px")}</div>')
@@ -716,9 +714,9 @@ class DataQualityDashboard:
     def _generate_summary(self, snap: DataQualitySnapshot) -> Path:
         """Generate a human-readable text summary."""
         summary = DataQualitySummary()
-        summary.add(f"╔══════════════════════════════════════════════╗")
+        summary.add("╔══════════════════════════════════════════════╗")
         summary.add(f"║  Data Quality Report — {snap.source_name:<20s} ║")
-        summary.add(f"╚══════════════════════════════════════════════╝")
+        summary.add("╚══════════════════════════════════════════════╝")
         summary.add("")
         summary.add(f"📊 Dataset: {snap.n_rows:,} rows × {snap.n_columns} columns")
         summary.add("")

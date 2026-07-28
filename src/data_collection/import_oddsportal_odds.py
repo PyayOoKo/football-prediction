@@ -4,8 +4,8 @@ Import Oddsportal SE1 historical odds into the football database.
 
 import csv
 import logging
-import sqlite3
 import os
+import sqlite3
 from datetime import datetime
 
 logger = logging.getLogger(__name__)

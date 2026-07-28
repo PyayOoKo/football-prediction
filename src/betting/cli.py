@@ -191,7 +191,7 @@ class BettingCLI:
         engine = EngineFactory.create(
             staking_method=parsed.staking,
         )
-        report = engine.run_pipeline(matches, staking_method=parsed.staking)
+        engine.run_pipeline(matches, staking_method=parsed.staking)
         engine.print_summary()
         return 0
 
@@ -224,7 +224,7 @@ class BettingCLI:
             )
 
         r = report
-        print(f"\n  REPORT")
+        print("\n  REPORT")
         print(f"  Total bets:   {r.get('total_bets', 0)}")
         print(f"  Positive EV:  {r.get('positive_ev_bets', 0)}")
         print(f"  Total staked: £{r.get('total_staked', 0):.2f}")

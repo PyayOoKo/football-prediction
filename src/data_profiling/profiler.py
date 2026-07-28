@@ -247,7 +247,7 @@ class DataProfiler:
             "top_missing": nonzero.sort_values(ascending=False).head(20).to_dict(),
         }
 
-        chart_data = pd.DataFrame({
+        pd.DataFrame({
             "column": nonzero.index,
             "null_pct": nonzero.values,
         }).sort_values("null_pct", ascending=False).head(20)

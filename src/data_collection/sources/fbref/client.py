@@ -23,16 +23,14 @@ Usage
 from __future__ import annotations
 
 import asyncio
-import functools
 import hashlib
 import json
 import logging
-import os
 import pickle
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -305,7 +303,7 @@ class FBrefClient:
 
         # Handle errors gracefully
         output: list[str] = []
-        for url, result in zip(urls, results):
+        for url, result in zip(urls, results, strict=False):
             if isinstance(result, Exception):
                 logger.error("Failed to fetch %s: %s", url, result)
                 output.append("")

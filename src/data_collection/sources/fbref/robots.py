@@ -91,10 +91,7 @@ class RobotsPolicy:
         """
         if not self.is_allowed:
             return False
-        for prefix in self.disallowed_prefixes:
-            if path.startswith(prefix):
-                return False
-        return True
+        return all(not path.startswith(prefix) for prefix in self.disallowed_prefixes)
 
 
 class RobotsChecker:

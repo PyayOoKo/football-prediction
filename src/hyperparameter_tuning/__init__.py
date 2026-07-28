@@ -9,9 +9,9 @@ Usage::
     results = tuner.run(X_train, y_train, X_val, y_val, X_test, y_test)
 """
 
-from src.hyperparameter_tuning.tuner import HyperTuner, ModelResult
-from src.hyperparameter_tuning.optuna_tuner import OptunaTuner
 from src.hyperparameter_tuning.optimisers import tune_hyperparameters
+from src.hyperparameter_tuning.optuna_tuner import OptunaTuner
+from src.hyperparameter_tuning.tuner import HyperTuner, ModelResult
 
 __all__ = [
     "HyperTuner",

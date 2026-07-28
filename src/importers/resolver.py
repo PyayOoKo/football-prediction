@@ -26,7 +26,6 @@ from datetime import date
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from src.database.models.competition import Competition
 from src.database.models.season import Season

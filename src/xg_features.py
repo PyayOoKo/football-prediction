@@ -361,20 +361,20 @@ def _compute_rolling_xg(
         grp = grp.sort_values("date").copy()
 
         # Rolling xG
-        for w, suffix in zip(windows, rolling_suffixes):
+        for w, suffix in zip(windows, rolling_suffixes, strict=False):
             grp[f"xg_{suffix}"] = (
                 grp["xg"].rolling(w, min_periods=1).mean().shift(1)
             )
 
         # Rolling xGA
-        for w, suffix in zip(windows, rolling_suffixes):
+        for w, suffix in zip(windows, rolling_suffixes, strict=False):
             grp[f"xga_{suffix}"] = (
                 grp["xga"].rolling(w, min_periods=1).mean().shift(1)
             )
 
         # Rolling xG Difference (xG - xGA)
         grp["xgd"] = grp["xg"] - grp["xga"]
-        for w, suffix in zip(windows, rolling_suffixes):
+        for w, suffix in zip(windows, rolling_suffixes, strict=False):
             grp[f"xgd_{suffix}"] = (
                 grp["xgd"].rolling(w, min_periods=1).mean().shift(1)
             )
@@ -504,7 +504,7 @@ def _compute_expected_points(
     xpts_home_list: list[float] = []
     xpts_away_list: list[float] = []
 
-    for h_lam, a_lam in zip(λ_home_list, λ_away_list):
+    for h_lam, a_lam in zip(λ_home_list, λ_away_list, strict=False):
         xpts_h, xpts_a = _xpts(h_lam, a_lam)
         xpts_home_list.append(xpts_h)
         xpts_away_list.append(xpts_a)

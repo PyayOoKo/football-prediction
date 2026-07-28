@@ -41,16 +41,15 @@ try:
 except Exception as exc:
     logger.debug("matplotlib Agg backend unavailable: %s — using default", exc)
 
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import (
     RFE,
     SelectKBest,
     SequentialFeatureSelector,
     mutual_info_classif,
 )
+from sklearn.inspection import PartialDependenceDisplay
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, log_loss
-from sklearn.inspection import partial_dependence, PartialDependenceDisplay
 
 SEED = 42
 N_JOBS = -1
@@ -136,7 +135,7 @@ def select_rfe(
             rfe = RFE(estimator, n_features_to_select=n, step=0.1)
             X_tr = rfe.fit_transform(X_train, y_train)
             X_v = rfe.transform(X_val)
-            sel = [f for f, s in zip(feature_names, rfe.support_) if s]
+            sel = [f for f, s in zip(feature_names, rfe.support_, strict=False) if s]
             metrics = _evaluate(X_tr, y_train, X_v, y_val)
             metrics["feature_set"] = f"rfe_n{n}"
             metrics["selected_features"] = sel
@@ -207,7 +206,7 @@ def select_mutual_info(
     k_values: tuple[int, ...] = (10, 20, 30, 50),
 ) -> list[dict[str, Any]]:
     """Select top-k features via mutual information.
-    
+
     Uses ``SelectKBest(mutual_info_classif)``.
     """
     results = []
@@ -218,7 +217,7 @@ def select_mutual_info(
             X_tr = selector.fit_transform(X_train, y_train)
             X_v = selector.transform(X_val)
             mask = selector.get_support()
-            sel = [f for f, s in zip(feature_names, mask) if s]
+            sel = [f for f, s in zip(feature_names, mask, strict=False) if s]
             metrics = _evaluate(X_tr, y_train, X_v, y_val)
             metrics["feature_set"] = f"mutual_info_k{k}"
             metrics["selected_features"] = sel
@@ -277,7 +276,7 @@ def select_sfs(
                 n_jobs=1,
             )
             sfs.fit(X_train, y_train)
-            sel = [f for f, s in zip(feature_names, sfs.get_support()) if s]
+            sel = [f for f, s in zip(feature_names, sfs.get_support(), strict=False) if s]
             X_tr = X_train[sel]
             X_v = X_val[sel]
             metrics = _evaluate(X_tr, y_train, X_v, y_val)
@@ -455,7 +454,7 @@ def select_l1(
             )
             l1.fit(X_train, y_train)
             retained = np.abs(l1.coef_).max(axis=0) > 1e-6
-            sel = [f for f, s in zip(feature_names, retained) if s]
+            sel = [f for f, s in zip(feature_names, retained, strict=False) if s]
             if not sel:
                 continue
             X_tr = X_train.loc[:, retained]

@@ -11,10 +11,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
-from src.data_profiling.profiler import ProfileSection, ProfilingReport
+from src.data_profiling.profiler import ProfilingReport
 
 logger = logging.getLogger(__name__)
 

@@ -34,14 +34,13 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from config import config as _global_config
-from src.elo import add_elo_features
-from src.poisson_model import PoissonModel
 from src.dixon_coles import DixonColesModel
-from src.xg_features import add_xg_features
-from src.player_info import add_player_features as add_basic_player_features
+from src.elo import add_elo_features
+from src.odds_processing import add_consensus_features, add_odds_features
 from src.player_features import add_player_features as add_enhanced_player_features
-from src.odds_processing import add_odds_features, add_consensus_features
-
+from src.player_info import add_player_features as add_basic_player_features
+from src.poisson_model import PoissonModel
+from src.xg_features import add_xg_features
 
 # ═══════════════════════════════════════════════════════════
 #  Feature cache
@@ -108,26 +107,25 @@ def _load_feature_cache(cache_key: str) -> tuple[pd.DataFrame, pd.Series] | None
         return None
 
 # ── Re-export all sub-module functions so they live in this module's namespace ──
-from src.features.rolling import (
-    _add_rolling_features,
-    _add_attack_defence_ratios,
-    _add_running_league_avg,
-)
 from src.features.contextual import (
+    _add_competition_importance,
+    _add_extended_form_features,
+    _add_extended_h2h_features,
     _add_h2h_features,
     _add_league_position_features,
-    _add_competition_importance,
-    _add_extended_h2h_features,
-    _add_extended_form_features,
-)
-from src.features.opt_in import (
-    _add_weather_features,
-    _add_referee_features,
-    _add_schedule_features,
-    _add_transfer_features,
 )
 from src.features.encoding import _encode_categoricals
 from src.features.helpers import _get_target_columns
+from src.features.opt_in import (
+    _add_referee_features,
+    _add_schedule_features,
+    _add_transfer_features,
+    _add_weather_features,
+)
+from src.features.rolling import (
+    _add_attack_defence_ratios,
+    _add_rolling_features,
+)
 
 logger = logging.getLogger(__name__)
 

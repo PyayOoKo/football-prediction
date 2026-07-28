@@ -19,11 +19,8 @@ Optimized for speed:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
-import os
-import pickle
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -33,7 +30,6 @@ import pandas as pd
 
 from src.data_collection.sources.understat.client import UnderstatClient
 from src.data_collection.sources.understat.models import (
-    LEAGUE_NAMES,
     MatchXG,
     ShotData,
     TeamXG,
@@ -306,7 +302,7 @@ class UnderstatImporter:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         output: dict[int, list[ShotData]] = {}
-        for mid, result in zip(match_ids, results):
+        for mid, result in zip(match_ids, results, strict=False):
             if isinstance(result, Exception):
                 logger.warning("Failed to fetch match %d: %s", mid, result)
                 output[mid] = []
@@ -518,7 +514,7 @@ class UnderstatImporter:
         """
         league_key = f"{league}_{year}"
         matches = self._sync.imported_matches.get(league_key, {})
-        return {int(mid) for mid in matches.keys() if mid.isdigit()}
+        return {int(mid) for mid in matches if mid.isdigit()}
 
     def reset_sync_state(self, league: str | None = None, year: int | None = None) -> None:
         """Reset sync state for a specific league, or all leagues.

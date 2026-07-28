@@ -47,8 +47,7 @@ Calculations explained
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -155,7 +154,7 @@ def compute_value_bets(
             home_team = away_team = ""
             match_label = f"Match {i + 1}"
 
-        for j, (outcome, label) in enumerate(zip(OUTCOME_SHORT, OUTCOME_LABELS)):
+        for j, (outcome, label) in enumerate(zip(OUTCOME_SHORT, OUTCOME_LABELS, strict=False)):
             dec_odds = match_odds[j]
             imp_prob = implied_probs[j]
             fair_prob = fair_probs[j]
@@ -264,15 +263,15 @@ def compute_value_bets_from_dataframe(
     pd.DataFrame
         Value bets with all metrics.
     """
-    required_odds = [c for c in odds_cols]
-    required_probs = [c for c in prob_cols]
+    required_odds = list(odds_cols)
+    required_probs = list(prob_cols)
     missing = [c for c in required_odds + required_probs if c not in df.columns]
     if missing:
         raise ValueError(f"Missing columns: {missing}")
 
     odds_array = df[list(odds_cols)].values
     probs_array = df[list(prob_cols)].values
-    team_matches = list(zip(df[home_col], df[away_col])) if home_col in df.columns else None
+    team_matches = list(zip(df[home_col], df[away_col], strict=False)) if home_col in df.columns else None
 
     return compute_value_bets(
         odds=odds_array,

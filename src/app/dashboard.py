@@ -7,8 +7,6 @@ prediction, value betting, and backtest pages.
 
 from __future__ import annotations
 
-from datetime import datetime
-
 import pandas as pd
 import streamlit as st
 
@@ -36,7 +34,7 @@ st.markdown("""
     /* ── Base theme overrides ── */
     .stApp { background: #0e1117; }
     .stApp header { background: #1a1d27; }
-    
+
     /* ── Cards ── */
     .metric-card {
         background: linear-gradient(135deg, #1a1d27 0%, #222639 100%);
@@ -63,7 +61,7 @@ st.markdown("""
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
-    
+
     /* ── Hero section ── */
     .hero {
         background: linear-gradient(135deg, #1a1d27 0%, #16213e 50%, #1a1d27 100%);
@@ -85,7 +83,7 @@ st.markdown("""
         font-size: 1.05rem;
         margin: 0;
     }
-    
+
     /* ── Status badges ── */
     .badge {
         display: inline-block;
@@ -338,10 +336,10 @@ with col3:
         )
     else:
         st.markdown(
-            f'<div class="metric-card">'
-            f'<div class="metric-value" style="color:#e74c3c;">⚠</div>'
-            f'<div class="metric-label">No Model Loaded</div>'
-            f'</div>',
+            '<div class="metric-card">'
+            '<div class="metric-value" style="color:#e74c3c;">⚠</div>'
+            '<div class="metric-label">No Model Loaded</div>'
+            '</div>',
             unsafe_allow_html=True,
         )
 
@@ -441,7 +439,7 @@ with right_col:
         st.markdown(f"- Estimators: `{_global_config.train.n_estimators}`")
         st.markdown(f"- Max depth: `{_global_config.train.max_depth}`")
         st.markdown(f"- Learning rate: `{_global_config.train.learning_rate}`")
-        st.markdown(f"- Features: rolling stats, H2H, league position")
+        st.markdown("- Features: rolling stats, H2H, league position")
         st.markdown("</div>", unsafe_allow_html=True)
 
 

@@ -22,7 +22,7 @@ class ModelLoader:
 
     @staticmethod
     def detect_model_type(model: Any) -> str:
-        modname = type(model).__module__
+        type(model).__module__
         clsname = type(model).__name__
 
         if clsname == "EnsembleModel":

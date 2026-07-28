@@ -16,8 +16,8 @@ Or via the CLI::
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 from collections.abc import Generator
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -241,7 +241,7 @@ def finish_run(
     """Finish a run with metrics (including CV, calibration, profit metrics)."""
     tracker = ExperimentTracker(session)
     try:
-        run = tracker.finish_run(
+        tracker.finish_run(
             run_id,
             metrics=body.get("metrics"),
             duration_seconds=body.get("duration_seconds"),

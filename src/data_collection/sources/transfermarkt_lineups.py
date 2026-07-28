@@ -45,7 +45,7 @@ from typing import Any
 
 import pandas as pd
 import requests
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -159,7 +159,6 @@ def scrape_team_matches(
         logger.warning("No Transfermarkt ID for '%s'", team_name)
         return pd.DataFrame()
 
-    close_session = sess is None
     if sess is None:
         sess = session()
 

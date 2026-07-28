@@ -27,10 +27,11 @@ Usage
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
@@ -152,7 +153,6 @@ TEAM_SLUG_OVERRIDES: dict[str, str] = {
     "Belgium": "belgien",
     "Brazil": "brasilien",
     "Croatia": "kroatien",
-    "Czech Republic": "tschechien",
     "Denmark": "daenemark",
     "Greece": "griechenland",
     "Iceland": "island",
@@ -161,9 +161,7 @@ TEAM_SLUG_OVERRIDES: dict[str, str] = {
     "Netherlands": "niederlande",
     "Norway": "norwegen",
     "Poland": "polen",
-    "Saudi Arabia": "saudi-arabien",
     "Scotland": "schottland",
-    "South Korea": "suedkorea",
     "Spain": "spanien",
     "Sweden": "schweden",
     "Switzerland": "schweiz",
@@ -454,10 +452,8 @@ def _parse_player_row(tr: Tag, team_name: str) -> PlayerRecord | None:
         age_cell = cells[2] if n_cells > 2 else None
         age = 25.0
         if age_cell:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 age = float(age_cell.get_text(strip=True))
-            except (ValueError, TypeError):
-                pass
 
         # Injury / Suspension icons
         injured = _check_injury_icon(name_cell)
@@ -517,9 +513,7 @@ def _check_suspension_icon(cell: Tag) -> bool:
     spans = cell.find_all(
         "span", class_=lambda c: c and "gesperrt" in str(c).lower()
     )
-    if spans:
-        return True
-    return False
+    return bool(spans)
 
 
 def _parse_market_value(text: str) -> float:

@@ -88,7 +88,7 @@ def cmd_validate_features(args: argparse.Namespace) -> int:
     result = validator.validate_for_pipeline(df, step_name="cli_validate")
 
     print(f"\n{'═' * 50}")
-    print(f"  FEATURE VALIDATION REPORT")
+    print("  FEATURE VALIDATION REPORT")
     print(f"{'═' * 50}")
     print(f"  Passed:          {'✅ YES' if result['passed'] else '❌ NO'}")
     print(f"  Total checks:    {result['total_checks']}")
@@ -96,7 +96,7 @@ def cmd_validate_features(args: argparse.Namespace) -> int:
     print(f"  Total violations: {result['total_violations']}")
 
     if args.verbose and result.get("details"):
-        print(f"\n  Violations per check:")
+        print("\n  Violations per check:")
         for detail in result["details"]:
             if detail.get("violations"):
                 print(f"    • {detail['check']}: {detail['violations']} violations")
@@ -219,7 +219,7 @@ def cmd_feature_status(args: argparse.Namespace) -> int:
     if deps:
         print(f"  Dependencies:   {', '.join(deps)}")
     else:
-        print(f"  Dependencies:   (none)")
+        print("  Dependencies:   (none)")
 
     output_cols = status.get("output_columns", [])
     if output_cols:
@@ -229,7 +229,7 @@ def cmd_feature_status(args: argparse.Namespace) -> int:
         if len(output_cols) > 10:
             print(f"    ... and {len(output_cols) - 10} more")
     else:
-        print(f"  Output columns: (none)")
+        print("  Output columns: (none)")
 
     print(f"{'═' * 60}\n")
     return 0

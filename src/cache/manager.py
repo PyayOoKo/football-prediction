@@ -14,11 +14,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-import time
 from typing import Any, Set
 
 from src.cache.backend import CacheBackend
-from src.cache.models import CacheEntry, CacheStats, CacheKey
+from src.cache.models import CacheEntry, CacheStats
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +167,7 @@ class CacheManager:
         entries = await self.backend.get_many(full_keys)
 
         results: dict[str, Any | None] = {}
-        for key, full_key in zip(keys, full_keys):
+        for key, full_key in zip(keys, full_keys, strict=False):
             entry = entries.get(full_key)
             results[key] = entry.value if entry is not None else None
 

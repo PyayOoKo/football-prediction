@@ -1,10 +1,14 @@
 """CLI entry point for live predictions."""
 
-import sys
 import logging
+import sys
 
-from src.live_predictions.engine import LivePredictionEngine, DEFAULT_POLL_INTERVAL, DEFAULT_SPORT_KEY
-from src.live_predictions.pipeline import live_predictions, live_value_bets
+from src.live_predictions.engine import (
+    DEFAULT_POLL_INTERVAL,
+    DEFAULT_SPORT_KEY,
+    LivePredictionEngine,
+)
+from src.live_predictions.pipeline import live_value_bets
 
 logging.basicConfig(
     level=logging.INFO,
