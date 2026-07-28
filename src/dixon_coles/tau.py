@@ -61,7 +61,9 @@ def dixon_coles_tau(
     lam = np.asarray(lam)
     mu = np.asarray(mu)
     tau = np.ones_like(lam, dtype=float)
-    tau[(x == 0) & (y == 0)] = 1.0 - lam[(x == 0) & (y == 0)] * mu[(x == 0) & (y == 0)] * rho
+    tau[(x == 0) & (y == 0)] = (
+        1.0 - lam[(x == 0) & (y == 0)] * mu[(x == 0) & (y == 0)] * rho
+    )
     tau[(x == 0) & (y == 1)] = 1.0 + lam[(x == 0) & (y == 1)] * rho
     tau[(x == 1) & (y == 0)] = 1.0 + mu[(x == 1) & (y == 0)] * rho
     tau[(x == 1) & (y == 1)] = 1.0 - rho

@@ -124,7 +124,11 @@ _FALLBACK_CLOSING = ("b365h", "b365d", "b365a")
 # and "avgh" match "BbAvH".
 _COLUMN_ALIASES: dict[tuple[str, str, str], list[tuple[str, str, str]]] = {
     ("maxh", "maxd", "maxa"): [
-        ("bbmxh", "bbmxd", "bbmxa"),  # Standard football-data.co.uk max odds (BbMxH/BbMxD/BbMxA)
+        (
+            "bbmxh",
+            "bbmxd",
+            "bbmxa",
+        ),  # Standard football-data.co.uk max odds (BbMxH/BbMxD/BbMxA)
     ],
     ("avgh", "avgd", "avga"): [
         ("bbavh", "bbavd", "bbava"),  # Standard football-data.co.uk avg odds
@@ -535,7 +539,9 @@ def _resolve_odds_cols(
                         resolved = tuple(col_lookup[a] for a in alt)
                         logger.debug(
                             "Using alternative %s odds columns: %s (aliased from %s)",
-                            label, resolved, cols,
+                            label,
+                            resolved,
+                            cols,
                         )
                         return resolved
 

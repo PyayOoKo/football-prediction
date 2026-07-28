@@ -73,18 +73,24 @@ class FeaturePluginRegistry:
         type[FeatureTransformer]
             The registered class (for decorator usage).
         """
-        if not inspect.isclass(transformer_cls) or not issubclass(transformer_cls, FeatureTransformer):
+        if not inspect.isclass(transformer_cls) or not issubclass(
+            transformer_cls, FeatureTransformer
+        ):
             raise TypeError(f"{transformer_cls} must be a FeatureTransformer subclass")
 
         key = name or transformer_cls.name
         if not key:
-            raise ValueError(f"Transformer {transformer_cls} has no name. Set class attribute 'name'.")
+            raise ValueError(
+                f"Transformer {transformer_cls} has no name. Set class attribute 'name'."
+            )
 
         if key in self._transformers:
             logger.warning("Overwriting registered transformer: %s", key)
 
         self._transformers[key] = transformer_cls
-        logger.debug("Registered feature transformer: %s (%s)", key, transformer_cls.__name__)
+        logger.debug(
+            "Registered feature transformer: %s (%s)", key, transformer_cls.__name__
+        )
         return transformer_cls
 
     def unregister(self, name: str) -> bool:
@@ -130,7 +136,9 @@ class FeaturePluginRegistry:
                 except Exception as exc:
                     logger.debug("Entry point '%s' failed: %s", ep.name, exc)
         except Exception:
-            logger.warning("Entry point discovery for feature_transformers failed", exc_info=True)
+            logger.warning(
+                "Entry point discovery for feature_transformers failed", exc_info=True
+            )
         return count
 
     def _discover_package(self) -> int:
@@ -138,19 +146,25 @@ class FeaturePluginRegistry:
         count = 0
         try:
             import src.feature_framework.transformers as pkg
+
             if not hasattr(pkg, "__path__"):
                 return 0
             import importlib
             import pkgutil
+
             for _importer, modname, _is_pkg in pkgutil.iter_modules(
-                pkg.__path__, prefix="src.feature_framework.transformers.",
+                pkg.__path__,
+                prefix="src.feature_framework.transformers.",
             ):
                 try:
                     mod = importlib.import_module(modname)
                     # Auto-register all FeatureTransformer subclasses in the module
                     for _name, obj in inspect.getmembers(mod):
-                        if (inspect.isclass(obj) and issubclass(obj, FeatureTransformer)
-                                and obj is not FeatureTransformer):
+                        if (
+                            inspect.isclass(obj)
+                            and issubclass(obj, FeatureTransformer)
+                            and obj is not FeatureTransformer
+                        ):
                             self.register(obj)
                             self._plugin_modules[modname] = mod
                             count += 1

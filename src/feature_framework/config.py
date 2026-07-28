@@ -72,9 +72,18 @@ logger = logging.getLogger(__name__)
 
 REQUIRED_FEATURE_FIELDS = {"name", "type", "category"}
 OPTIONAL_FEATURE_FIELDS = {
-    "version", "description", "data_type", "computation_time",
-    "output_columns", "params", "validation", "dependencies",
-    "tags", "author", "source", "enabled",
+    "version",
+    "description",
+    "data_type",
+    "computation_time",
+    "output_columns",
+    "params",
+    "validation",
+    "dependencies",
+    "tags",
+    "author",
+    "source",
+    "enabled",
 }
 
 ALLOWED_DATA_TYPES = {"float", "int", "str", "bool", "categorical", "datetime"}
@@ -121,14 +130,19 @@ class FeatureDefinitionSchema:
             return errors
 
         # Type checks
-        if self._def.get("data_type") and self._def["data_type"] not in ALLOWED_DATA_TYPES:
+        if (
+            self._def.get("data_type")
+            and self._def["data_type"] not in ALLOWED_DATA_TYPES
+        ):
             errors.append(
                 f"Invalid data_type: {self._def['data_type']}. "
                 f"Must be one of {ALLOWED_DATA_TYPES}"
             )
 
-        if self._def.get("computation_time") and \
-           self._def["computation_time"] not in ALLOWED_COMPUTATION_TIMES:
+        if (
+            self._def.get("computation_time")
+            and self._def["computation_time"] not in ALLOWED_COMPUTATION_TIMES
+        ):
             errors.append(
                 f"Invalid computation_time: {self._def['computation_time']}. "
                 f"Must be one of {ALLOWED_COMPUTATION_TIMES}"
@@ -139,7 +153,9 @@ class FeatureDefinitionSchema:
             errors.append("params must be a dict")
 
         # Dependencies validation
-        if self._def.get("dependencies") and not isinstance(self._def["dependencies"], list):
+        if self._def.get("dependencies") and not isinstance(
+            self._def["dependencies"], list
+        ):
             errors.append("dependencies must be a list of strings")
 
         # Version check
@@ -184,13 +200,16 @@ class FeatureConfig:
     def load(self) -> None:
         """Load and validate the configuration file."""
         if not self._path.exists():
-            raise FeatureConfigError(f"Config file not found: {self._path}", str(self._path))
+            raise FeatureConfigError(
+                f"Config file not found: {self._path}", str(self._path)
+            )
 
         suffix = self._path.suffix.lower()
         try:
             with open(self._path) as f:
                 if suffix in (".yaml", ".yml"):
                     import yaml
+
                     self._data = yaml.safe_load(f) or {}
                 elif suffix == ".json":
                     self._data = json.load(f)
@@ -208,7 +227,10 @@ class FeatureConfig:
             raise FeatureConfigError(f"Invalid JSON: {exc}", str(self._path))
 
         # Extract pipeline config
-        self._pipeline_cfg = {**DEFAULT_PIPELINE_CONFIG, **self._data.get("pipeline", {})}
+        self._pipeline_cfg = {
+            **DEFAULT_PIPELINE_CONFIG,
+            **self._data.get("pipeline", {}),
+        }
 
         # Extract and validate features
         raw_features = self._data.get("features", [])
@@ -217,7 +239,9 @@ class FeatureConfig:
         for i, feat in enumerate(raw_features):
             feat_name = feat.get("name", f"<unnamed #{i}>")
             if feat_name in seen_names:
-                errors.append(f"Duplicate feature name: {feat_name!r} (appears multiple times)")
+                errors.append(
+                    f"Duplicate feature name: {feat_name!r} (appears multiple times)"
+                )
             seen_names.add(feat_name)
             schema = FeatureDefinitionSchema(feat)
             feat_errors = schema.validate()
@@ -235,7 +259,9 @@ class FeatureConfig:
 
         logger.info(
             "Loaded %d features from %s (pipeline: %s)",
-            len(self._features), self._path, self._pipeline_cfg,
+            len(self._features),
+            self._path,
+            self._pipeline_cfg,
         )
 
     # ── Accessors ──────────────────────────────────────

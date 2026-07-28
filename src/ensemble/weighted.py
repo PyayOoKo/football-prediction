@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import log_loss
 
-from config import config
+from src.config import config
 from src.models.protocol import IModel, ensure_predict_proba
 
 logger = logging.getLogger(__name__)
@@ -107,10 +107,7 @@ class WeightedEnsemble:
         produce only the last entry in the dict.  The internal ``_members``
         list always stores separate weights per model.
         """
-        return {
-            self._model_name(m): w
-            for m, w in self._members
-        }
+        return {self._model_name(m): w for m, w in self._members}
 
     @property
     def trained(self) -> bool:
@@ -132,7 +129,7 @@ class WeightedEnsemble:
     def _model_name(model: IModel | Any) -> str:
         """Return a readable name for a model."""
         # Unwrap adapter to get actual model
-        if hasattr(model, '_model'):
+        if hasattr(model, "_model"):
             raw = type(model._model).__name__
         else:
             raw = type(model).__name__
@@ -233,7 +230,8 @@ class WeightedEnsemble:
         except Exception as e:
             logger.warning(
                 "predict_proba failed for %s: %s",
-                self._model_name(model), e,
+                self._model_name(model),
+                e,
             )
             return np.full((n, self._n_classes), 1.0 / self._n_classes)
 
@@ -276,7 +274,10 @@ class WeightedEnsemble:
             if probs.shape != (n, self._n_classes):
                 logger.warning(
                     "Model %s returned probs shape %s, expected (%d, %d) — skipping.",
-                    self._model_name(model), probs.shape, n, self._n_classes,
+                    self._model_name(model),
+                    probs.shape,
+                    n,
+                    self._n_classes,
                 )
                 continue
             weighted += weight * probs
@@ -345,7 +346,9 @@ class WeightedEnsemble:
         # Get individual predictions once
         logger.info(
             "Fitting WeightedEnsemble '%s' — %d models, grid step=%.2f",
-            self.name, n_models, step,
+            self.name,
+            n_models,
+            step,
         )
         preds_list: list[np.ndarray] = []
         individual_losses: dict[str, float] = {}
@@ -367,13 +370,18 @@ class WeightedEnsemble:
         # ── Grid search (coarse-to-fine) ──
         MAX_COMBINATIONS = 100_000
         n_fine = int(round(max_weight / step))
-        n_bins = max(2, min(n_fine, int(MAX_COMBINATIONS ** (1.0 / max(n_models, 1))) - 1))
+        n_bins = max(
+            2, min(n_fine, int(MAX_COMBINATIONS ** (1.0 / max(n_models, 1))) - 1)
+        )
         if n_bins < n_fine:
             logger.warning(
                 "Full grid would evaluate %d combos (%d models, step=%.3f) — "
                 "capping to %d bins (≈%d combos)",
-                (n_fine + 1) ** n_models, n_models, step,
-                n_bins, (n_bins + 1) ** n_models,
+                (n_fine + 1) ** n_models,
+                n_models,
+                step,
+                n_bins,
+                (n_bins + 1) ** n_models,
             )
 
         best_loss = float("inf")
@@ -421,7 +429,9 @@ class WeightedEnsemble:
         logger.info(
             "WeightedEnsemble '%s' fitted — val log-loss: %.4f "
             "(evaluated %d combinations)",
-            self.name, best_loss, total_combinations,
+            self.name,
+            best_loss,
+            total_combinations,
         )
 
         return {
@@ -481,9 +491,11 @@ class WeightedEnsemble:
         }
 
         logger.info(
-            "WeightedEnsemble '%s' test log-loss: %.4f "
-            "(best single: %.4f, Delta=%.4f)",
-            self.name, ensemble_loss, best_single_loss, improvement,
+            "WeightedEnsemble '%s' test log-loss: %.4f (best single: %.4f, Delta=%.4f)",
+            self.name,
+            ensemble_loss,
+            best_single_loss,
+            improvement,
         )
 
         return report
@@ -550,5 +562,3 @@ class WeightedEnsemble:
 # ═══════════════════════════════════════════════════════════
 #  Stacking Ensemble — meta-learner combines base models
 # ═══════════════════════════════════════════════════════════
-
-

@@ -142,7 +142,10 @@ def select_rfe(
             results.append(metrics)
             logger.info(
                 "  RFE n=%d: acc=%.4f, brier=%.4f (%d features)",
-                n, metrics["accuracy"], metrics["brier_score"], len(sel),
+                n,
+                metrics["accuracy"],
+                metrics["brier_score"],
+                len(sel),
             )
         except Exception as e:
             logger.warning("  RFE n=%d failed: %s", n, e)
@@ -173,19 +176,27 @@ def select_by_threshold(
     results = []
     for thresh in thresholds:
         try:
-            keep = importance_df[importance_df["avg_importance"] >= thresh].index.tolist()
+            keep = importance_df[
+                importance_df["avg_importance"] >= thresh
+            ].index.tolist()
             keep_in = [c for c in keep if c in X_train.columns]
             if not keep_in or len(keep_in) == X_train.shape[1]:
                 continue
             metrics = _evaluate(
-                X_train[keep_in], y_train, X_val[keep_in], y_val,
+                X_train[keep_in],
+                y_train,
+                X_val[keep_in],
+                y_val,
             )
             metrics["feature_set"] = f"threshold_{thresh}"
             metrics["selected_features"] = keep_in
             results.append(metrics)
             logger.info(
                 "  Threshold %.2f: acc=%.4f, brier=%.4f (%d features)",
-                thresh, metrics["accuracy"], metrics["brier_score"], len(keep_in),
+                thresh,
+                metrics["accuracy"],
+                metrics["brier_score"],
+                len(keep_in),
             )
         except Exception as e:
             logger.warning("  Threshold %.2f failed: %s", thresh, e)
@@ -224,7 +235,10 @@ def select_mutual_info(
             results.append(metrics)
             logger.info(
                 "  MutualInfo k=%d: acc=%.4f, brier=%.4f (%d features)",
-                k, metrics["accuracy"], metrics["brier_score"], len(sel),
+                k,
+                metrics["accuracy"],
+                metrics["brier_score"],
+                len(sel),
             )
         except Exception as e:
             logger.warning("  MutualInfo k=%d failed: %s", k, e)
@@ -276,7 +290,9 @@ def select_sfs(
                 n_jobs=1,
             )
             sfs.fit(X_train, y_train)
-            sel = [f for f, s in zip(feature_names, sfs.get_support(), strict=False) if s]
+            sel = [
+                f for f, s in zip(feature_names, sfs.get_support(), strict=False) if s
+            ]
             X_tr = X_train[sel]
             X_v = X_val[sel]
             metrics = _evaluate(X_tr, y_train, X_v, y_val)
@@ -285,7 +301,11 @@ def select_sfs(
             results.append(metrics)
             logger.info(
                 "  SFS %s n=%d: acc=%.4f, brier=%.4f (%d features)",
-                direction, n, metrics["accuracy"], metrics["brier_score"], len(sel),
+                direction,
+                n,
+                metrics["accuracy"],
+                metrics["brier_score"],
+                len(sel),
             )
         except Exception as e:
             logger.warning("  SFS %s n=%d failed: %s", direction, n, e)
@@ -318,13 +338,17 @@ def find_redundant_pairs(
                 key = tuple(sorted([col1, col2]))
                 if key not in seen:
                     seen.add(key)
-                    pairs.append({
-                        "feature_1": col1,
-                        "feature_2": col2,
-                        "correlation": round(float(corr.iloc[i, j]), 4),
-                    })
+                    pairs.append(
+                        {
+                            "feature_1": col1,
+                            "feature_2": col2,
+                            "correlation": round(float(corr.iloc[i, j]), 4),
+                        }
+                    )
     logger.info(
-        "  Found %d feature pairs with |r| > %.2f", len(pairs), threshold,
+        "  Found %d feature pairs with |r| > %.2f",
+        len(pairs),
+        threshold,
     )
     return pairs
 
@@ -411,7 +435,9 @@ def plot_partial_dependence(
             ax=ax,
             kind="average",
         )
-        fig.suptitle("Partial Dependence — Top Features", fontsize=14, fontweight="bold")
+        fig.suptitle(
+            "Partial Dependence — Top Features", fontsize=14, fontweight="bold"
+        )
         plt.tight_layout()
         path = Path(output_dir) / f"partial_dependence_{timestamp}.png"
         fig.savefig(path, dpi=150, bbox_inches="tight")
@@ -465,7 +491,10 @@ def select_l1(
             results.append(metrics)
             logger.info(
                 "  L1 C=%.2f: acc=%.4f, brier=%.4f (%d features)",
-                C_val, metrics["accuracy"], metrics["brier_score"], len(sel),
+                C_val,
+                metrics["accuracy"],
+                metrics["brier_score"],
+                len(sel),
             )
         except Exception as e:
             logger.warning("  L1 C=%.2f failed: %s", C_val, e)
@@ -513,7 +542,9 @@ def run_all_selections(
     baseline["n_features"] = X_train.shape[1]
     logger.info(
         "  Baseline (%d features): acc=%.4f, brier=%.4f",
-        baseline["n_features"], baseline["accuracy"], baseline["brier_score"],
+        baseline["n_features"],
+        baseline["accuracy"],
+        baseline["brier_score"],
     )
 
     all_selections: list[dict[str, Any]] = [baseline]
@@ -527,23 +558,31 @@ def run_all_selections(
     if run_threshold and importance_df is not None:
         logger.info("  Running importance threshold ...")
         all_selections.extend(
-            select_by_threshold(X_train, y_train, X_val, y_val, importance_df, thresholds)
+            select_by_threshold(
+                X_train, y_train, X_val, y_val, importance_df, thresholds
+            )
         )
 
     if run_mutual_info:
         logger.info("  Running mutual information ...")
         all_selections.extend(
-            select_mutual_info(X_train, y_train, X_val, y_val, feature_names, mi_k_values)
+            select_mutual_info(
+                X_train, y_train, X_val, y_val, feature_names, mi_k_values
+            )
         )
 
     if run_sfs:
         logger.info("  Running SFS forward ...")
         all_selections.extend(
-            select_sfs(X_train, y_train, X_val, y_val, feature_names, sfs_n_values, "forward")
+            select_sfs(
+                X_train, y_train, X_val, y_val, feature_names, sfs_n_values, "forward"
+            )
         )
         logger.info("  Running SFS backward ...")
         all_selections.extend(
-            select_sfs(X_train, y_train, X_val, y_val, feature_names, sfs_n_values, "backward")
+            select_sfs(
+                X_train, y_train, X_val, y_val, feature_names, sfs_n_values, "backward"
+            )
         )
 
     if run_l1:
@@ -563,12 +602,15 @@ def run_all_selections(
 
     logger.info(
         "  Best by Brier: %s (brier=%.4f, %d features)",
-        best_by_brier["feature_set"], best_by_brier["brier_score"],
+        best_by_brier["feature_set"],
+        best_by_brier["brier_score"],
         best_by_brier["n_features"],
     )
     logger.info(
         "  Best minimal (within %.1f%% of baseline): %s (%d features, brier=%.4f)",
-        max_drop_pct, best_minimal["feature_set"], best_minimal["n_features"],
+        max_drop_pct,
+        best_minimal["feature_set"],
+        best_minimal["n_features"],
         best_minimal["brier_score"],
     )
 

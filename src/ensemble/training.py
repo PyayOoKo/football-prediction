@@ -12,7 +12,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 from sklearn.preprocessing import LabelBinarizer
 
-from config import EnsembleConfig, config
+from src.config import EnsembleConfig, config
 from src.poisson_model import PoissonModel
 
 logger = logging.getLogger(__name__)
@@ -124,7 +124,9 @@ class EnsembleModel:
 
         # -- 3. Get validation predictions ------------------
         val_preds = self._get_all_predictions(
-            X_val, df_val, y_val,
+            X_val,
+            df_val,
+            y_val,
             label="validation",
         )
 
@@ -223,7 +225,8 @@ class EnsembleModel:
                 if X_val is not None and y_val is not None:
                     eval_set.append((X_val, y_val))
                 model.fit(
-                    X_train, y_train,
+                    X_train,
+                    y_train,
                     eval_set=eval_set,
                     callbacks=[lgb.early_stopping(10)],
                 )
@@ -246,8 +249,11 @@ class EnsembleModel:
                     early_stopping_rounds=10,
                 )
                 model.fit(
-                    X_train, y_train,
-                    eval_set=(X_val, y_val) if X_val is not None and y_val is not None else None,
+                    X_train,
+                    y_train,
+                    eval_set=(X_val, y_val)
+                    if X_val is not None and y_val is not None
+                    else None,
                 )
 
             elif name == "logistic_regression":
@@ -300,7 +306,8 @@ class EnsembleModel:
                 )
 
     def _train_poisson_model(
-        self, df_train: pd.DataFrame | None,
+        self,
+        df_train: pd.DataFrame | None,
     ) -> None:
         """Fit the Poisson model if included and raw data available."""
         if "poisson" not in self.cfg.model_names:
@@ -352,7 +359,8 @@ class EnsembleModel:
 
     @staticmethod
     def _ml_predict_proba(
-        model: Any, X: pd.DataFrame,
+        model: Any,
+        X: pd.DataFrame,
     ) -> np.ndarray:
         """Get predict_proba from a scikit-learn / XGBoost model with NaN handling."""
         col_means = X.mean().fillna(0)
@@ -360,7 +368,8 @@ class EnsembleModel:
         return cast(np.ndarray, model.predict_proba(X_clean))
 
     def _poisson_predict_proba(
-        self, df_raw: pd.DataFrame | None,
+        self,
+        df_raw: pd.DataFrame | None,
     ) -> np.ndarray:
         """Get match outcome probabilities from the Poisson model.
 
@@ -437,7 +446,9 @@ class EnsembleModel:
                 continue
             seen.add(norm)
 
-            weighted = self._apply_weights(preds, dict(zip(model_names, norm, strict=False)))
+            weighted = self._apply_weights(
+                preds, dict(zip(model_names, norm, strict=False))
+            )
             loss = float(log_loss(y_val, weighted))
 
             if loss < best_loss:
@@ -475,7 +486,7 @@ class EnsembleModel:
 
             # Check all models against their ranges
             under: list[tuple[str, float]] = []  # (name, deficit)
-            over: list[tuple[str, float]] = []   # (name, excess)
+            over: list[tuple[str, float]] = []  # (name, excess)
 
             for name, (lo, hi) in ranges.items():
                 if name not in self.weights:
@@ -492,8 +503,10 @@ class EnsembleModel:
             # Fix underweight models
             for name, deficit in under:
                 givers = {
-                    k: v for k, v in self.weights.items()
-                    if k != name and k in ranges
+                    k: v
+                    for k, v in self.weights.items()
+                    if k != name
+                    and k in ranges
                     and v > ranges[k][0]
                     and k not in {u[0] for u in under}
                 }
@@ -512,8 +525,10 @@ class EnsembleModel:
             # Fix overweight models
             for name, excess in over:
                 receivers = {
-                    k: v for k, v in self.weights.items()
-                    if k != name and k in ranges
+                    k: v
+                    for k, v in self.weights.items()
+                    if k != name
+                    and k in ranges
                     and v < ranges[k][1]
                     and k not in {o[0] for o in over}
                 }
@@ -605,7 +620,9 @@ class EnsembleModel:
         preds = self._get_all_predictions(X, df_raw)
         return self._apply_weights(preds, self.weights)
 
-    def predict(self, X: pd.DataFrame, df_raw: pd.DataFrame | None = None) -> np.ndarray:
+    def predict(
+        self, X: pd.DataFrame, df_raw: pd.DataFrame | None = None
+    ) -> np.ndarray:
         """Predict hard class labels (0=Away, 1=Draw, 2=Home)."""
         probs = self.predict_proba(X, df_raw)
         return cast(np.ndarray, np.argmax(probs, axis=1))
@@ -644,9 +661,7 @@ class EnsembleModel:
         }
 
         for name, probs in preds.items():
-            report["individual_log_losses"][name] = float(
-                log_loss(y_test, probs)
-            )
+            report["individual_log_losses"][name] = float(log_loss(y_test, probs))
 
         # Comparison with best single model
         best_single = min(report["individual_log_losses"].values())
@@ -659,7 +674,9 @@ class EnsembleModel:
 
         logger.info(
             "Ensemble test log-loss: %.4f (best single: %.4f, Delta=%.4f)",
-            ensemble_loss, best_single, improvement,
+            ensemble_loss,
+            best_single,
+            improvement,
         )
 
         return report
@@ -722,5 +739,3 @@ class EnsembleModel:
 # ============================================================
 #  Training script convenience function
 # ============================================================
-
-

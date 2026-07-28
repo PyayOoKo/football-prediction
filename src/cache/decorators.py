@@ -65,6 +65,7 @@ def _get_global_cache() -> CacheManager:
     global _global_cache
     if _global_cache is None:
         from src.cache.backend import SQLiteBackend
+
         _global_cache = CacheManager(
             SQLiteBackend("data/cache/func_cache.db", cleanup_interval=600),
             namespace="func",
@@ -89,7 +90,10 @@ def set_cache(cache: CacheManager) -> None:
 
 # ── Default key function ───────────────────────────────
 
-def _default_key_fn(func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
+
+def _default_key_fn(
+    func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]
+) -> str:
     """Generate a cache key from a function call.
 
     Format: ``{module}.{qualname}({arg1},{arg2},...)``
@@ -107,6 +111,7 @@ def _default_key_fn(func: Callable[..., Any], args: tuple[Any, ...], kwargs: dic
 
 
 # ── @cached decorator ──────────────────────────────────
+
 
 class cached:
     """Decorator that caches function results.
@@ -168,7 +173,9 @@ class cached:
         else:
             return self._decorate_sync(func)  # type: ignore[return-value]
 
-    def _make_key(self, func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
+    def _make_key(
+        self, func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> str:
         """Generate a cache key for the given function call."""
         if self.custom_key_fn is not None:
             return self.custom_key_fn(*args, **kwargs)
@@ -189,7 +196,11 @@ class cached:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> T:
             cache = self.cache or _get_global_cache()
-            key = self._make_key(func, args, kwargs) if not self.custom_key_fn else self.custom_key_fn(*args, **kwargs)
+            key = (
+                self._make_key(func, args, kwargs)
+                if not self.custom_key_fn
+                else self.custom_key_fn(*args, **kwargs)
+            )
 
             # Try to get from cache using a new event loop in the current thread
             try:
@@ -213,14 +224,19 @@ class cached:
         return wrapper
 
     def _decorate_async(
-        self, func: Callable[..., Coroutine[Any, Any, T]],
+        self,
+        func: Callable[..., Coroutine[Any, Any, T]],
     ) -> Callable[..., Coroutine[Any, Any, T]]:
         """Wrap an async function."""
 
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             cache = self.cache or _get_global_cache()
-            key = self._make_key(func, args, kwargs) if not self.custom_key_fn else self.custom_key_fn(*args, **kwargs)
+            key = (
+                self._make_key(func, args, kwargs)
+                if not self.custom_key_fn
+                else self.custom_key_fn(*args, **kwargs)
+            )
 
             # Try cache first
             try:
@@ -245,6 +261,7 @@ class cached:
 
 
 # ── @invalidate decorator ──────────────────────────────
+
 
 class invalidate:
     """Decorator that invalidates cache entries after a function runs.
@@ -307,7 +324,8 @@ class invalidate:
         return wrapper
 
     def _decorate_async(
-        self, func: Callable[..., Coroutine[Any, Any, T]],
+        self,
+        func: Callable[..., Coroutine[Any, Any, T]],
     ) -> Callable[..., Coroutine[Any, Any, T]]:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
@@ -320,7 +338,10 @@ class invalidate:
         return wrapper
 
     def _do_invalidate(
-        self, cache: CacheManager, *args: Any, **kwargs: Any,
+        self,
+        cache: CacheManager,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         """Synchronous invalidation (fire-and-forget)."""
         for key in self.keys:
@@ -336,7 +357,10 @@ class invalidate:
                 _run_async(cache.invalidate(result))
 
     async def _do_invalidate_async(
-        self, cache: CacheManager, *args: Any, **kwargs: Any,
+        self,
+        cache: CacheManager,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         """Async invalidation."""
         for key in self.keys:
@@ -353,6 +377,7 @@ class invalidate:
 
 
 # ── Helper: run async in sync context ─────────────────
+
 
 def _run_async(coro: Any) -> Any:
     """Run an async coroutine synchronously.

@@ -261,6 +261,8 @@ class DataCleaner:
         return {col: sums[col] / counts[col] for col in sums if counts[col] > 0}
 
     @staticmethod
-    def _count_null(data: list[dict[str, Any]], columns: list[str] | None = None) -> int:
+    def _count_null(
+        data: list[dict[str, Any]], columns: list[str] | None = None
+    ) -> int:
         cols = columns or (list(data[0].keys()) if data else [])
         return sum(1 for row in data for c in cols if row.get(c) is None)

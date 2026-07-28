@@ -52,7 +52,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from config import config as _global_config
+from src.config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,7 @@ def compute_value_bets(
 
     # Determine max_odds: explicit arg > config default > no limit
     if max_odds is None:
-        max_odds = getattr(cfg.value_betting, 'max_odds', 30.0)
+        max_odds = getattr(cfg.value_betting, "max_odds", 30.0)
 
     if odds.shape != model_probs.shape:
         raise ValueError(
@@ -154,7 +154,9 @@ def compute_value_bets(
             home_team = away_team = ""
             match_label = f"Match {i + 1}"
 
-        for j, (outcome, label) in enumerate(zip(OUTCOME_SHORT, OUTCOME_LABELS, strict=False)):
+        for j, (outcome, label) in enumerate(
+            zip(OUTCOME_SHORT, OUTCOME_LABELS, strict=False)
+        ):
             dec_odds = match_odds[j]
             imp_prob = implied_probs[j]
             fair_prob = fair_probs[j]
@@ -175,7 +177,7 @@ def compute_value_bets(
             kelly_pct = max(full_kelly * kelly_fraction, 0.0)
 
             # Cap stake at 10% of bankroll to prevent over-betting
-            max_stake_pct = getattr(cfg.value_betting, 'max_stake_pct', 0.10)
+            max_stake_pct = getattr(cfg.value_betting, "max_stake_pct", 0.10)
             kelly_pct = min(kelly_pct, max_stake_pct)
 
             # Progressive Kelly reduction for extreme odds:
@@ -197,25 +199,27 @@ def compute_value_bets(
                 and not odds_too_high
             )
 
-            records.append({
-                "match": match_label,
-                "home_team": home_team,
-                "away_team": away_team,
-                "outcome": outcome,
-                "outcome_label": label,
-                "decimal_odds": round(dec_odds, 4),
-                "implied_prob": round(imp_prob, 4),
-                "bookmaker_margin_pct": round(margin * 100, 2),
-                "fair_prob": round(fair_prob, 4),
-                "model_prob": round(mod_prob, 4),
-                "prob_edge": round(mod_prob - fair_prob, 4),
-                "ev": round(ev, 4),
-                "kelly_fraction": round(kelly_fraction, 2),
-                "kelly_pct": round(kelly_pct, 6),
-                "kelly_stake": round(kelly_stake, 2),
-                "positive_ev": is_positive,
-                "recommendation": "✅ VALUE BET" if is_positive else "❌ No value",
-            })
+            records.append(
+                {
+                    "match": match_label,
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "outcome": outcome,
+                    "outcome_label": label,
+                    "decimal_odds": round(dec_odds, 4),
+                    "implied_prob": round(imp_prob, 4),
+                    "bookmaker_margin_pct": round(margin * 100, 2),
+                    "fair_prob": round(fair_prob, 4),
+                    "model_prob": round(mod_prob, 4),
+                    "prob_edge": round(mod_prob - fair_prob, 4),
+                    "ev": round(ev, 4),
+                    "kelly_fraction": round(kelly_fraction, 2),
+                    "kelly_pct": round(kelly_pct, 6),
+                    "kelly_stake": round(kelly_stake, 2),
+                    "positive_ev": is_positive,
+                    "recommendation": "✅ VALUE BET" if is_positive else "❌ No value",
+                }
+            )
 
     df = pd.DataFrame(records)
 
@@ -230,7 +234,9 @@ def compute_value_bets(
     n_positive = df["positive_ev"].sum()
     logger.info(
         "Found %d / %d value bets (%.1f%%)",
-        n_positive, len(df), n_positive / len(df) * 100 if len(df) else 0,
+        n_positive,
+        len(df),
+        n_positive / len(df) * 100 if len(df) else 0,
     )
     return df
 
@@ -271,7 +277,11 @@ def compute_value_bets_from_dataframe(
 
     odds_array = df[list(odds_cols)].values
     probs_array = df[list(prob_cols)].values
-    team_matches = list(zip(df[home_col], df[away_col], strict=False)) if home_col in df.columns else None
+    team_matches = (
+        list(zip(df[home_col], df[away_col], strict=False))
+        if home_col in df.columns
+        else None
+    )
 
     return compute_value_bets(
         odds=odds_array,
@@ -396,9 +406,15 @@ def print_bets(df: pd.DataFrame, n: int | None = None) -> None:
     neg = df[~df["positive_ev"]]
 
     display_cols = [
-        "match", "outcome_label", "decimal_odds",
-        "model_prob", "fair_prob", "prob_edge",
-        "ev", "kelly_pct", "recommendation",
+        "match",
+        "outcome_label",
+        "decimal_odds",
+        "model_prob",
+        "fair_prob",
+        "prob_edge",
+        "ev",
+        "kelly_pct",
+        "recommendation",
     ]
 
     logger.info("")

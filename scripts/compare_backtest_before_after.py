@@ -197,7 +197,7 @@ def main() -> int:
     print("=" * 90)
 
     # Use league_all.csv which has actual bookmaker odds columns
-    from config import config
+    from src.config import config
 
     data_path = config.paths.raw / "league_all.csv"
     if not data_path.exists():

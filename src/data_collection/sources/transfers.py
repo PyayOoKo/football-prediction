@@ -64,15 +64,17 @@ def _session() -> requests.Session:
     sess = requests.Session()
     retries = Retry(total=3, backoff_factor=2.0, status_forcelist=[502, 503, 504])
     sess.mount("https://", HTTPAdapter(max_retries=retries))
-    sess.headers.update({
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-GB,en;q=0.9",
-    })
+    sess.headers.update(
+        {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-GB,en;q=0.9",
+        }
+    )
     return sess
 
 
@@ -83,8 +85,8 @@ def _session() -> requests.Session:
 class TransferWindow:
     """Aggregated transfer data for a single window (summer or winter)."""
 
-    season: str                  # e.g. "23/24"
-    window: str                  # "Summer" or "Winter"
+    season: str  # e.g. "23/24"
+    window: str  # "Summer" or "Winter"
     signings_count: int = 0
     departures_count: int = 0
     total_incoming_fees_meur: float = 0.0
@@ -148,6 +150,7 @@ def scrape_transfers(
     """
     if team_id_map is None:
         from src.data_collection.sources.transfermarkt import TEAM_TO_TM_ID
+
         team_id_map = TEAM_TO_TM_ID
 
     all_records: list[dict[str, Any]] = []
@@ -187,6 +190,7 @@ def scrape_transfers(
 
     if save_path:
         import os
+
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         df.to_csv(save_path, index=False)
         logger.info("Saved %d transfer rows to %s", len(df), save_path)
@@ -228,6 +232,7 @@ def _team_slug(team: str) -> str:
     importing a private function from another module).
     """
     import unicodedata
+
     slug = unicodedata.normalize("NFKD", team).encode("ascii", "ignore").decode()
     slug = slug.lower()
     slug = slug.replace(" & ", "-")
@@ -277,11 +282,9 @@ def _scrape_transfer_history(
     window_boxes = soup.find_all("div", class_="tm-transfer-history__table")
 
     windows: list[TransferWindow] = []
-    for box_div in window_boxes[:max_windows * 2]:  # *2 = arrivals + departures
+    for box_div in window_boxes[: max_windows * 2]:  # *2 = arrivals + departures
         # Determine if this is arrivals or departures
-        heading = box_div.find_previous(
-            "h2", class_="tm-transfer-history__heading"
-        )
+        heading = box_div.find_previous("h2", class_="tm-transfer-history__heading")
         if heading:
             heading_text = heading.get_text(strip=True).lower()
         else:
@@ -295,14 +298,20 @@ def _scrape_transfer_history(
         season = season_match.group(1) if season_match else "unknown"
 
         # Determine window type
-        is_arrival = any(kw in heading_text for kw in ["arrivals", "incoming", "signings"])
-        is_departure = any(kw in heading_text for kw in ["departures", "outgoing", "sold"])
+        is_arrival = any(
+            kw in heading_text for kw in ["arrivals", "incoming", "signings"]
+        )
+        is_departure = any(
+            kw in heading_text for kw in ["departures", "outgoing", "sold"]
+        )
 
         if not is_arrival and not is_departure:
             # Check for a sibling header
             prev_box = box_div.find_previous("div", class_="tm-transfer-history__table")
             if prev_box:
-                prev_heading = prev_box.find_previous("h2", class_="tm-transfer-history__heading")
+                prev_heading = prev_box.find_previous(
+                    "h2", class_="tm-transfer-history__heading"
+                )
                 if prev_heading:
                     heading_text = prev_heading.get_text(strip=True).lower()
 
@@ -313,25 +322,35 @@ def _scrape_transfer_history(
 
         rows = _parse_transfer_rows(table)
         n_transfers = len(rows)
-        total_fees = sum(r["fee_meur"] for r in rows if r.get("fee_meur") and r["fee_meur"] > 0)
+        total_fees = sum(
+            r["fee_meur"] for r in rows if r.get("fee_meur") and r["fee_meur"] > 0
+        )
 
         # Map to window (use season modulo to match arrivals/departures)
-        window_label = "Summer" if "summer" in heading_text or "winter" not in heading_text else "Winter"
+        window_label = (
+            "Summer"
+            if "summer" in heading_text or "winter" not in heading_text
+            else "Winter"
+        )
 
         if is_arrival:
-            windows.append(TransferWindow(
-                season=season,
-                window=window_label,
-                signings_count=n_transfers,
-                total_incoming_fees_meur=total_fees,
-            ))
+            windows.append(
+                TransferWindow(
+                    season=season,
+                    window=window_label,
+                    signings_count=n_transfers,
+                    total_incoming_fees_meur=total_fees,
+                )
+            )
         elif is_departure:
-            windows.append(TransferWindow(
-                season=season,
-                window=window_label,
-                departures_count=n_transfers,
-                total_outgoing_fees_meur=total_fees,
-            ))
+            windows.append(
+                TransferWindow(
+                    season=season,
+                    window=window_label,
+                    departures_count=n_transfers,
+                    total_outgoing_fees_meur=total_fees,
+                )
+            )
 
     # Merge arrivals + departures from same window
     merged = _merge_windows(windows)
@@ -367,13 +386,17 @@ def _parse_transfer_rows(table: Tag) -> list[dict[str, Any]]:
             fee_text = fee_cell.get_text(strip=True)
             fee_meur = _parse_transfer_fee(fee_text)
 
-            transfers.append({
-                "player_name": player_name,
-                "fee_str": fee_text,
-                "fee_meur": fee_meur,
-            })
+            transfers.append(
+                {
+                    "player_name": player_name,
+                    "fee_str": fee_text,
+                    "fee_meur": fee_meur,
+                }
+            )
         except Exception:
-            logger.warning("Failed to parse transfer row for %s", player_name, exc_info=True)
+            logger.warning(
+                "Failed to parse transfer row for %s", player_name, exc_info=True
+            )
             continue
 
     return transfers
@@ -462,16 +485,27 @@ def _build_dataframe(records: list[dict[str, Any]]) -> pd.DataFrame:
     Ensures all expected columns exist, even if the list is empty.
     """
     if not records:
-        return pd.DataFrame(columns=[
-            "team", "season", "window",
-            "signings_count", "departures_count",
-            "net_spend_meur", "squad_churn_pct",
-        ])
+        return pd.DataFrame(
+            columns=[
+                "team",
+                "season",
+                "window",
+                "signings_count",
+                "departures_count",
+                "net_spend_meur",
+                "squad_churn_pct",
+            ]
+        )
 
     df = pd.DataFrame(records)
 
     # Ensure numeric types
-    for col in ["signings_count", "departures_count", "net_spend_meur", "squad_churn_pct"]:
+    for col in [
+        "signings_count",
+        "departures_count",
+        "net_spend_meur",
+        "squad_churn_pct",
+    ]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
@@ -496,9 +530,13 @@ if __name__ == "__main__":
     df = scrape_single_team(test_team, max_windows=3)
     print(f"  Scraped {len(df)} transfer windows for {test_team}:\n")
     if not df.empty:
-        print(f"  {'Season':<10} {'Window':<10} {'Signings':<10} {'Departures':<12} {'Net (€m)':<12} {'Churn%':<8}")
+        print(
+            f"  {'Season':<10} {'Window':<10} {'Signings':<10} {'Departures':<12} {'Net (€m)':<12} {'Churn%':<8}"
+        )
         print(f"  {'-' * 62}")
         for _, r in df.iterrows():
-            print(f"  {r['season']:<10} {r['window']:<10} "
-                  f"{r['signings_count']:<10} {r['departures_count']:<12} "
-                  f"{r['net_spend_meur']:<12.1f} {r['squad_churn_pct']:<8.1f}")
+            print(
+                f"  {r['season']:<10} {r['window']:<10} "
+                f"{r['signings_count']:<10} {r['departures_count']:<12} "
+                f"{r['net_spend_meur']:<12.1f} {r['squad_churn_pct']:<8.1f}"
+            )

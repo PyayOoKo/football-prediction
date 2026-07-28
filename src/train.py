@@ -23,7 +23,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 from sklearn.model_selection import RandomizedSearchCV
 
-from config import config as _global_config
+from src.config import config as _global_config
 from src.time_series_cv import create_time_series_folds
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,11 @@ def compute_sample_weights(
         return None
 
     cfg = config or _global_config
-    hf = halflife_days if halflife_days is not None else cfg.train.sample_weight_halflife_days
+    hf = (
+        halflife_days
+        if halflife_days is not None
+        else cfg.train.sample_weight_halflife_days
+    )
 
     if hf <= 0:
         return None
@@ -130,9 +134,13 @@ def train_model(
         auto_sw = compute_sample_weights(X_train, config=cfg)
         if auto_sw is not None:
             sample_weight = auto_sw
-            logger.info("Auto-computed sample weights (halflife=%.0f days, mean=%.3f, min=%.3f, max=%.3f)",
-                         cfg.train.sample_weight_halflife_days,
-                         float(np.mean(auto_sw)), float(np.min(auto_sw)), float(np.max(auto_sw)))
+            logger.info(
+                "Auto-computed sample weights (halflife=%.0f days, mean=%.3f, min=%.3f, max=%.3f)",
+                cfg.train.sample_weight_halflife_days,
+                float(np.mean(auto_sw)),
+                float(np.min(auto_sw)),
+                float(np.max(auto_sw)),
+            )
         # Drop the date column from features — sklearn can't handle datetime64
         X_train = X_train.drop(columns=["date"])
         if X_val is not None and "date" in X_val.columns:
@@ -142,13 +150,23 @@ def train_model(
     history: dict[str, list[float]] = {}
 
     if cfg.train.model_type in {"logistic_regression", "random_forest"}:
-        model, history = _train_sklearn(model, X_train, y_train, X_val, y_val,
-                                         sample_weight=sample_weight)
+        model, history = _train_sklearn(
+            model, X_train, y_train, X_val, y_val, sample_weight=sample_weight
+        )
     elif cfg.train.model_type in {"xgboost", "lightgbm"}:
-        model, history = _train_gbdt(model, X_train, y_train, X_val, y_val,
-                                      config=cfg, sample_weight=sample_weight)
+        model, history = _train_gbdt(
+            model,
+            X_train,
+            y_train,
+            X_val,
+            y_val,
+            config=cfg,
+            sample_weight=sample_weight,
+        )
     elif cfg.train.model_type == "neural_network":
-        model, history = _train_neural_net(model, X_train, y_train, X_val, y_val, config=cfg)
+        model, history = _train_neural_net(
+            model, X_train, y_train, X_val, y_val, config=cfg
+        )
     else:
         raise ValueError(f"Unknown model_type: {cfg.train.model_type}")  # type: ignore[misc, unused-ignore]
 
@@ -201,7 +219,9 @@ def tune_hyperparameters(
     model_type = cfg.train.model_type
     logger.info(
         "Hyper-parameter tuning '%s' — %s-fold CV, %d random samples",
-        model_type, n_folds or cfg.train.cv_folds, n_iter,
+        model_type,
+        n_folds or cfg.train.cv_folds,
+        n_iter,
     )
 
     if model_type == "logistic_regression":
@@ -211,17 +231,24 @@ def tune_hyperparameters(
         }
         base_model = LogisticRegression(
             max_iter=2000,
-            random_state=cfg.train.seed, class_weight="balanced",
+            random_state=cfg.train.seed,
+            class_weight="balanced",
         )
         # Small grid — use exact search
         from sklearn.model_selection import GridSearchCV
+
         cv = create_time_series_folds(n_splits=n_folds or cfg.train.cv_folds)
         searcher = GridSearchCV(
-            base_model, param_dist, cv=cv,
-            scoring="neg_log_loss", n_jobs=-1, verbose=1 if verbose else 0,
+            base_model,
+            param_dist,
+            cv=cv,
+            scoring="neg_log_loss",
+            n_jobs=-1,
+            verbose=1 if verbose else 0,
         )
     elif model_type == "xgboost":
         import xgboost as xgb
+
         param_dist = {
             "n_estimators": [100, 200, 300, 500],
             "max_depth": [3, 4, 5, 6, 8],
@@ -240,14 +267,18 @@ def tune_hyperparameters(
         )
         cv = create_time_series_folds(n_splits=n_folds or cfg.train.cv_folds)
         searcher = RandomizedSearchCV(
-            base_model, param_dist, n_iter=n_iter,
+            base_model,
+            param_dist,
+            n_iter=n_iter,
             cv=cv,
-            scoring="neg_log_loss", n_jobs=-1,
+            scoring="neg_log_loss",
+            n_jobs=-1,
             random_state=cfg.train.seed,
             verbose=1 if verbose else 0,
         )
     elif model_type == "lightgbm":
         import lightgbm as lgb
+
         param_dist = {
             "n_estimators": [100, 200, 300, 500],
             "max_depth": [3, 4, 5, 6, 8, -1],
@@ -268,9 +299,12 @@ def tune_hyperparameters(
         )
         cv = create_time_series_folds(n_splits=n_folds or cfg.train.cv_folds)
         searcher = RandomizedSearchCV(
-            base_model, param_dist, n_iter=n_iter,
+            base_model,
+            param_dist,
+            n_iter=n_iter,
             cv=cv,
-            scoring="neg_log_loss", n_jobs=-1,
+            scoring="neg_log_loss",
+            n_jobs=-1,
             random_state=cfg.train.seed,
             verbose=1 if verbose else 0,
         )
@@ -287,9 +321,12 @@ def tune_hyperparameters(
         )
         cv = create_time_series_folds(n_splits=n_folds or cfg.train.cv_folds)
         searcher = RandomizedSearchCV(
-            base_model, param_dist, n_iter=n_iter,
+            base_model,
+            param_dist,
+            n_iter=n_iter,
             cv=cv,
-            scoring="neg_log_loss", n_jobs=-1,
+            scoring="neg_log_loss",
+            n_jobs=-1,
             random_state=cfg.train.seed,
             verbose=1 if verbose else 0,
         )
@@ -404,7 +441,10 @@ def load_model(file_name: str, config: Any | None = None) -> Any:
     if isinstance(obj, ModelArtifact):
         logger.info(
             "Artifact v%s loaded from %s (%d features, %s)",
-            obj.artifact_version, path, obj.n_features, obj.model_type,
+            obj.artifact_version,
+            path,
+            obj.n_features,
+            obj.model_type,
         )
         return obj
 
@@ -452,6 +492,7 @@ def _build_model(config: Any | None = None) -> Any:
 
     if cfg.model_type == "xgboost":
         import xgboost as xgb
+
         return xgb.XGBClassifier(
             objective="multi:softprob",
             eval_metric="mlogloss",
@@ -468,6 +509,7 @@ def _build_model(config: Any | None = None) -> Any:
 
     if cfg.model_type == "lightgbm":
         import lightgbm as lgb
+
         return lgb.LGBMClassifier(
             objective="multiclass",
             metric="multi_logloss",
@@ -488,7 +530,9 @@ def _build_model(config: Any | None = None) -> Any:
     if cfg.model_type == "neural_network":
         return None  # _train_neural_net builds the network internally
 
-    raise NotImplementedError(f"_build_model for '{cfg.model_type}' is not yet implemented.")
+    raise NotImplementedError(
+        f"_build_model for '{cfg.model_type}' is not yet implemented."
+    )
 
 
 def _train_sklearn(
@@ -516,8 +560,13 @@ def _train_sklearn(
         fit_kwargs["sample_weight"] = sample_weight
 
     model.fit(X_train_c, y_train, **fit_kwargs)
-    history = {"train_loss": [log_loss(y_train, model.predict_proba(X_train_c),
-                                         sample_weight=sample_weight)]}
+    history = {
+        "train_loss": [
+            log_loss(
+                y_train, model.predict_proba(X_train_c), sample_weight=sample_weight
+            )
+        ]
+    }
 
     if X_val_c is not None and y_val is not None:
         history["val_loss"] = [log_loss(y_val, model.predict_proba(X_val_c))]
@@ -580,14 +629,16 @@ def _train_gbdt(
             early_stopping_round=10,
         )
         model.fit(
-            X_train, y_train,
+            X_train,
+            y_train,
             eval_set=eval_set,
             **fit_kwargs,
         )
     else:
         model.set_params(eval_metric="mlogloss", early_stopping_rounds=10)
         model.fit(
-            X_train, y_train,
+            X_train,
+            y_train,
             eval_set=eval_set,
             verbose=False,
             **fit_kwargs,
@@ -601,8 +652,11 @@ def _train_gbdt(
         max_n = model.get_params().get("n_estimators", "?")
         logger.info("Early stopped at iteration %d / %s", best_n, max_n)
 
-    history = {"train_loss": [log_loss(y_train, model.predict_proba(X_train),
-                                         sample_weight=sample_weight)]}
+    history = {
+        "train_loss": [
+            log_loss(y_train, model.predict_proba(X_train), sample_weight=sample_weight)
+        ]
+    }
 
     if X_val is not None and y_val is not None:
         history["val_loss"] = [log_loss(y_val, model.predict_proba(X_val))]
@@ -670,13 +724,15 @@ def _train_neural_net(
     def _to_tensor(X: Any, y: Any = None) -> Any:
         X_t = torch.tensor(
             X.values if hasattr(X, "values") else X,
-            dtype=torch.float32, device=device,
+            dtype=torch.float32,
+            device=device,
         )
         if y is None:
             return X_t
         y_t = torch.tensor(
             y.values if hasattr(y, "values") else y,
-            dtype=torch.long, device=device,
+            dtype=torch.long,
+            device=device,
         )
         return X_t, y_t
 
@@ -696,7 +752,8 @@ def _train_neural_net(
     X_train_t, y_train_t = _to_tensor(X_train_clean, y_train)
     train_loader = DataLoader(
         TensorDataset(X_train_t, y_train_t),
-        batch_size=cfg.batch_size, shuffle=True,
+        batch_size=cfg.batch_size,
+        shuffle=True,
     )
 
     val_loader = None
@@ -704,14 +761,19 @@ def _train_neural_net(
         X_val_t, y_val_t = _to_tensor(X_val_clean, y_val)
         val_loader = DataLoader(
             TensorDataset(X_val_t, y_val_t),
-            batch_size=cfg.batch_size, shuffle=False,
+            batch_size=cfg.batch_size,
+            shuffle=False,
         )
 
     # Loss & optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(net.parameters(), lr=cfg.learning_rate or 0.001)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=5, min_lr=1e-6,
+        optimizer,
+        mode="min",
+        factor=0.5,
+        patience=5,
+        min_lr=1e-6,
     )
 
     # Training loop
@@ -759,7 +821,8 @@ def _train_neural_net(
                 if patience_counter >= early_stop:
                     logger.info(
                         "Early stopping at epoch %d (val_loss=%.4f)",
-                        epoch + 1, avg_val_loss,
+                        epoch + 1,
+                        avg_val_loss,
                     )
                     break
             net.train()
@@ -768,7 +831,9 @@ def _train_neural_net(
             lr = optimizer.param_groups[0]["lr"]
             logger.debug(
                 "Epoch %d/%d — train_loss=%.4f  val_loss=%.4f  lr=%.6f",
-                epoch + 1, max_epochs, avg_train_loss,
+                epoch + 1,
+                max_epochs,
+                avg_train_loss,
                 history["val_loss"][-1] if history["val_loss"] else float("nan"),
                 lr,
             )
@@ -799,6 +864,7 @@ class TorchWrapper:
 
     Handles NaN in input by filling with zeros (like sklearn's pipelines).
     """
+
     def __init__(self, net: Any, device: Any):
         self.net = net
         self.device = device
@@ -806,10 +872,12 @@ class TorchWrapper:
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         import torch
+
         X_clean = X.fillna(0) if hasattr(X, "fillna") else X
         X_t = torch.tensor(
             X_clean.values if hasattr(X_clean, "values") else X_clean,
-            dtype=torch.float32, device=self.device,
+            dtype=torch.float32,
+            device=self.device,
         )
         with torch.no_grad():
             outputs = self.net(X_t)
@@ -817,10 +885,12 @@ class TorchWrapper:
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         import torch
+
         X_clean = X.fillna(0) if hasattr(X, "fillna") else X
         X_t = torch.tensor(
             X_clean.values if hasattr(X_clean, "values") else X_clean,
-            dtype=torch.float32, device=self.device,
+            dtype=torch.float32,
+            device=self.device,
         )
         with torch.no_grad():
             outputs = self.net(X_t)

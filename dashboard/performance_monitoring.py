@@ -965,7 +965,7 @@ def render_system_status() -> None:
     # Config
     with c4:
         try:
-            from config import config as cfg
+            from src.config import config as cfg
             model_type = cfg.train.model_type
         except Exception:
             model_type = "default"

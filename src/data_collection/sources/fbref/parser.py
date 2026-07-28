@@ -37,12 +37,44 @@ _COMMENT_TABLE_RE = re.compile(
 
 # Column headers to skip (FBref adds these for formatting)
 _SKIP_HEADERS: set[str] = {
-    "match date", "day", "time", "comp", "round", "venue",
-    "result", "squad", "opponent", "playing time", "performance",
-    "expected", "sca", "gca", "passing", "pass types", "carries",
-    "take-ons", "touches", "total", "short", "medium", "long",
-    "tklw", "att 3rd", "att", "mid 3rd", "def 3rd", "formation", "pos", "age", "pksv", "90s", "starts",
-    "g+g", "ga90", "g-pk", "pkatt",
+    "match date",
+    "day",
+    "time",
+    "comp",
+    "round",
+    "venue",
+    "result",
+    "squad",
+    "opponent",
+    "playing time",
+    "performance",
+    "expected",
+    "sca",
+    "gca",
+    "passing",
+    "pass types",
+    "carries",
+    "take-ons",
+    "touches",
+    "total",
+    "short",
+    "medium",
+    "long",
+    "tklw",
+    "att 3rd",
+    "att",
+    "mid 3rd",
+    "def 3rd",
+    "formation",
+    "pos",
+    "age",
+    "pksv",
+    "90s",
+    "starts",
+    "g+g",
+    "ga90",
+    "g-pk",
+    "pkatt",
 }
 
 # Column name renames for standardisation
@@ -167,13 +199,15 @@ class FBrefTableParser:
             # Extract competition from URL or table context
             competition = self._extract_competition(url, table_tag)
 
-            tables.append(FBrefTable(
-                category=category,
-                competition=competition,
-                columns=columns,
-                rows=rows,
-                raw_html=tbl_html,
-            ))
+            tables.append(
+                FBrefTable(
+                    category=category,
+                    competition=competition,
+                    columns=columns,
+                    rows=rows,
+                    raw_html=tbl_html,
+                )
+            )
 
             logger.debug(
                 "Parsed table %s: %d cols x %d rows",

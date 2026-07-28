@@ -205,17 +205,27 @@ class FeaturePipeline(FeaturePipelineABC):
         # Step 5: Compute features in DAG order
         if entity_type == "dataframe" and df is not None:
             report = self._compute_dataframe_mode(
-                transformer_map, sorted_names, df, context, report, start_time,
+                transformer_map,
+                sorted_names,
+                df,
+                context,
+                report,
+                start_time,
             )
         else:
             report = self._compute_entity_mode(
-                transformer_map, sorted_names, context, report, start_time,
+                transformer_map,
+                sorted_names,
+                context,
+                report,
+                start_time,
             )
 
         # Step 6: Validate computed features
         if report.success and report.n_computed > 0:
             try:
                 from src.feature_framework.validation import FeatureValidator
+
                 validator = FeatureValidator(
                     verbose=self.show_progress,
                     checks=[
@@ -243,7 +253,8 @@ class FeaturePipeline(FeaturePipelineABC):
                 if not validation_report["passed"]:
                     n_v = validation_report["total_violations"]
                     logger.warning(
-                        "Feature validation found %d violations", n_v,
+                        "Feature validation found %d violations",
+                        n_v,
                     )
                     if n_v > 50:
                         report.errors.append(
@@ -342,6 +353,7 @@ class FeaturePipeline(FeaturePipelineABC):
         if self.show_progress:
             try:
                 from tqdm import tqdm
+
                 pbar = tqdm(
                     total=n_total,
                     desc="Computing features",
@@ -362,7 +374,9 @@ class FeaturePipeline(FeaturePipelineABC):
             try:
                 input_errors = transformer.validate_input(result_df)
                 if input_errors:
-                    report.errors.append(f"{name}: input validation failed: {input_errors}")
+                    report.errors.append(
+                        f"{name}: input validation failed: {input_errors}"
+                    )
                     if pbar:
                         pbar.update(1)
                     continue
@@ -374,30 +388,43 @@ class FeaturePipeline(FeaturePipelineABC):
                 output_errors = transformer.validate_output(result_df)
 
                 if output_errors:
-                    report.errors.append(f"{name}: output validation failed: {output_errors}")
+                    report.errors.append(
+                        f"{name}: output validation failed: {output_errors}"
+                    )
                     report.n_failed += 1
                     report.per_feature_stats[name] = {
-                        "computed": 1, "skipped": 0, "failed": 1,
-                        "duration": time.time() - feat_start, "status": "validation_error",
+                        "computed": 1,
+                        "skipped": 0,
+                        "failed": 1,
+                        "duration": time.time() - feat_start,
+                        "status": "validation_error",
                     }
                 else:
                     report.n_computed += 1
                     report.per_feature_stats[name] = {
-                        "computed": 1, "skipped": 0, "failed": 0,
-                        "duration": time.time() - feat_start, "status": "ok",
+                        "computed": 1,
+                        "skipped": 0,
+                        "failed": 0,
+                        "duration": time.time() - feat_start,
+                        "status": "ok",
                     }
 
             except Exception as exc:
                 report.errors.append(f"{name}: {exc}")
                 report.n_failed += 1
                 report.per_feature_stats[name] = {
-                    "computed": 0, "skipped": 0, "failed": 1,
-                    "duration": time.time() - feat_start, "status": "error",
+                    "computed": 0,
+                    "skipped": 0,
+                    "failed": 1,
+                    "duration": time.time() - feat_start,
+                    "status": "error",
                 }
 
             if pbar:
                 pbar.update(1)
-                pbar.set_postfix(ok=report.n_computed, fail=report.n_failed, refresh=False)
+                pbar.set_postfix(
+                    ok=report.n_computed, fail=report.n_failed, refresh=False
+                )
 
         if pbar:
             pbar.close()
@@ -488,7 +515,9 @@ class FeaturePipeline(FeaturePipelineABC):
     # ── Transformer resolution ───────────────────────
 
     def _resolve_transformer(
-        self, name: str, config: dict[str, Any],
+        self,
+        name: str,
+        config: dict[str, Any],
     ) -> FeatureTransformer | None:
         """Resolve a feature transformer from the plugin registry."""
         transformer = self.plugins.get(name)
@@ -506,7 +535,8 @@ class FeaturePipeline(FeaturePipelineABC):
     # ── DAG management ───────────────────────────────
 
     def _build_dag(
-        self, transformers: dict[str, FeatureTransformer],
+        self,
+        transformers: dict[str, FeatureTransformer],
     ) -> dict[str, list[str]]:
         """Build the feature dependency DAG."""
         dag: dict[str, list[str]] = {}
@@ -516,7 +546,8 @@ class FeaturePipeline(FeaturePipelineABC):
         return dag
 
     def _topological_sort(
-        self, dag: dict[str, list[str]],
+        self,
+        dag: dict[str, list[str]],
     ) -> list[str]:
         """Topological sort using Kahn's algorithm.
 
@@ -572,10 +603,10 @@ class FeaturePipeline(FeaturePipelineABC):
             print("No DAG built yet. Run the pipeline first.")
             return
         print("\n  FEATURE DEPENDENCY DAG")
-        print("  " + '=' * 50)
+        print("  " + "=" * 50)
         for feature, deps in sorted(dag.items()):
             if deps:
-                print("  %-35s depends on: %s" % (feature, ', '.join(deps)))
+                print("  %-35s depends on: %s" % (feature, ", ".join(deps)))
             else:
                 print("  %-35s no dependencies (root)" % feature)
 
@@ -587,7 +618,8 @@ class FeaturePipeline(FeaturePipelineABC):
             self._transformers[transformer.name] = transformer
 
     def register_transformer_class(
-        self, cls: type[FeatureTransformer],
+        self,
+        cls: type[FeatureTransformer],
     ) -> type[FeatureTransformer]:
         """Register a transformer class via the plugin registry.
 
@@ -622,7 +654,9 @@ class FeaturePipeline(FeaturePipelineABC):
 class _TransformerComputer:
     """Wraps a FeatureTransformer as a FeatureComputer for the FeatureStore engine."""
 
-    def __init__(self, transformer: FeatureTransformer, context: TransformContext) -> None:
+    def __init__(
+        self, transformer: FeatureTransformer, context: TransformContext
+    ) -> None:
         self.transformer = transformer
         self.context = context
         self.name = transformer.name
@@ -653,11 +687,15 @@ class _TransformerComputer:
             return values
         except Exception as exc:
             raise FeatureComputationError(
-                self.transformer.name, entity_id, str(exc),
+                self.transformer.name,
+                entity_id,
+                str(exc),
             )
 
     def compute_batch(
-        self, entity_ids: list[int], **kwargs: Any,
+        self,
+        entity_ids: list[int],
+        **kwargs: Any,
     ) -> dict[int, dict[str, Any]]:
         """Compute features for multiple entities."""
         results: dict[int, dict[str, Any]] = {}

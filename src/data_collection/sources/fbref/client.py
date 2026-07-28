@@ -222,9 +222,7 @@ class FBrefClient:
             parsed = urlparse(full_url)
             if not self._robots.check_path(path=parsed.path):
                 logger.warning("robots.txt disallows: %s", parsed.path)
-                raise PermissionError(
-                    f"robots.txt disallows access to {parsed.path}"
-                )
+                raise PermissionError(f"robots.txt disallows access to {parsed.path}")
 
         # Rate limit: wait if needed
         waited = self._robots.wait_if_needed()
@@ -338,15 +336,14 @@ class FBrefClient:
         if self.respect_robots:
             parsed = urlparse(full_url)
             if not self._robots.check_path(path=parsed.path):
-                raise PermissionError(
-                    f"robots.txt disallows access to {parsed.path}"
-                )
+                raise PermissionError(f"robots.txt disallows access to {parsed.path}")
 
         self._robots.wait_if_needed()
 
         try:
             response = self._retry.execute(
-                self.sync_client.get, full_url,
+                self.sync_client.get,
+                full_url,
             )
             html = response.text
             self._robots.record_request()

@@ -337,7 +337,7 @@ def main():
         test_prep = _prepare_df(test_df)
         combined = pd.concat([train_prep, val_prep, test_prep], ignore_index=True)
 
-        from config import config as cfg
+        from src.config import config as cfg
         _orig_enabled = {
             "weather": cfg.weather.enabled,
             "referee": cfg.referee.enabled,

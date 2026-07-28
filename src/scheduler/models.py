@@ -100,7 +100,9 @@ class TaskResult:
             "task_name": self.task_name,
             "status": self.status.value,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": self.completed_at.isoformat()
+            if self.completed_at
+            else None,
             "duration_seconds": round(self.duration_seconds, 2),
             "output": self.output[:500],
             "error": self.error[:500] if self.error else None,
@@ -156,7 +158,9 @@ class RunReport:
         return {
             "pipeline_name": self.pipeline_name,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": self.completed_at.isoformat()
+            if self.completed_at
+            else None,
             "duration_seconds": round(self.duration_seconds, 2),
             "total_tasks": self.total_tasks,
             "succeeded": self.succeeded,

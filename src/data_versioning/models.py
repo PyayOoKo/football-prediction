@@ -205,8 +205,10 @@ class VersionDiff:
             "changed_columns": self.changed_columns,
             "fingerprint_column": self.fingerprint_column,
             "metadata_changes": {
-                k: [str(v[0][:80]) if isinstance(v[0], str) else v[0],
-                    str(v[1][:80]) if isinstance(v[1], str) else v[1]]
+                k: [
+                    str(v[0][:80]) if isinstance(v[0], str) else v[0],
+                    str(v[1][:80]) if isinstance(v[1], str) else v[1],
+                ]
                 for k, v in self.metadata_changes.items()
             },
         }

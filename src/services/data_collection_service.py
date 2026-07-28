@@ -53,6 +53,7 @@ class DataCollectionService:
 
         try:
             from collect_all_worldcups import main as wc_main
+
             # We need to refactor this to not rely on script-level main
             # For now, we'll call the script's main function
             wc_main()
@@ -91,6 +92,7 @@ class DataCollectionService:
 
         try:
             from collect_leagues import main as league_main
+
             league_main()
             logger.info("League data collection completed")
 
@@ -131,6 +133,7 @@ class DataCollectionService:
 
         try:
             from collect_player_data import main as player_main
+
             player_main()
             logger.info("Player data collection completed")
 
@@ -167,18 +170,18 @@ class DataCollectionService:
             Dictionary mapping source name to collected DataFrame.
         """
         if sources is None:
-            sources = ['worldcup', 'leagues', 'players']
+            sources = ["worldcup", "leagues", "players"]
 
         results = {}
 
         for source in sources:
             try:
-                if source == 'worldcup':
-                    results['worldcup'] = self.collect_worldcup()
-                elif source == 'leagues':
-                    results['leagues'] = self.collect_leagues()
-                elif source == 'players':
-                    results['players'] = self.collect_players()
+                if source == "worldcup":
+                    results["worldcup"] = self.collect_worldcup()
+                elif source == "leagues":
+                    results["leagues"] = self.collect_leagues()
+                elif source == "players":
+                    results["players"] = self.collect_players()
                 else:
                     logger.warning(f"Unknown source: {source}")
             except Exception as exc:

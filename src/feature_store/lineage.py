@@ -83,30 +83,40 @@ class FeatureLineageEntry(Base):
     __tablename__ = "feature_lineage"
 
     id: Mapped[str] = mapped_column(
-        String(36), primary_key=True,
+        String(36),
+        primary_key=True,
         default=lambda: __import__("uuid").uuid4().hex[:36],
     )
     feature_definition_id: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey("feature_definitions.id", ondelete="SET NULL"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
     feature_value_id: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey("feature_values.id", ondelete="SET NULL"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
     source_type: Mapped[str] = mapped_column(
-        String(50), nullable=False, index=True,
+        String(50),
+        nullable=False,
+        index=True,
     )
     source_name: Mapped[str] = mapped_column(
-        String(255), nullable=False, index=True,
+        String(255),
+        nullable=False,
+        index=True,
     )
     source_version: Mapped[str | None] = mapped_column(
-        String(50), nullable=True,
+        String(50),
+        nullable=True,
     )
     source_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON, nullable=True, default=dict,
+        JSON,
+        nullable=True,
+        default=dict,
     )
     parent_entry_id: Mapped[str | None] = mapped_column(
         String(36),
@@ -114,15 +124,13 @@ class FeatureLineageEntry(Base):
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         server_default=func.now(),
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<FeatureLineageEntry {self.source_name!r} "
-            f"type={self.source_type}>"
-        )
+        return f"<FeatureLineageEntry {self.source_name!r} type={self.source_type}>"
 
 
 # ═══════════════════════════════════════════════════════════
@@ -327,7 +335,8 @@ class FeatureLineage:
             feature_definition_id=definition.id,
             feature_value_id=value.id,
             source_type="feature",
-            source_name=definition.name,                    source_version=f"v{definition.version}",
+            source_name=definition.name,
+            source_version=f"v{definition.version}",
             source_metadata={
                 "computed_by": computed_by,
                 "numeric_value": value.numeric_value,
@@ -354,7 +363,8 @@ class FeatureLineage:
 
         logger.debug(
             "Recorded feature computation: %s v%d for entity",
-            definition.name, definition.version,
+            definition.name,
+            definition.version,
         )
         return feature_entry
 
@@ -402,7 +412,9 @@ class FeatureLineage:
         self._session.flush()
         logger.info(
             "Recorded model %s (v%s) consuming %d features",
-            model_name, model_version or "?", len(features_used),
+            model_name,
+            model_version or "?",
+            len(features_used),
         )
         return entries
 
@@ -443,16 +455,22 @@ class FeatureLineage:
         if team_id is not None:
             filters.append(FeatureValue.team_id == team_id)
 
-        stmt = select(FeatureValue).where(*filters).order_by(
-            FeatureValue.computed_at.desc(),
-        ).limit(1)
+        stmt = (
+            select(FeatureValue)
+            .where(*filters)
+            .order_by(
+                FeatureValue.computed_at.desc(),
+            )
+            .limit(1)
+        )
         fv = self._session.execute(stmt).scalar_one_or_none()
 
         if fv is None:
             return provenance
 
         provenance.value = (
-            fv.numeric_value if fv.numeric_value is not None
+            fv.numeric_value
+            if fv.numeric_value is not None
             else fv.text_value or fv.json_value
         )
         provenance.computed_at = fv.computed_at
@@ -472,13 +490,18 @@ class FeatureLineage:
             # Walk up the parent chain
             current: FeatureLineageEntry | None = feature_entry
             while current is not None:
-                provenance.source_chain.insert(0, {
-                    "type": current.source_type,
-                    "name": current.source_name,
-                    "version": current.source_version,
-                    "metadata": current.source_metadata or {},
-                    "timestamp": current.created_at.isoformat() if current.created_at else None,
-                })
+                provenance.source_chain.insert(
+                    0,
+                    {
+                        "type": current.source_type,
+                        "name": current.source_name,
+                        "version": current.source_version,
+                        "metadata": current.source_metadata or {},
+                        "timestamp": current.created_at.isoformat()
+                        if current.created_at
+                        else None,
+                    },
+                )
                 if current.parent_entry_id:
                     parent_stmt = select(FeatureLineageEntry).where(
                         FeatureLineageEntry.id == current.parent_entry_id,
@@ -488,17 +511,12 @@ class FeatureLineage:
                     current = None
 
         # Find model consumers
-        model_stmt = (
-            select(FeatureLineageEntry)
-            .where(
-                FeatureLineageEntry.feature_definition_id == definition.id,
-                FeatureLineageEntry.source_type == "model",
-            )
+        model_stmt = select(FeatureLineageEntry).where(
+            FeatureLineageEntry.feature_definition_id == definition.id,
+            FeatureLineageEntry.source_type == "model",
         )
         model_entries = list(self._session.execute(model_stmt).scalars().all())
-        provenance.model_consumers = sorted({
-            e.source_name for e in model_entries
-        })
+        provenance.model_consumers = sorted({e.source_name for e in model_entries})
 
         return provenance
 
@@ -560,9 +578,8 @@ class FeatureLineage:
             Downstream feature names and versions.
         """
         # Find lineage entries with this source name
-        stmt = (
-            select(FeatureLineageEntry)
-            .where(FeatureLineageEntry.source_name == source_name)
+        stmt = select(FeatureLineageEntry).where(
+            FeatureLineageEntry.source_name == source_name
         )
         entries = list(self._session.execute(stmt).scalars().all())
 
@@ -579,19 +596,20 @@ class FeatureLineage:
             seen.add(current_id)
 
             # Find children (entries that have this as parent)
-            child_stmt = (
-                select(FeatureLineageEntry)
-                .where(FeatureLineageEntry.parent_entry_id == current_id)
+            child_stmt = select(FeatureLineageEntry).where(
+                FeatureLineageEntry.parent_entry_id == current_id
             )
             children = list(self._session.execute(child_stmt).scalars().all())
 
             for child in children:
-                downstream.append({
-                    "type": child.source_type,
-                    "name": child.source_name,
-                    "version": child.source_version,
-                    "feature_definition_id": child.feature_definition_id,
-                })
+                downstream.append(
+                    {
+                        "type": child.source_type,
+                        "name": child.source_name,
+                        "version": child.source_version,
+                        "feature_definition_id": child.feature_definition_id,
+                    }
+                )
                 queue.append(child.id)
 
             depth += 1
@@ -616,17 +634,18 @@ class FeatureLineage:
         summary: list[dict[str, Any]] = []
         for source in sources:
             downstream = self.get_downstream(source.source_name)
-            feature_names = sorted({
-                d["name"] for d in downstream
-                if d["type"] == "feature"
-            })
-            summary.append({
-                "source_name": source.source_name,
-                "source_version": source.source_version,
-                "downstream_features": feature_names,
-                "feature_count": len(feature_names),
-                "total_downstream_entries": len(downstream),
-            })
+            feature_names = sorted(
+                {d["name"] for d in downstream if d["type"] == "feature"}
+            )
+            summary.append(
+                {
+                    "source_name": source.source_name,
+                    "source_version": source.source_version,
+                    "downstream_features": feature_names,
+                    "feature_count": len(feature_names),
+                    "total_downstream_entries": len(downstream),
+                }
+            )
 
         return summary
 

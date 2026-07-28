@@ -108,7 +108,8 @@ def calculate_clv(
     if your_odds <= 1.0 or closing_odds <= 1.0:
         logger.debug(
             "CLV = 0.0 — invalid odds (your=%.4f, closing=%.4f)",
-            your_odds, closing_odds,
+            your_odds,
+            closing_odds,
         )
         return _clv_result(0.0, your_odds, closing_odds, market)
 
@@ -201,7 +202,9 @@ def calculate_market_clv(
             "n_zero": 0,
         }
 
-    labels = _OUTCOME_LABELS.get(market, [f"Outcome {i+1}" for i in range(len(your_odds))])
+    labels = _OUTCOME_LABELS.get(
+        market, [f"Outcome {i + 1}" for i in range(len(your_odds))]
+    )
 
     # Pad labels if fewer than outcomes
     while len(labels) < len(your_odds):
@@ -319,11 +322,17 @@ def calculate_batch_clv(
         "n_missing_closing": n_missing_closing,
         "avg_clv": round(float(np.mean(clv_arr)), 6) if total > 0 else 0.0,
         "positive_clv_pct": round(
-            (n_positive / total) * 100, 2,
-        ) if total > 0 else 0.0,
+            (n_positive / total) * 100,
+            2,
+        )
+        if total > 0
+        else 0.0,
         "non_zero_clv_pct": round(
-            (n_nonzero / total) * 100, 2,
-        ) if total > 0 else 0.0,
+            (n_nonzero / total) * 100,
+            2,
+        )
+        if total > 0
+        else 0.0,
         "max_clv": round(float(np.max(clv_arr)), 6) if total > 0 else 0.0,
         "min_clv": round(float(np.min(clv_arr)), 6) if total > 0 else 0.0,
         "bet_results": bet_results,

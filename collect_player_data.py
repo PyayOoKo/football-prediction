@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import config
+from src.config import config
 from src.data_collection.sources.transfermarkt import (
     TEAM_TO_TM_ID,
     scrape_squads,

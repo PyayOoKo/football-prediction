@@ -224,7 +224,7 @@ def _train_tree_model(
         training fails.
     """
     import time
-    from config import config as cfg
+    from src.config import config as cfg
 
     t0 = time.time()
     logger.info("  Preparing features for %s...", model_type)
@@ -367,7 +367,7 @@ def train_league_models(
     if train_trees:
         # Apply league-specific Elo overrides so tree models are trained
         # on features computed with the correct K/home_advantage for this league.
-        from config import config as _cfg
+        from src.config import config as _cfg
         _elo_override = _cfg.elo.per_league.get(league)
         if _elo_override:
             _saved_k = _cfg.elo.k

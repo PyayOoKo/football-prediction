@@ -26,7 +26,9 @@ class _ContextAdapter(logging.LoggerAdapter):  # type: ignore[type-arg]
     """A logger adapter that merges a static ``extra`` dict with ``extra``
     passed at the call site, then forwards to the underlying logger."""
 
-    def __init__(self, logger: logging.Logger, extra: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self, logger: logging.Logger, extra: dict[str, Any] | None = None
+    ) -> None:
         super().__init__(logger, extra or {})
 
     def process(self, msg: str, kwargs: Any) -> tuple[str, Any]:

@@ -92,7 +92,7 @@ def export_to_wandb(
             reinit=True,
         )
 
-        for run in (exp.runs or []):
+        for run in exp.runs or []:
             metrics = dict(run.metrics or {})
 
             # Log extended metrics
@@ -113,13 +113,15 @@ def export_to_wandb(
             # Log as a nested run
             wandb_run = wandb.run  # Use the current run
             wandb_run.name = run.run_name or run.model_type
-            wandb_run.config.update({
-                "model_type": run.model_type,
-                "hyperparameters": run.hyperparameters or {},
-                "random_seed": run.random_seed,
-                "status": run.status,
-                "training_duration": run.training_duration_seconds,
-            })
+            wandb_run.config.update(
+                {
+                    "model_type": run.model_type,
+                    "hyperparameters": run.hyperparameters or {},
+                    "random_seed": run.random_seed,
+                    "status": run.status,
+                    "training_duration": run.training_duration_seconds,
+                }
+            )
 
             # Log metrics
             if metrics:
@@ -145,10 +147,16 @@ def export_to_wandb(
                     columns=["feature", "importance"],
                     data=list(zip(feat_names, feat_values, strict=False)),
                 )
-                wandb_run.log({"feature_importance": wandb.plot.bar(
-                    fi_table, "feature", "importance",
-                    title="Top Feature Importance",
-                )})
+                wandb_run.log(
+                    {
+                        "feature_importance": wandb.plot.bar(
+                            fi_table,
+                            "feature",
+                            "importance",
+                            title="Top Feature Importance",
+                        )
+                    }
+                )
 
             exported += 1
 
@@ -183,9 +191,7 @@ def import_from_wandb(
     try:
         import wandb
     except ImportError:
-        raise ImportError(
-            "W&B integration requires the 'wandb' package."
-        )
+        raise ImportError("W&B integration requires the 'wandb' package.")
 
     api = wandb.Api()
     runs = api.runs(f"{entity or ''}/{project}" if entity else project)
@@ -225,7 +231,9 @@ def import_from_wandb(
                 continue
             try:
                 values = wandb_run.history(keys=[metric_key])[metric_key]
-                final_val = values.dropna().iloc[-1] if not values.dropna().empty else None
+                final_val = (
+                    values.dropna().iloc[-1] if not values.dropna().empty else None
+                )
                 if final_val is not None:
                     metrics[metric_key] = float(final_val)
             except (ValueError, TypeError, IndexError):

@@ -38,7 +38,9 @@ from src.database.base import Base
 
 # ── Helper: generate string UUID PK ───────────────────────
 def _uuid_pk() -> Any:
-    return mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    return mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -85,48 +87,61 @@ class Experiment(Base):
 
     id: Mapped[str] = _uuid_pk()
     name: Mapped[str] = mapped_column(
-        String(255), nullable=False, index=True,
+        String(255),
+        nullable=False,
+        index=True,
     )
     description: Mapped[str | None] = mapped_column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
     )
     dataset_version: Mapped[str | None] = mapped_column(
-        String(100), nullable=True,
+        String(100),
+        nullable=True,
     )
     feature_version: Mapped[str | None] = mapped_column(
-        String(100), nullable=True,
+        String(100),
+        nullable=True,
     )
     model_version: Mapped[str | None] = mapped_column(
-        String(100), nullable=True,
+        String(100),
+        nullable=True,
     )
     git_commit: Mapped[str | None] = mapped_column(
-        String(64), nullable=True,
+        String(64),
+        nullable=True,
     )
     notes: Mapped[str | None] = mapped_column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
     )
     tags: Mapped[dict[str, str] | None] = mapped_column(
-        JSON, nullable=True,
+        JSON,
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         server_default=func.now(),
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=func.now(),
     )
 
     # Relationships
     runs: Mapped[list[Run]] = relationship(
-        "Run", back_populates="experiment",
+        "Run",
+        back_populates="experiment",
         cascade="all, delete-orphan",
         order_by="Run.started_at.desc()",
     )
     best_models: Mapped[list[BestModel]] = relationship(
-        "BestModel", back_populates="experiment",
+        "BestModel",
+        back_populates="experiment",
         cascade="all, delete-orphan",
     )
 
@@ -218,90 +233,130 @@ class Run(Base):
 
     __tablename__ = "runs"
     __table_args__ = (
-        UniqueConstraint("experiment_id", "run_name", name="uq_run_name_per_experiment"),
+        UniqueConstraint(
+            "experiment_id", "run_name", name="uq_run_name_per_experiment"
+        ),
     )
 
     id: Mapped[str] = _uuid_pk()
     experiment_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("experiments.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     run_name: Mapped[str | None] = mapped_column(
-        String(255), nullable=True,
+        String(255),
+        nullable=True,
     )
     model_type: Mapped[str] = mapped_column(
-        String(100), nullable=False, index=True,
+        String(100),
+        nullable=False,
+        index=True,
     )
     model_version: Mapped[str | None] = mapped_column(
-        String(100), nullable=True,
+        String(100),
+        nullable=True,
     )
     hyperparameters: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON, nullable=True, default=dict,
+        JSON,
+        nullable=True,
+        default=dict,
     )
     random_seed: Mapped[int | None] = mapped_column(
-        Integer, nullable=True,
+        Integer,
+        nullable=True,
     )
     status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="running",
+        String(20),
+        nullable=False,
+        default="running",
     )
     metrics: Mapped[dict[str, float] | None] = mapped_column(
-        JSON, nullable=True, default=dict,
+        JSON,
+        nullable=True,
+        default=dict,
     )
-    cross_validation_metrics: Mapped[dict[str, dict[str, float]] | None] = mapped_column(
-        JSON, nullable=True, default=dict,
+    cross_validation_metrics: Mapped[dict[str, dict[str, float]] | None] = (
+        mapped_column(
+            JSON,
+            nullable=True,
+            default=dict,
+        )
     )
     calibration_metrics: Mapped[dict[str, float] | None] = mapped_column(
-        JSON, nullable=True, default=dict,
+        JSON,
+        nullable=True,
+        default=dict,
     )
     profit_metrics: Mapped[dict[str, float] | None] = mapped_column(
-        JSON, nullable=True, default=dict,
+        JSON,
+        nullable=True,
+        default=dict,
     )
     confusion_matrix: Mapped[dict[str, int] | None] = mapped_column(
-        JSON, nullable=True, default=dict,
+        JSON,
+        nullable=True,
+        default=dict,
     )
     feature_importance: Mapped[dict[str, float] | None] = mapped_column(
-        JSON, nullable=True, default=dict,
+        JSON,
+        nullable=True,
+        default=dict,
     )
     shap_values: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON, nullable=True, default=dict,
+        JSON,
+        nullable=True,
+        default=dict,
     )
     training_duration_seconds: Mapped[float | None] = mapped_column(
-        Float, nullable=True,
+        Float,
+        nullable=True,
     )
     hardware: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON, nullable=True, default=dict,
+        JSON,
+        nullable=True,
+        default=dict,
     )
     git_commit: Mapped[str | None] = mapped_column(
-        String(64), nullable=True,
+        String(64),
+        nullable=True,
     )
     notes: Mapped[str | None] = mapped_column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
     )
     tags: Mapped[dict[str, str] | None] = mapped_column(
-        JSON, nullable=True,
+        JSON,
+        nullable=True,
     )
     error_message: Mapped[str | None] = mapped_column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
     )
     started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
     finished_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True,
+        DateTime(timezone=True),
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         server_default=func.now(),
     )
 
     # Relationships
     experiment: Mapped[Experiment] = relationship(
-        "Experiment", back_populates="runs",
+        "Experiment",
+        back_populates="runs",
     )
     artifacts: Mapped[list[ModelArtifact]] = relationship(
-        "ModelArtifact", back_populates="run",
+        "ModelArtifact",
+        back_populates="run",
         cascade="all, delete-orphan",
     )
 
@@ -406,7 +461,9 @@ class BestModel(Base):
     __tablename__ = "best_models"
     __table_args__ = (
         UniqueConstraint(
-            "experiment_id", "metric_name", "rank",
+            "experiment_id",
+            "metric_name",
+            "rank",
             name="uq_best_model_rank",
         ),
     )
@@ -415,7 +472,8 @@ class BestModel(Base):
     experiment_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("experiments.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     run_id: Mapped[str] = mapped_column(
         String(36),
@@ -423,31 +481,41 @@ class BestModel(Base):
         nullable=False,
     )
     metric_name: Mapped[str] = mapped_column(
-        String(100), nullable=False,
+        String(100),
+        nullable=False,
     )
     metric_value: Mapped[float] = mapped_column(
-        Float, nullable=False,
+        Float,
+        nullable=False,
     )
     rank: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=1,
+        Integer,
+        nullable=False,
+        default=1,
     )
     is_promoted: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False,
+        Boolean,
+        nullable=False,
+        default=False,
     )
     promoted_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True,
+        DateTime(timezone=True),
+        nullable=True,
     )
     notes: Mapped[str | None] = mapped_column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         server_default=func.now(),
     )
 
     # Relationships
     experiment: Mapped[Experiment] = relationship(
-        "Experiment", back_populates="best_models",
+        "Experiment",
+        back_populates="best_models",
     )
     run: Mapped[Run] = relationship("Run")
 
@@ -510,31 +578,42 @@ class ModelArtifact(Base):
     run_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("runs.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     name: Mapped[str] = mapped_column(
-        String(255), nullable=False,
+        String(255),
+        nullable=False,
     )
     uri: Mapped[str] = mapped_column(
-        String(1024), nullable=False,
+        String(1024),
+        nullable=False,
     )
     file_size_bytes: Mapped[int | None] = mapped_column(
-        Integer, nullable=True,
+        Integer,
+        nullable=True,
     )
     artifact_type: Mapped[str] = mapped_column(
-        String(50), nullable=False, default="model",
+        String(50),
+        nullable=False,
+        default="model",
     )
     extra_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        "metadata", JSON, nullable=True, default=dict,
+        "metadata",
+        JSON,
+        nullable=True,
+        default=dict,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         server_default=func.now(),
     )
 
     # Relationships
     run: Mapped[Run] = relationship(
-        "Run", back_populates="artifacts",
+        "Run",
+        back_populates="artifacts",
     )
 
     def __repr__(self) -> str:

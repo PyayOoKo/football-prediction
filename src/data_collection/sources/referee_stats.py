@@ -75,15 +75,17 @@ def _session() -> requests.Session:
     sess = requests.Session()
     retries = Retry(total=3, backoff_factor=2.0, status_forcelist=[429, 502, 503, 504])
     sess.mount("https://", HTTPAdapter(max_retries=retries))
-    sess.headers.update({
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-GB,en;q=0.9",
-    })
+    sess.headers.update(
+        {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-GB,en;q=0.9",
+        }
+    )
     return sess
 
 
@@ -135,7 +137,8 @@ def scrape_referees(
             logger.warning(
                 "Referee stats not found for %s/%s (404) — "
                 "trying without season in URL",
-                competition_id, season,
+                competition_id,
+                season,
             )
             # Try the generic referee page
             url = f"{FBREF_BASE}/en/comps/{competition_id}/referees/{comp_name}-Referee-Stats"
@@ -147,6 +150,7 @@ def scrape_referees(
 
     if save_path:
         import os
+
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         df.to_csv(save_path, index=False)
         logger.info("Saved %d referee rows to %s", len(df), save_path)
@@ -314,7 +318,9 @@ def _parse_referee_table(
         df.rename(columns={"matches": "matches_officiated"}, inplace=True)
 
     # Convert numeric columns
-    num_cols = df.columns.difference(["referee_name", "competition", "season", "competition_id"])
+    num_cols = df.columns.difference(
+        ["referee_name", "competition", "season", "competition_id"]
+    )
     for col in num_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
 
@@ -324,6 +330,7 @@ def _parse_referee_table(
 def _normalise_column_name(raw: str) -> str:
     """Convert an FBref column header to a snake_case feature name."""
     import unicodedata
+
     name = unicodedata.normalize("NFKD", raw.strip().lower())
     name = name.encode("ascii", "ignore").decode("ascii")
     name = name.replace(" ", "_").replace("/", "_per_").replace("-", "_")
@@ -373,5 +380,9 @@ if __name__ == "__main__":
         print("  No referee data found.")
     else:
         print(f"  Found {len(df)} referees:\n")
-        cols = ["referee_name", "matches_officiated"] if "matches_officiated" in df.columns else df.columns[:5].tolist()
+        cols = (
+            ["referee_name", "matches_officiated"]
+            if "matches_officiated" in df.columns
+            else df.columns[:5].tolist()
+        )
         print(df[cols].to_string(index=False))

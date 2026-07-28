@@ -108,7 +108,10 @@ class EntityResolver:
         if self.log_resolutions and result.confidence < 1.0:
             logger.info(
                 "Team resolved: %r -> %s (conf=%.2f, method=%s)",
-                name, canonical, result.confidence, result.method,
+                name,
+                canonical,
+                result.confidence,
+                result.method,
             )
 
         # Query database
@@ -124,12 +127,15 @@ class EntityResolver:
                 self._team_cache[canonical.lower()] = team_id
 
         if team_id is None:
-            logger.warning("Team not found in database: %r (canonical=%r)", name, canonical)
+            logger.warning(
+                "Team not found in database: %r (canonical=%r)", name, canonical
+            )
 
         return team_id
 
     def resolve_teams_batch(
-        self, names: list[str],
+        self,
+        names: list[str],
     ) -> dict[str, int | None]:
         """Resolve multiple team names at once.
 
@@ -261,7 +267,8 @@ class EntityResolver:
         if season_id is None:
             logger.warning(
                 "Season not found: %r (competition_id=%s)",
-                season_name, competition_id,
+                season_name,
+                competition_id,
             )
 
         return season_id
@@ -437,13 +444,17 @@ class EntityResolver:
                 comp_id = comp.id
                 logger.info(
                     "Auto-created competition: %s (code=%s, id=%d)",
-                    name, code, comp_id,
+                    name,
+                    code,
+                    comp_id,
                 )
                 return comp_id
         except Exception as exc:
             logger.error(
                 "Failed to auto-create competition %r (code=%s): %s",
-                name, code, exc,
+                name,
+                code,
+                exc,
             )
             return None
 
@@ -489,11 +500,15 @@ class EntityResolver:
                 season_id = season.id
                 logger.info(
                     "Auto-created season: %s (competition_id=%d, id=%d)",
-                    name, competition_id, season_id,
+                    name,
+                    competition_id,
+                    season_id,
                 )
                 return season_id
         except Exception as exc:
             logger.error(
-                "Failed to auto-create season %r: %s", name, exc,
+                "Failed to auto-create season %r: %s",
+                name,
+                exc,
             )
             return None

@@ -56,9 +56,12 @@ class VersionManager:
         """Capture the current git commit hash."""
         try:
             import subprocess
+
             result = subprocess.run(
                 ["git", "rev-parse", "--short", "HEAD"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             return result.stdout.strip() if result.returncode == 0 else ""
         except Exception:
@@ -161,8 +164,11 @@ class VersionManager:
 
         logger.info(
             "Created version %s (%d rows, schema=%s, pipeline=%s, git=%s)",
-            vid, len(df), schema_version or "?",
-            pipeline_version or "?", git_commit[:8] if git_commit else "?",
+            vid,
+            len(df),
+            schema_version or "?",
+            pipeline_version or "?",
+            git_commit[:8] if git_commit else "?",
         )
         return info
 
@@ -236,10 +242,7 @@ class VersionManager:
         list[VersionSummary]
             Sorted oldest-first.
         """
-        return [
-            VersionSummary.from_version(v)
-            for v in self.storage.list_versions()
-        ]
+        return [VersionSummary.from_version(v) for v in self.storage.list_versions()]
 
     def get_version(self, version_id: str) -> VersionInfo | None:
         """Get full metadata for a specific version.
@@ -308,8 +311,10 @@ class VersionManager:
 
         logger.info(
             "Comparing %s (%d rows) → %s (%d rows)",
-            base_version_id, old_info.n_rows,
-            target_version_id, new_info.n_rows,
+            base_version_id,
+            old_info.n_rows,
+            target_version_id,
+            new_info.n_rows,
         )
 
         old_df = self.storage.load_snapshot(base_version_id)
@@ -326,8 +331,10 @@ class VersionManager:
 
         logger.info(
             "Diff: %d unchanged, %d inserted, %d updated, %d deleted",
-            diff.n_unchanged, diff.n_inserted,
-            diff.n_updated, diff.n_deleted,
+            diff.n_unchanged,
+            diff.n_inserted,
+            diff.n_updated,
+            diff.n_deleted,
         )
 
         return diff
@@ -376,9 +383,11 @@ class VersionManager:
         dict[str, Any]
             ``{version_id: {"valid": bool, "n_rows": int, "hash": str}}``
         """
-        versions = [version_id] if version_id else [
-            v.version_id for v in self.storage.list_versions()
-        ]
+        versions = (
+            [version_id]
+            if version_id
+            else [v.version_id for v in self.storage.list_versions()]
+        )
 
         results: dict[str, Any] = {}
         for vid in versions:
@@ -412,9 +421,7 @@ class VersionManager:
         """
         current_id = self.storage.get_current_version_id()
         if current_id is None:
-            raise ValueError(
-                "No current version set. Create a version first."
-            )
+            raise ValueError("No current version set. Create a version first.")
         return self.storage.load_snapshot(current_id, columns=columns)
 
     # ── Internal ────────────────────────────────────────

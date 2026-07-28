@@ -63,11 +63,11 @@ _COLUMN_ALIASES: dict[tuple[str, str, str], list[tuple[str, str, str]]] = {
     # Lowercase enriched format <=> standard BbMx/BbAv format
     ("maxh", "maxd", "maxa"): [
         ("bbmxh", "bbmxd", "bbmxa"),  # BbMxH/BbMxD/BbMxA (standard)
-        ("b365h", "b365d", "b365a"),   # Bet365 fallback
+        ("b365h", "b365d", "b365a"),  # Bet365 fallback
     ],
     ("avgh", "avgd", "avga"): [
         ("bbavh", "bbavd", "bbava"),  # BbAvH/BbAvD/BbAvA (standard)
-        ("b365h", "b365d", "b365a"),   # Bet365 fallback
+        ("b365h", "b365d", "b365a"),  # Bet365 fallback
     ],
 }
 
@@ -78,13 +78,13 @@ _FALLBACK_CLOSING: tuple[str, str, str] = ("B365H", "B365D", "B365A")
 _BOOKMAKER_SETS: list[tuple[str, str, str]] = [
     ("BbAvH", "BbAvD", "BbAvA"),  # BetBrain average (closing consensus)
     ("B365H", "B365D", "B365A"),  # Bet365
-    ("BWH", "BWD", "BWA"),        # Bet&Win
-    ("IWH", "IWD", "IWA"),        # Interwetten
-    ("LBH", "LBD", "LBA"),        # Ladbrokes
-    ("SBH", "SBD", "SBA"),        # Sportingbet
-    ("WHH", "WHD", "WHA"),        # William Hill
-    ("SJH", "SJD", "SJA"),        # Stan James
-    ("VCH", "VCD", "VCA"),        # VC Bet
+    ("BWH", "BWD", "BWA"),  # Bet&Win
+    ("IWH", "IWD", "IWA"),  # Interwetten
+    ("LBH", "LBD", "LBA"),  # Ladbrokes
+    ("SBH", "SBD", "SBA"),  # Sportingbet
+    ("WHH", "WHD", "WHA"),  # William Hill
+    ("SJH", "SJD", "SJA"),  # Stan James
+    ("VCH", "VCD", "VCA"),  # VC Bet
 ]
 
 _OUTCOME_LABELS = ["H", "D", "A"]
@@ -93,36 +93,55 @@ _OUTCOME_LABELS = ["H", "D", "A"]
 
 OUTPUT_COLS = [
     # Raw odds
-    "odds_home_opening", "odds_draw_opening", "odds_away_opening",
-    "odds_home_closing", "odds_draw_closing", "odds_away_closing",
+    "odds_home_opening",
+    "odds_draw_opening",
+    "odds_away_opening",
+    "odds_home_closing",
+    "odds_draw_closing",
+    "odds_away_closing",
     # Implied probability (raw, includes margin)
-    "implied_prob_home_opening", "implied_prob_draw_opening",
+    "implied_prob_home_opening",
+    "implied_prob_draw_opening",
     "implied_prob_away_opening",
-    "implied_prob_home_closing", "implied_prob_draw_closing",
+    "implied_prob_home_closing",
+    "implied_prob_draw_closing",
     "implied_prob_away_closing",
     # Fair probability (margin removed)
-    "fair_prob_home_opening", "fair_prob_draw_opening",
+    "fair_prob_home_opening",
+    "fair_prob_draw_opening",
     "fair_prob_away_opening",
-    "fair_prob_home_closing", "fair_prob_draw_closing",
+    "fair_prob_home_closing",
+    "fair_prob_draw_closing",
     "fair_prob_away_closing",
     # Odds movement
-    "odds_movement_home", "odds_movement_draw", "odds_movement_away",
-    "odds_movement_pct_home", "odds_movement_pct_draw",
+    "odds_movement_home",
+    "odds_movement_draw",
+    "odds_movement_away",
+    "odds_movement_pct_home",
+    "odds_movement_pct_draw",
     "odds_movement_pct_away",
     # CLV (change in fair probability)
-    "clv_home", "clv_draw", "clv_away",
+    "clv_home",
+    "clv_draw",
+    "clv_away",
     # Market structure
-    "market_favorite", "market_underdog",
+    "market_favorite",
+    "market_underdog",
     "market_confidence",
     # Consensus (across bookmakers)
-    "consensus_home", "consensus_draw", "consensus_away",
+    "consensus_home",
+    "consensus_draw",
+    "consensus_away",
     # Volatility
     "odds_volatility",
     # Margin
-    "bookmaker_margin_opening", "bookmaker_margin_closing",
+    "bookmaker_margin_opening",
+    "bookmaker_margin_closing",
     # Team-level indicators
-    "h_is_favorite", "a_is_favorite",
-    "h_is_underdog", "a_is_underdog",
+    "h_is_favorite",
+    "a_is_favorite",
+    "h_is_underdog",
+    "a_is_underdog",
 ]
 
 
@@ -185,9 +204,13 @@ class BettingMarketTransformer(FeatureTransformer):
 
     output_columns: list[str] = list(OUTPUT_COLS)
 
-    _REQUIRED_COLS: frozenset[str] = frozenset({
-        "date", "home_team", "away_team",
-    })
+    _REQUIRED_COLS: frozenset[str] = frozenset(
+        {
+            "date",
+            "home_team",
+            "away_team",
+        }
+    )
 
     def __init__(self, **params: Any) -> None:
         super().__init__(**params)
@@ -260,17 +283,24 @@ class BettingMarketTransformer(FeatureTransformer):
                         if col not in df.columns and col != "match_id":
                             df[col] = extra_odds[col].values
                     logger.debug(
-                        "Loaded %d rows of extra odds data", len(extra_odds),
+                        "Loaded %d rows of extra odds data",
+                        len(extra_odds),
                     )
             except Exception as exc:
                 logger.warning("Failed to load extra odds data: %s", exc)
 
         # ── 3. Detect available odds columns ──────────────
         opening_cols = self._resolve_odds_cols(
-            df, self.params.get("opening_odds_cols"), _DEFAULT_OPENING, "opening",
+            df,
+            self.params.get("opening_odds_cols"),
+            _DEFAULT_OPENING,
+            "opening",
         )
         closing_cols = self._resolve_odds_cols(
-            df, self.params.get("closing_odds_cols"), _DEFAULT_CLOSING, "closing",
+            df,
+            self.params.get("closing_odds_cols"),
+            _DEFAULT_CLOSING,
+            "closing",
         )
 
         # Fallback: if no opening odds found, use closing as opening
@@ -284,7 +314,10 @@ class BettingMarketTransformer(FeatureTransformer):
         # Fallback: if no closing odds found either, try Bet365
         if closing_cols is None:
             closing_cols = self._resolve_odds_cols(
-                df, None, _FALLBACK_CLOSING, "closing (fallback)",
+                df,
+                None,
+                _FALLBACK_CLOSING,
+                "closing (fallback)",
             )
             if closing_cols is not None and opening_cols is None:
                 opening_cols = closing_cols
@@ -319,12 +352,15 @@ class BettingMarketTransformer(FeatureTransformer):
                     odds_close[both, j] = odds_open[both, j]
                     logger.debug(
                         "Filled %d missing closing odds (index %d) from opening",
-                        int(both.sum()), j,
+                        int(both.sum()),
+                        j,
                     )
 
         # ── 6. Compute derived features ───────────────────
         features = self._compute_all_features(
-            df, odds_open, odds_close,
+            df,
+            odds_open,
+            odds_close,
         )
 
         # ── 7. Assign columns ─────────────────────────────
@@ -391,7 +427,9 @@ class BettingMarketTransformer(FeatureTransformer):
                             resolved = tuple(col_lookup[a] for a in alt)
                             logger.debug(
                                 "Using alternative %s odds columns: %s (aliased from %s)",
-                                label, resolved, cols,
+                                label,
+                                resolved,
+                                cols,
                             )
                             return resolved
 
@@ -421,15 +459,9 @@ class BettingMarketTransformer(FeatureTransformer):
                     col_lookup[a_col.lower()],
                 )
                 # Skip if these are the same as opening/closing columns
-                if (
-                    self._closing_cols is not None
-                    and resolved == self._closing_cols
-                ):
+                if self._closing_cols is not None and resolved == self._closing_cols:
                     continue
-                if (
-                    self._opening_cols is not None
-                    and resolved == self._opening_cols
-                ):
+                if self._opening_cols is not None and resolved == self._opening_cols:
                     continue
                 detected.append(resolved)
 
@@ -558,14 +590,12 @@ class BettingMarketTransformer(FeatureTransformer):
                     und_indices[i] = valid_indices[min_idx_in_valid]
                     und_probs_min[i] = float(row[valid][min_idx_in_valid])
 
-        market_fav = np.array([
-            _OUTCOME_LABELS[idx] if idx >= 0 else np.nan
-            for idx in fav_indices
-        ])
-        market_und = np.array([
-            _OUTCOME_LABELS[idx] if idx >= 0 else np.nan
-            for idx in und_indices
-        ])
+        market_fav = np.array(
+            [_OUTCOME_LABELS[idx] if idx >= 0 else np.nan for idx in fav_indices]
+        )
+        market_und = np.array(
+            [_OUTCOME_LABELS[idx] if idx >= 0 else np.nan for idx in und_indices]
+        )
 
         features["market_favorite"] = market_fav
         features["market_underdog"] = market_und
@@ -613,7 +643,8 @@ class BettingMarketTransformer(FeatureTransformer):
         compute_consensus = self.params.get("compute_consensus", True)
         if compute_consensus and self._detected_bookmaker_sets:
             consensus = self._compute_consensus(
-                df, self._detected_bookmaker_sets,
+                df,
+                self._detected_bookmaker_sets,
             )
             features["consensus_home"] = consensus[:, 0]
             features["consensus_draw"] = consensus[:, 1]
@@ -627,7 +658,8 @@ class BettingMarketTransformer(FeatureTransformer):
         compute_volatility = self.params.get("compute_volatility", True)
         if compute_volatility and self._detected_bookmaker_sets:
             features["odds_volatility"] = self._compute_volatility(
-                df, self._detected_bookmaker_sets,
+                df,
+                self._detected_bookmaker_sets,
             )
         else:
             features["odds_volatility"] = np.full(n, np.nan)
@@ -666,7 +698,10 @@ class BettingMarketTransformer(FeatureTransformer):
                 )
                 all_fair.append(fair)
             except Exception:
-                logger.warning("Failed to compute fair probabilities for a bookmaker set", exc_info=True)
+                logger.warning(
+                    "Failed to compute fair probabilities for a bookmaker set",
+                    exc_info=True,
+                )
                 continue
 
         if not all_fair:
@@ -707,7 +742,9 @@ class BettingMarketTransformer(FeatureTransformer):
                 )
                 all_fair.append(fair)
             except Exception:
-                logger.warning("Failed to compute volatility for a bookmaker set", exc_info=True)
+                logger.warning(
+                    "Failed to compute volatility for a bookmaker set", exc_info=True
+                )
                 continue
 
         if not all_fair:
@@ -734,11 +771,13 @@ class BettingMarketTransformer(FeatureTransformer):
 
     def to_dict(self) -> dict[str, Any]:
         base = super().to_dict()
-        base.update({
-            "opening_odds_cols": self._opening_cols,
-            "closing_odds_cols": self._closing_cols,
-            "detected_bookmaker_sets": len(self._detected_bookmaker_sets),
-        })
+        base.update(
+            {
+                "opening_odds_cols": self._opening_cols,
+                "closing_odds_cols": self._closing_cols,
+                "detected_bookmaker_sets": len(self._detected_bookmaker_sets),
+            }
+        )
         return base
 
     def __repr__(self) -> str:

@@ -205,7 +205,11 @@ class FeatureValidator:
                     report.total_violations += len(result.get("violations", []))
 
                 if self.verbose:
-                    status = "PASS" if result.get("passed", True) else f"FAIL ({len(result.get('violations', []))} violations)"
+                    status = (
+                        "PASS"
+                        if result.get("passed", True)
+                        else f"FAIL ({len(result.get('violations', []))} violations)"
+                    )
                     logger.debug("  [%s] %s", status, check_name)
 
             except Exception as exc:
@@ -222,7 +226,9 @@ class FeatureValidator:
         if self.verbose:
             logger.info(
                 "Validation complete: %d/%d checks passed, %d violations",
-                report.passed_checks, report.total_checks, report.total_violations,
+                report.passed_checks,
+                report.total_checks,
+                report.total_violations,
             )
 
         return report
@@ -289,11 +295,13 @@ class FeatureValidator:
             for j in range(i + 1, len(cols)):
                 val = corr.iloc[i, j]
                 if not pd.isna(val) and abs(val) >= threshold:
-                    high_pairs.append({
-                        "feature_1": cols[i],
-                        "feature_2": cols[j],
-                        "correlation": round(float(val), 4),
-                    })
+                    high_pairs.append(
+                        {
+                            "feature_1": cols[i],
+                            "feature_2": cols[j],
+                            "correlation": round(float(val), 4),
+                        }
+                    )
 
         report = CorrelationReport(
             n_features=len(cols),
@@ -317,15 +325,23 @@ class FeatureValidator:
 
         for col in df.columns:
             n_missing = int(df[col].isna().sum())
-            n_inf = int(np.isinf(df[col]).sum()) if pd.api.types.is_float_dtype(df[col]) else 0
+            n_inf = (
+                int(np.isinf(df[col]).sum())
+                if pd.api.types.is_float_dtype(df[col])
+                else 0
+            )
             if n_missing > 0 or n_inf > 0:
-                missing.append({
-                    "column": col,
-                    "dtype": str(df[col].dtype),
-                    "n_missing": n_missing,
-                    "missing_rate": round(n_missing / total, 4) if total > 0 else 0.0,
-                    "n_infinite": n_inf,
-                })
+                missing.append(
+                    {
+                        "column": col,
+                        "dtype": str(df[col].dtype),
+                        "n_missing": n_missing,
+                        "missing_rate": round(n_missing / total, 4)
+                        if total > 0
+                        else 0.0,
+                        "n_infinite": n_inf,
+                    }
+                )
 
         total_cells = total * len(df.columns)
         n_missing_cells = sum(m["n_missing"] for m in missing)
@@ -337,7 +353,9 @@ class FeatureValidator:
             total_cells=total_cells,
             n_missing_cells=n_missing_cells,
             n_infinite_cells=n_inf_cells,
-            missing_rate=round(n_missing_cells / total_cells, 4) if total_cells > 0 else 0.0,
+            missing_rate=round(n_missing_cells / total_cells, 4)
+            if total_cells > 0
+            else 0.0,
             columns_with_missing=len(missing),
             details=missing,
         )
@@ -372,7 +390,8 @@ class FeatureValidator:
         # Only compare common numeric columns
         common_cols = [c for c in current_df.columns if c in reference_df.columns]
         numeric_cols = [
-            c for c in common_cols
+            c
+            for c in common_cols
             if pd.api.types.is_float_dtype(current_df[c])
             or pd.api.types.is_integer_dtype(current_df[c])
         ]
@@ -399,15 +418,17 @@ class FeatureValidator:
             if is_drifted:
                 n_warnings += 1
 
-            drift_features.append({
-                "column": col,
-                "psi": round(psi, 4),
-                "drifted": is_drifted,
-                "current_mean": round(float(np.mean(curr)), 4),
-                "reference_mean": round(float(np.mean(ref)), 4),
-                "current_std": round(float(np.std(curr, ddof=1)), 4),
-                "reference_std": round(float(np.std(ref, ddof=1)), 4),
-            })
+            drift_features.append(
+                {
+                    "column": col,
+                    "psi": round(psi, 4),
+                    "drifted": is_drifted,
+                    "current_mean": round(float(np.mean(curr)), 4),
+                    "reference_mean": round(float(np.mean(ref)), 4),
+                    "current_std": round(float(np.std(curr, ddof=1)), 4),
+                    "reference_std": round(float(np.std(ref, ddof=1)), 4),
+                }
+            )
 
         report = DriftReport(
             n_features=len(numeric_cols),

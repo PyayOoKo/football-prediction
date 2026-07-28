@@ -157,8 +157,8 @@ class RetryWithBackoff:
         return min(jittered, self.max_delay)  # type: ignore[return-value, unused-ignore, no-any-return]
 
 
-
 # ── Extractors ─────────────────────────────────────────
+
 
 class BaseExtractor(ABC):
     """Abstract base extractor.
@@ -273,7 +273,6 @@ class CSVExtractor(BaseExtractor):
 
         df = pd.read_csv(self.filepath, encoding=self.encoding, low_memory=False)
         return df.to_dict(orient="records")  # type: ignore[return-value, unused-ignore, no-any-return]
-
 
 
 class APIExtractor(BaseExtractor):

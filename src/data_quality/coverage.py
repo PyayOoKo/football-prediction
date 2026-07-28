@@ -20,26 +20,54 @@ logger = logging.getLogger(__name__)
 
 # ── Standard column patterns for auto-detection ─────────
 _ODDS_PATTERNS = [
-    "bbavh", "bbavd", "bbava",
-    "b365h", "b365d", "b365a",
-    "psh", "psd", "psa",
-    "maxh", "maxd", "maxa",
-    "avh", "avd", "ava",
-    "home_odds", "draw_odds", "away_odds",
-    "odds_home", "odds_draw", "odds_away",
+    "bbavh",
+    "bbavd",
+    "bbava",
+    "b365h",
+    "b365d",
+    "b365a",
+    "psh",
+    "psd",
+    "psa",
+    "maxh",
+    "maxd",
+    "maxa",
+    "avh",
+    "avd",
+    "ava",
+    "home_odds",
+    "draw_odds",
+    "away_odds",
+    "odds_home",
+    "odds_draw",
+    "odds_away",
 ]
 
 _XG_PATTERNS = [
-    "xg", "expected_goals", "x_g", "xga", "x g home",
-    "x_g_home", "x_g_away", "xg_home", "xg_away",
-    "home_xg", "away_xg", "expected_goals_home",
+    "xg",
+    "expected_goals",
+    "x_g",
+    "xga",
+    "x g home",
+    "x_g_home",
+    "x_g_away",
+    "xg_home",
+    "xg_away",
+    "home_xg",
+    "away_xg",
+    "expected_goals_home",
     "expected_goals_away",
 ]
 
 _EXPECTED_SCHEMA = [
-    "date", "season", "league",
-    "home_team", "away_team",
-    "home_goals", "away_goals", "result",
+    "date",
+    "season",
+    "league",
+    "home_team",
+    "away_team",
+    "home_goals",
+    "away_goals",
+    "result",
 ]
 
 
@@ -94,9 +122,7 @@ class CoverageAnalyzer:
         if odds_cols:
             # Any row that has at least one non-null odds column
             has_odds = df[odds_cols].notna().any(axis=1)
-            metrics.odds_coverage_pct = float(
-                has_odds.sum() / len(df) * 100
-            )
+            metrics.odds_coverage_pct = float(has_odds.sum() / len(df) * 100)
         else:
             metrics.odds_coverage_pct = 0.0
 
@@ -104,37 +130,37 @@ class CoverageAnalyzer:
         xg_cols = [c for c in df.columns if _match_pattern(c, self.xg_patterns)]
         if xg_cols:
             has_xg = df[xg_cols].notna().any(axis=1)
-            metrics.xg_coverage_pct = float(
-                has_xg.sum() / len(df) * 100
-            )
+            metrics.xg_coverage_pct = float(has_xg.sum() / len(df) * 100)
         else:
             metrics.xg_coverage_pct = 0.0
 
         # ── 3. League Coverage ────────────────────────────
-        league_cols = [c for c in ["league", "division", "competition", "league_name"]
-                       if c in df.columns]
+        league_cols = [
+            c
+            for c in ["league", "division", "competition", "league_name"]
+            if c in df.columns
+        ]
         if league_cols:
             league_col = league_cols[0]
             df[league_col] = df[league_col].fillna("UNKNOWN")
             metrics.league_coverage = {
-                str(k): int(v)
-                for k, v in df[league_col].value_counts().items()
+                str(k): int(v) for k, v in df[league_col].value_counts().items()
             }
             # Percentage mapped to known leagues (not UNKNOWN)
             known = df[league_col] != "UNKNOWN"
-            metrics.league_coverage_pct = float(
-                known.sum() / len(df) * 100
-            ) if len(df) > 0 else 0.0
+            metrics.league_coverage_pct = (
+                float(known.sum() / len(df) * 100) if len(df) > 0 else 0.0
+            )
 
         # ── 4. Season Coverage ────────────────────────────
-        season_cols = [c for c in ["season", "Season", "season_name"]
-                       if c in df.columns]
+        season_cols = [
+            c for c in ["season", "Season", "season_name"] if c in df.columns
+        ]
         if season_cols:
             season_col = season_cols[0]
             df[season_col] = df[season_col].fillna("UNKNOWN")
             metrics.season_coverage = {
-                str(k): int(v)
-                for k, v in df[season_col].value_counts().items()
+                str(k): int(v) for k, v in df[season_col].value_counts().items()
             }
             metrics.season_count = len(metrics.season_coverage)
 

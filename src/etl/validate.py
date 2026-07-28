@@ -59,7 +59,9 @@ def rule_no_null_columns(
         rule_name="no_null_columns",
         passed=len(null_cols) == 0,
         failure_count=len(null_cols),
-        details=f"Fully null columns: {null_cols}" if null_cols else "All columns have data",
+        details=f"Fully null columns: {null_cols}"
+        if null_cols
+        else "All columns have data",
     )
 
 
@@ -132,7 +134,8 @@ class SchemaValidator:
 
         if not data:
             return ValidationRuleResult(
-                "schema_validator", passed=True,
+                "schema_validator",
+                passed=True,
                 details="No data to validate against schema",
             )
 

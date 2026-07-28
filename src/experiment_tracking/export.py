@@ -61,7 +61,11 @@ def export_json(
         JSON string (also written to ``output_path`` if provided).
     """
     data = _build_export_dict(session, experiment_id=experiment_id)
-    json_str = json.dumps(data, indent=2, default=str) if pretty else json.dumps(data, default=str)
+    json_str = (
+        json.dumps(data, indent=2, default=str)
+        if pretty
+        else json.dumps(data, default=str)
+    )
 
     if output_path is not None:
         output_path = Path(output_path)
@@ -89,9 +93,7 @@ def _build_export_dict(
         exp_data = exp.to_dict()
         # Include runs eagerly so HTML/JSON exports have full data
         exp_data["runs"] = [r.to_dict() for r in (exp.runs or [])]
-        exp_data["best_models_list"] = [
-            b.to_dict() for b in (exp.best_models or [])
-        ]
+        exp_data["best_models_list"] = [b.to_dict() for b in (exp.best_models or [])]
         exp_dicts.append(exp_data)
 
     return {
@@ -142,18 +144,35 @@ def export_csv(
     # ── Experiments CSV ─────────────────────────────────
     exp_buf = io.StringIO()
     exp_writer = csv.writer(exp_buf)
-    exp_writer.writerow([
-        "id", "name", "description", "dataset_version", "feature_version",
-        "model_version", "git_commit", "run_count", "created_at", "updated_at",
-    ])
+    exp_writer.writerow(
+        [
+            "id",
+            "name",
+            "description",
+            "dataset_version",
+            "feature_version",
+            "model_version",
+            "git_commit",
+            "run_count",
+            "created_at",
+            "updated_at",
+        ]
+    )
     for exp in experiments:
-        exp_writer.writerow([
-            exp.id, exp.name, exp.description or "", exp.dataset_version or "",
-            exp.feature_version or "", exp.model_version or "",
-            exp.git_commit or "", len(exp.runs) if exp.runs else 0,
-            exp.created_at.isoformat() if exp.created_at else "",
-            exp.updated_at.isoformat() if exp.updated_at else "",
-        ])
+        exp_writer.writerow(
+            [
+                exp.id,
+                exp.name,
+                exp.description or "",
+                exp.dataset_version or "",
+                exp.feature_version or "",
+                exp.model_version or "",
+                exp.git_commit or "",
+                len(exp.runs) if exp.runs else 0,
+                exp.created_at.isoformat() if exp.created_at else "",
+                exp.updated_at.isoformat() if exp.updated_at else "",
+            ]
+        )
     results["experiments.csv"] = exp_buf.getvalue()
 
     # ── Runs CSV ────────────────────────────────────────
@@ -172,10 +191,19 @@ def export_csv(
 
     # Headers
     base_headers = [
-        "id", "experiment_id", "experiment_name", "run_name", "model_type",
-        "model_version", "status", "random_seed",
-        "training_duration_seconds", "git_commit", "error_message",
-        "started_at", "finished_at",
+        "id",
+        "experiment_id",
+        "experiment_name",
+        "run_name",
+        "model_type",
+        "model_version",
+        "status",
+        "random_seed",
+        "training_duration_seconds",
+        "git_commit",
+        "error_message",
+        "started_at",
+        "finished_at",
     ]
     run_writer.writerow(base_headers + sorted(all_metric_names))
 
@@ -184,14 +212,24 @@ def export_csv(
         if run.experiment:
             exp_name = run.experiment.name
         metrics = run.metrics or {}
-        run_writer.writerow([
-            run.id, run.experiment_id, exp_name, run.run_name or "",
-            run.model_type, run.model_version or "", run.status,
-            run.random_seed or "", run.training_duration_seconds or "",
-            run.git_commit or "", run.error_message or "",
-            run.started_at.isoformat() if run.started_at else "",
-            run.finished_at.isoformat() if run.finished_at else "",
-        ] + [metrics.get(m, "") for m in sorted(all_metric_names)])
+        run_writer.writerow(
+            [
+                run.id,
+                run.experiment_id,
+                exp_name,
+                run.run_name or "",
+                run.model_type,
+                run.model_version or "",
+                run.status,
+                run.random_seed or "",
+                run.training_duration_seconds or "",
+                run.git_commit or "",
+                run.error_message or "",
+                run.started_at.isoformat() if run.started_at else "",
+                run.finished_at.isoformat() if run.finished_at else "",
+            ]
+            + [metrics.get(m, "") for m in sorted(all_metric_names)]
+        )
 
     results["runs.csv"] = run_buf.getvalue()
 
@@ -420,7 +458,7 @@ def _render_html_report(
         <h1>{html_escape(title)}</h1>
         <div class="subtitle">
             Exported {len(experiments)} experiment(s)
-            &middot; {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}
+            &middot; {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
         </div>
     </div>
 
@@ -457,14 +495,22 @@ def _build_runs_table_html(runs: list[dict[str, Any]]) -> str:
     best_values: dict[str, float] = {}
     best_run_ids: dict[str, str] = {}
     for m in sorted_metrics:
-        lower_is_better = any(n in m.lower() for n in ["loss", "error", "brier", "mse", "mae", "rmse"])
+        lower_is_better = any(
+            n in m.lower() for n in ["loss", "error", "brier", "mse", "mae", "rmse"]
+        )
         best_val = None
         best_rid = None
         for run in runs:
             val = run.get("metrics", {}).get(m)
             if val is None:
                 continue
-            if best_val is None or lower_is_better and val < best_val or not lower_is_better and val > best_val:
+            if (
+                best_val is None
+                or lower_is_better
+                and val < best_val
+                or not lower_is_better
+                and val > best_val
+            ):
                 best_val = val
                 best_rid = run.get("id", "")
 
@@ -505,7 +551,9 @@ def _build_runs_table_html(runs: list[dict[str, Any]]) -> str:
     </table>"""
 
 
-def _build_metric_chart_json(experiment_name: str, all_metrics: dict[str, list[tuple[str, float]]]) -> str:
+def _build_metric_chart_json(
+    experiment_name: str, all_metrics: dict[str, list[tuple[str, float]]]
+) -> str:
     """Build a JSON array of Plotly trace objects for each metric."""
     traces = []
     for metric_name, values in all_metrics.items():
@@ -513,33 +561,37 @@ def _build_metric_chart_json(experiment_name: str, all_metrics: dict[str, list[t
             continue  # Skip metrics with fewer than 2 data points
         names = [v[0] for v in values]
         vals = [v[1] for v in values]
-        traces.append({
-            "type": "bar",
-            "name": metric_name,
-            "x": names,
-            "y": vals,
-            "text": [f"{v:.4f}" for v in vals],
-            "textposition": "auto",
-            "marker": {"opacity": 0.85},
-        })
+        traces.append(
+            {
+                "type": "bar",
+                "name": metric_name,
+                "x": names,
+                "y": vals,
+                "text": [f"{v:.4f}" for v in vals],
+                "textposition": "auto",
+                "marker": {"opacity": 0.85},
+            }
+        )
 
     if not traces:
         return json.dumps({})
 
-    return json.dumps({
-        "data": traces,
-        "layout": {
-            "title": f"Metrics — {experiment_name}",
-            "paper_bgcolor": "rgba(0,0,0,0)",
-            "plot_bgcolor": "rgba(0,0,0,0)",
-            "font": {"color": "#e4e6f0"},
-            "barmode": "group",
-            "xaxis": {"title": "Run", "gridcolor": "#2d3052"},
-            "yaxis": {"title": "Value", "gridcolor": "#2d3052"},
-            "margin": {"t": 40, "b": 40, "l": 60, "r": 20},
-            "legend": {"orientation": "h", "y": -0.2},
-        },
-    })
+    return json.dumps(
+        {
+            "data": traces,
+            "layout": {
+                "title": f"Metrics — {experiment_name}",
+                "paper_bgcolor": "rgba(0,0,0,0)",
+                "plot_bgcolor": "rgba(0,0,0,0)",
+                "font": {"color": "#e4e6f0"},
+                "barmode": "group",
+                "xaxis": {"title": "Run", "gridcolor": "#2d3052"},
+                "yaxis": {"title": "Value", "gridcolor": "#2d3052"},
+                "margin": {"t": 40, "b": 40, "l": 60, "r": 20},
+                "legend": {"orientation": "h", "y": -0.2},
+            },
+        }
+    )
 
 
 def _build_leaderboard_html(experiments: list[dict[str, Any]]) -> str:
@@ -553,12 +605,15 @@ def _build_leaderboard_html(experiments: list[dict[str, Any]]) -> str:
             metrics = run.get("metrics", {})
             for m_key, m_val in metrics.items():
                 if isinstance(m_val, (int, float)):
-                    all_entries.setdefault(m_key, []).append({
-                        "value": m_val,
-                        "model_type": run.get("model_type", "?"),
-                        "run_name": run.get("run_name") or run.get("model_type", "?")[:12],
-                        "experiment": exp_name,
-                    })
+                    all_entries.setdefault(m_key, []).append(
+                        {
+                            "value": m_val,
+                            "model_type": run.get("model_type", "?"),
+                            "run_name": run.get("run_name")
+                            or run.get("model_type", "?")[:12],
+                            "experiment": exp_name,
+                        }
+                    )
 
     if not all_entries:
         return ""
@@ -566,7 +621,10 @@ def _build_leaderboard_html(experiments: list[dict[str, Any]]) -> str:
     sections_html = ""
     for metric_name in sorted(all_entries.keys()):
         entries = all_entries[metric_name]
-        lower_is_better = any(n in metric_name.lower() for n in ["loss", "error", "brier", "mse", "mae", "rmse"])
+        lower_is_better = any(
+            n in metric_name.lower()
+            for n in ["loss", "error", "brier", "mse", "mae", "rmse"]
+        )
         entries.sort(key=lambda e: e["value"], reverse=not lower_is_better)
 
         # Top 5
@@ -576,9 +634,9 @@ def _build_leaderboard_html(experiments: list[dict[str, Any]]) -> str:
             rank_class = f"rank-{rank}" if rank <= 3 else ""
             rows.append(
                 f'<tr><td class="{rank_class}">#{rank}</td>'
-                f'<td>{html_escape(e["model_type"])}</td>'
-                f'<td>{html_escape(e["experiment"])}</td>'
-                f'<td>{e["value"]:.4f}</td></tr>'
+                f"<td>{html_escape(e['model_type'])}</td>"
+                f"<td>{html_escape(e['experiment'])}</td>"
+                f"<td>{e['value']:.4f}</td></tr>"
             )
 
         sections_html += f"""

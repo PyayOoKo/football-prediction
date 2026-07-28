@@ -24,7 +24,7 @@ from typing import Any, cast
 
 import pandas as pd
 
-from config import config as _global_config
+from src.config import config as _global_config
 from src.data_collection.cleaners import (
     deduplicate,
     handle_missing_values,
@@ -83,7 +83,9 @@ def collect_worldcup(
 
     logger.info(
         "Downloaded %d matches (%d completed, %d upcoming)",
-        total, completed, upcoming,
+        total,
+        completed,
+        upcoming,
     )
 
     # 2. Clean
@@ -94,11 +96,21 @@ def collect_worldcup(
 
     # 4. Convert to CSV-friendly format
     csv_cols = [
-        "season", "date", "league", "round", "group", "ground",
-        "home_team", "away_team",
-        "result", "home_goals", "away_goals",
-        "home_goals_ht", "away_goals_ht",
-        "source", "downloaded_at",
+        "season",
+        "date",
+        "league",
+        "round",
+        "group",
+        "ground",
+        "home_team",
+        "away_team",
+        "result",
+        "home_goals",
+        "away_goals",
+        "home_goals_ht",
+        "away_goals_ht",
+        "source",
+        "downloaded_at",
     ]
     df_csv = df[[c for c in csv_cols if c in df.columns]].copy()
 
@@ -128,7 +140,10 @@ def collect_worldcup(
 
     logger.info(
         "World Cup data collection complete — %d matches (%d completed) → %s (%.1f s)",
-        total, completed, output_path, elapsed,
+        total,
+        completed,
+        output_path,
+        elapsed,
     )
     return report
 
@@ -156,7 +171,9 @@ def collect_all(
     import time
 
     start = time.time()
-    logger.info("Starting full data collection for leagues: %s", cfg.data_collection.leagues)
+    logger.info(
+        "Starting full data collection for leagues: %s", cfg.data_collection.leagues
+    )
 
     # 1. Bulk download
     raw = fdc.download_bulk(

@@ -12,7 +12,7 @@ from typing import Any, Callable, Protocol, TypeVar
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ConfigProvider(Protocol):
@@ -106,7 +106,9 @@ class Container:
         self._factories: dict[type, Callable[..., Any]] = {}
         self._instances: dict[type, Any] = {}
 
-    def register(self, interface: type[T], factory: Callable[..., Any], singleton: bool = True) -> None:
+    def register(
+        self, interface: type[T], factory: Callable[..., Any], singleton: bool = True
+    ) -> None:
         """Register a service factory.
 
         Parameters
@@ -120,9 +122,9 @@ class Container:
         """
         self._factories[interface] = factory
         self._services[interface] = {
-            'factory': factory,
-            'singleton': singleton,
-            'instance': None
+            "factory": factory,
+            "singleton": singleton,
+            "instance": None,
         }
         logger.debug(f"Registered {interface.__name__} with singleton={singleton}")
 
@@ -138,9 +140,9 @@ class Container:
         """
         self._instances[interface] = instance
         self._services[interface] = {
-            'factory': None,
-            'singleton': True,
-            'instance': instance
+            "factory": None,
+            "singleton": True,
+            "instance": instance,
         }
         logger.debug(f"Registered instance for {interface.__name__}")
 
@@ -170,17 +172,17 @@ class Container:
 
         service_info = self._services[interface]
 
-        if service_info['singleton'] and service_info['instance'] is not None:
-            return service_info['instance']  # type: ignore[no-any-return]
+        if service_info["singleton"] and service_info["instance"] is not None:
+            return service_info["instance"]  # type: ignore[no-any-return]
 
-        factory = service_info['factory']
+        factory = service_info["factory"]
         if factory is None:
             raise ValueError(f"No factory registered for {interface.__name__}")
 
         instance = factory()
 
-        if service_info['singleton']:
-            service_info['instance'] = instance
+        if service_info["singleton"]:
+            service_info["instance"] = instance
 
         return instance  # type: ignore[no-any-return]
 

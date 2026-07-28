@@ -33,7 +33,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from config import config as _global_config
+from src.config import config as _global_config
 from src.dixon_coles import DixonColesModel
 from src.elo import add_elo_features
 from src.odds_processing import add_consensus_features, add_odds_features
@@ -105,6 +105,7 @@ def _load_feature_cache(cache_key: str) -> tuple[pd.DataFrame, pd.Series] | None
     except Exception as exc:
         logger.warning("  Feature cache read failed: %s — will recompute", exc)
         return None
+
 
 # ── Re-export all sub-module functions so they live in this module's namespace ──
 from src.features.contextual import (

@@ -51,9 +51,7 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ───────────────────────────────────────────
 
-WORLDCUP_JSON_URL = (
-    "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json"
-)
+WORLDCUP_JSON_URL = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json"
 """URL of the 2026 World Cup dataset (public-domain JSON)."""
 
 SOURCE_NAME = "openfootball/worldcup.json"
@@ -231,5 +229,6 @@ def _convert_match(m: dict[str, Any]) -> dict[str, Any]:
         "away_goals": away_goals,
         "home_goals_ht": home_goals_ht,
         "away_goals_ht": away_goals_ht,
-        "is_knockout_placeholder": is_placeholder_team(team1) or is_placeholder_team(team2),
+        "is_knockout_placeholder": is_placeholder_team(team1)
+        or is_placeholder_team(team2),
     }

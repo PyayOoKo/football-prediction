@@ -106,14 +106,18 @@ def version_dataframe(
         user=user,
         notes=notes,
     )
-    logger.info("Versioned %d rows as %s (%s/%s)", len(df), info.version_id, source, league)
+    logger.info(
+        "Versioned %d rows as %s (%s/%s)", len(df), info.version_id, source, league
+    )
     return info
 
 
 # ── Decorator / wrapper ─────────────────────────────────
 
 
-def _wrap_collector_fn(fn: Callable[..., Any], source: str, league_fn: Callable[..., Any] | None = None) -> Callable[..., Any]:
+def _wrap_collector_fn(
+    fn: Callable[..., Any], source: str, league_fn: Callable[..., Any] | None = None
+) -> Callable[..., Any]:
     """Wrap a collector function so its result is versioned automatically."""
 
     @functools.wraps(fn)
@@ -142,8 +146,11 @@ def _wrap_collector_fn(fn: Callable[..., Any], source: str, league_fn: Callable[
                 df = pd.read_csv(path, low_memory=False) if path else pd.DataFrame()
                 notes = f"Auto-versioned from {fn.__name__}"
                 version_dataframe(
-                    df, source=source, league=league,
-                    season=season, notes=notes,
+                    df,
+                    source=source,
+                    league=league,
+                    season=season,
+                    notes=notes,
                 )
             except Exception as exc:
                 logger.warning("Failed to version result of %s: %s", fn.__name__, exc)
@@ -162,10 +169,12 @@ def patch_collector() -> None:
         from src.data_collection import collector as c
 
         c.collect_all = _wrap_collector_fn(
-            c.collect_all, source="football-data-co-uk",
+            c.collect_all,
+            source="football-data-co-uk",
         )
         c.collect_worldcup = _wrap_collector_fn(
-            c.collect_worldcup, source="worldcup",
+            c.collect_worldcup,
+            source="worldcup",
         )
         c.update = _wrap_collector_fn(c.update, source="football-data-co-uk")
 
@@ -194,14 +203,18 @@ def patch_importer() -> None:
                         df = pd.read_csv(raw_path, low_memory=False)
                         notes = f"Imported {report.rows_imported} rows"
                         version_dataframe(
-                            df, source="football-data-co-uk",
-                            league=league, season=season,
+                            df,
+                            source="football-data-co-uk",
+                            league=league,
+                            season=season,
                             notes=notes,
                         )
                 except Exception as exc:
                     logger.warning(
                         "Failed to version import %s/%s: %s",
-                        league, season, exc,
+                        league,
+                        season,
+                        exc,
                     )
 
             return report

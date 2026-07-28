@@ -72,7 +72,9 @@ class DefaultBankrollManager:
 
     def reset(self, initial_balance: float | None = None) -> None:
         if initial_balance is not None:
-            self._bankroll = Bankroll(initial_balance=initial_balance, currency=self._bankroll.currency)
+            self._bankroll = Bankroll(
+                initial_balance=initial_balance, currency=self._bankroll.currency
+            )
         else:
             self._bankroll.reset()
 
@@ -121,23 +123,35 @@ class DefaultRiskManager:
         self._consecutive_losses: int = 0
 
     def check_bet(
-        self, slip: BetSlip, bankroll: Bankroll, **kwargs: Any,
+        self,
+        slip: BetSlip,
+        bankroll: Bankroll,
+        **kwargs: Any,
     ) -> tuple[bool, str]:
         # Drawdown check
         if self.max_drawdown_pct is not None:
             dd = bankroll.max_drawdown_pct
             if dd >= self.max_drawdown_pct:
-                return False, f"Max drawdown ({dd:.1f}%) exceeds limit ({self.max_drawdown_pct:.1f}%)"
+                return (
+                    False,
+                    f"Max drawdown ({dd:.1f}%) exceeds limit ({self.max_drawdown_pct:.1f}%)",
+                )
 
         # Stake % check
         if self.max_stake_pct is not None and slip.stake_pct is not None:
             if slip.stake_pct > self.max_stake_pct:
-                return False, f"Stake {slip.stake_pct:.1%} exceeds max {self.max_stake_pct:.1%}"
+                return (
+                    False,
+                    f"Stake {slip.stake_pct:.1%} exceeds max {self.max_stake_pct:.1%}",
+                )
 
         # Consecutive losses check
         if self.max_consecutive_losses is not None:
             if self._consecutive_losses >= self.max_consecutive_losses:
-                return False, f"Too many consecutive losses ({self._consecutive_losses})"
+                return (
+                    False,
+                    f"Too many consecutive losses ({self._consecutive_losses})",
+                )
 
         # Daily loss check
         if self.max_daily_loss is not None:
@@ -151,7 +165,10 @@ class DefaultRiskManager:
         return True, ""
 
     def check_batch(
-        self, slips: list[BetSlip], bankroll: Bankroll, **kwargs: Any,
+        self,
+        slips: list[BetSlip],
+        bankroll: Bankroll,
+        **kwargs: Any,
     ) -> dict[str, tuple[bool, str]]:
         return {s.bet_id: self.check_bet(s, bankroll) for s in slips}
 
@@ -171,7 +188,10 @@ class DefaultBetFilter:
     """Standard bet filter — applies BetFilterConfig rules."""
 
     def filter(
-        self, slip: BetSlip, config: BetFilterConfig, **kwargs: Any,
+        self,
+        slip: BetSlip,
+        config: BetFilterConfig,
+        **kwargs: Any,
     ) -> tuple[bool, str]:
         # Min EV
         if config.min_ev > 0 and (slip.ev is None or slip.ev < config.min_ev):
@@ -188,11 +208,20 @@ class DefaultBetFilter:
             return False, f"Odds {slip.decimal_odds} above max {config.max_odds}"
 
         # Max stake %
-        if slip.stake_pct is not None and slip.stake_pct > config.max_stake_pct_of_bankroll:
-            return False, f"Stake {slip.stake_pct:.1%} exceeds max {config.max_stake_pct_of_bankroll:.1%}"
+        if (
+            slip.stake_pct is not None
+            and slip.stake_pct > config.max_stake_pct_of_bankroll
+        ):
+            return (
+                False,
+                f"Stake {slip.stake_pct:.1%} exceeds max {config.max_stake_pct_of_bankroll:.1%}",
+            )
 
         # Allowed outcomes
-        if config.allowed_outcomes is not None and slip.outcome not in config.allowed_outcomes:
+        if (
+            config.allowed_outcomes is not None
+            and slip.outcome not in config.allowed_outcomes
+        ):
             return False, f"Outcome {slip.outcome.value} not in allowed set"
 
         return True, ""
@@ -213,14 +242,20 @@ class DefaultMarketFilter:
         if config.max_bookmaker_margin < 1.0:
             margin = odds.margin()
             if margin > Decimal(str(config.max_bookmaker_margin)):
-                return False, f"Bookmaker margin {float(margin):.2%} exceeds max {config.max_bookmaker_margin:.2%}"
+                return (
+                    False,
+                    f"Bookmaker margin {float(margin):.2%} exceeds max {config.max_bookmaker_margin:.2%}",
+                )
 
         # Min market confidence
         if config.min_market_confidence is not None:
             fair = odds.fair_probs()
             max_fair = max(float(fair[o]) for o in Outcome)
             if max_fair < config.min_market_confidence:
-                return False, f"Market confidence {max_fair:.1%} below min {config.min_market_confidence:.1%}"
+                return (
+                    False,
+                    f"Market confidence {max_fair:.1%} below min {config.min_market_confidence:.1%}",
+                )
 
         return True, ""
 
@@ -255,11 +290,13 @@ class DefaultPortfolioOptimizer:
         for slip in slips:
             expected_return = (slip.ev or 0) * weight
             total_expected_return += expected_return
-            allocations.append(PortfolioAllocation(
-                bet_slip=slip,
-                weight=weight,
-                expected_return=expected_return,
-            ))
+            allocations.append(
+                PortfolioAllocation(
+                    bet_slip=slip,
+                    weight=weight,
+                    expected_return=expected_return,
+                )
+            )
 
         return PortfolioResult(
             allocations=allocations,
@@ -406,7 +443,10 @@ class BettingEngine:
 
             # Step 3: Market filter
             passed, reason = self.market_filter.filter(
-                match_id, prediction, match_odds, self.market_filter_config,
+                match_id,
+                prediction,
+                match_odds,
+                self.market_filter_config,
             )
             if not passed:
                 logger.debug("Market filter rejected %s: %s", match_id, reason)
@@ -415,8 +455,12 @@ class BettingEngine:
             # Step 4: Evaluate each outcome
             for outcome in Outcome:
                 slip = self._evaluate_outcome(
-                    match_id, home_team, away_team,
-                    outcome, prediction, match_odds,
+                    match_id,
+                    home_team,
+                    away_team,
+                    outcome,
+                    prediction,
+                    match_odds,
                     match.get("opening_odds"),
                 )
                 if slip is None:
@@ -430,7 +474,8 @@ class BettingEngine:
                 if passed:
                     # Step 7: Risk check
                     risk_ok, risk_reason = self.risk.check_bet(
-                        slip, self.bankroll.bankroll,
+                        slip,
+                        self.bankroll.bankroll,
                     )
                     if risk_ok:
                         slip.recommended = True
@@ -440,7 +485,8 @@ class BettingEngine:
         # Step 8: Portfolio optimisation
         if self._slips and len(self._slips) > 1:
             portfolio_result = self.portfolio_optimizer.optimize(
-                self._slips, self.bankroll.bankroll,
+                self._slips,
+                self.bankroll.bankroll,
             )
             # Apply portfolio weights
             for alloc in portfolio_result.allocations:
@@ -457,8 +503,10 @@ class BettingEngine:
                 if placed:
                     logger.info(
                         "Placed bet: %s %s @ %.2f (stake=%.2f)",
-                        slip.match_label, slip.outcome.value,
-                        float(slip.decimal_odds), slip.stake_amount,
+                        slip.match_label,
+                        slip.outcome.value,
+                        float(slip.decimal_odds),
+                        slip.stake_amount,
                     )
 
         elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
@@ -515,7 +563,8 @@ class BettingEngine:
 
     def _stake_kelly(self, slip: BetSlip, params: dict[str, Any]) -> None:
         kelly_pct = self.kelly_calculator.calculate(
-            float(slip.model_prob), float(slip.decimal_odds),
+            float(slip.model_prob),
+            float(slip.decimal_odds),
         )
         slip.kelly_fraction = kelly_pct
         slip.stake_pct = kelly_pct
@@ -524,7 +573,8 @@ class BettingEngine:
     def _stake_fractional_kelly(self, slip: BetSlip, params: dict[str, Any]) -> None:
         fraction = params.get("fraction", 0.25)
         kelly_pct = self.fractional_kelly.calculate(
-            float(slip.model_prob), float(slip.decimal_odds),
+            float(slip.model_prob),
+            float(slip.decimal_odds),
             fraction=fraction,
         )
         slip.kelly_fraction = kelly_pct
@@ -589,7 +639,9 @@ class BettingEngine:
     # ── Reporting ─────────────────────────────────────
 
     def _build_report(
-        self, start_time: datetime, elapsed: float,
+        self,
+        start_time: datetime,
+        elapsed: float,
     ) -> BettingSessionReport:
         bk = self.bankroll.bankroll
         report = BettingSessionReport(
@@ -603,7 +655,8 @@ class BettingEngine:
             yield_pct=bk.yield_pct,
             win_rate_pct=bk.win_rate_pct,
             avg_odds=float(
-                sum(float(s.decimal_odds) for s in self._slips) / max(len(self._slips), 1)
+                sum(float(s.decimal_odds) for s in self._slips)
+                / max(len(self._slips), 1)
             ),
             avg_ev=float(
                 sum(s.ev or 0 for s in self._slips) / max(len(self._slips), 1)
@@ -669,7 +722,9 @@ class _InlineProbabilitySource:
         return None
 
     def get_batch_probabilities(
-        self, match_ids: list[str], **kwargs: Any,
+        self,
+        match_ids: list[str],
+        **kwargs: Any,
     ) -> dict[str, ModelPrediction]:
         result = {}
         if self._match_id in match_ids:
@@ -692,7 +747,9 @@ class _InlineOddsSource:
         return self._odds
 
     def get_batch_odds(
-        self, match_ids: list[str], **kwargs: Any,
+        self,
+        match_ids: list[str],
+        **kwargs: Any,
     ) -> dict[str, MatchOdds]:
         result = {}
         for mid in match_ids:

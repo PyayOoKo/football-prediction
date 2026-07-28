@@ -14,7 +14,7 @@ import customtkinter as ctk
 import numpy as np
 import pandas as pd
 
-from config import config
+from src.config import config
 
 logger = logging.getLogger(__name__)
 

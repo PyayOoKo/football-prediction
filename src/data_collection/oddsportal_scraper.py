@@ -61,7 +61,9 @@ def extract_matches_from_page(driver):
             continue
         game_row = game_row[0]
 
-        status_els = game_row.find_elements(By.CSS_SELECTOR, "[data-testid='time-item'] p")
+        status_els = game_row.find_elements(
+            By.CSS_SELECTOR, "[data-testid='time-item'] p"
+        )
         status = status_els[0].text.strip() if status_els else ""
 
         names = game_row.find_elements(By.CSS_SELECTOR, ".participant-name")
@@ -76,7 +78,7 @@ def extract_matches_from_page(driver):
             separator = game_row.find_element(
                 By.XPATH,
                 ".//div[contains(@class, 'relative')]"
-                "[.//div[contains(@class, 'font-bold')]]"
+                "[.//div[contains(@class, 'font-bold')]]",
             )
             parts = separator.text.strip().split("\n")
             if len(parts) >= 3:
@@ -99,18 +101,20 @@ def extract_matches_from_page(driver):
         while len(odds) < 3:
             odds.append("")
 
-        matches.append({
-            "date": current_date,
-            "tournament": current_tournament,
-            "status": status,
-            "home_team": home_team,
-            "away_team": away_team,
-            "home_score": home_score,
-            "away_score": away_score,
-            "odds_1": odds[0],
-            "odds_x": odds[1],
-            "odds_2": odds[2],
-        })
+        matches.append(
+            {
+                "date": current_date,
+                "tournament": current_tournament,
+                "status": status,
+                "home_team": home_team,
+                "away_team": away_team,
+                "home_score": home_score,
+                "away_score": away_score,
+                "odds_1": odds[0],
+                "odds_x": odds[1],
+                "odds_2": odds[2],
+            }
+        )
 
     return matches
 
@@ -171,8 +175,16 @@ def scrape_all(years=None):
 
 def save_csv(matches, output_path):
     fieldnames = [
-        "date", "tournament", "status", "home_team", "away_team",
-        "home_score", "away_score", "odds_1", "odds_x", "odds_2"
+        "date",
+        "tournament",
+        "status",
+        "home_team",
+        "away_team",
+        "home_score",
+        "away_score",
+        "odds_1",
+        "odds_x",
+        "odds_2",
     ]
     with open(output_path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
@@ -183,6 +195,7 @@ def save_csv(matches, output_path):
 
 if __name__ == "__main__":
     import argparse
+
     p = argparse.ArgumentParser()
     p.add_argument("--output", default="oddsportal_se1_historical.csv")
     p.add_argument("--years", type=int, nargs="+")

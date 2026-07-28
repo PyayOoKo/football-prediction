@@ -66,7 +66,9 @@ class ProbabilitySource(Protocol):
         ...
 
     def get_batch_probabilities(
-        self, match_ids: list[str], **kwargs: Any,
+        self,
+        match_ids: list[str],
+        **kwargs: Any,
     ) -> dict[str, ModelPrediction]:
         """Return model probabilities for multiple matches at once."""
         ...
@@ -87,7 +89,9 @@ class OddsSource(Protocol):
         ...
 
     def get_batch_odds(
-        self, match_ids: list[str], **kwargs: Any,
+        self,
+        match_ids: list[str],
+        **kwargs: Any,
     ) -> dict[str, MatchOdds]:
         """Return odds for multiple matches at once."""
         ...
@@ -110,13 +114,19 @@ class ExpectedValueCalculator(Protocol):
     """
 
     def calculate_ev(
-        self, model_prob: float, decimal_odds: float, **kwargs: Any,
+        self,
+        model_prob: float,
+        decimal_odds: float,
+        **kwargs: Any,
     ) -> float:
         """Return the expected value (e.g. 0.05 = 5% expected return)."""
         ...
 
     def calculate_edge(
-        self, model_prob: float, fair_prob: float, **kwargs: Any,
+        self,
+        model_prob: float,
+        fair_prob: float,
+        **kwargs: Any,
     ) -> float:
         """Return the probability edge: model_prob − fair_prob."""
         ...
@@ -130,7 +140,10 @@ class KellyCalculator(Protocol):
     """
 
     def calculate(
-        self, model_prob: float, decimal_odds: float, **kwargs: Any,
+        self,
+        model_prob: float,
+        decimal_odds: float,
+        **kwargs: Any,
     ) -> float:
         """Return the full Kelly fraction of bankroll (0-1).
 
@@ -217,7 +230,10 @@ class ClosingLineValueCalculator(Protocol):
         ...
 
     def calculate_all_clv(
-        self, opening_odds: MatchOdds, closing_odds: MatchOdds, **kwargs: Any,
+        self,
+        opening_odds: MatchOdds,
+        closing_odds: MatchOdds,
+        **kwargs: Any,
     ) -> dict[Outcome, float]:
         """Return CLV for all three outcomes."""
         ...
@@ -269,7 +285,10 @@ class RiskManager(Protocol):
     """
 
     def check_bet(
-        self, slip: BetSlip, bankroll: Bankroll, **kwargs: Any,
+        self,
+        slip: BetSlip,
+        bankroll: Bankroll,
+        **kwargs: Any,
     ) -> tuple[bool, str]:
         """Check if a bet is allowed under current risk rules.
 
@@ -281,7 +300,10 @@ class RiskManager(Protocol):
         ...
 
     def check_batch(
-        self, slips: list[BetSlip], bankroll: Bankroll, **kwargs: Any,
+        self,
+        slips: list[BetSlip],
+        bankroll: Bankroll,
+        **kwargs: Any,
     ) -> dict[str, tuple[bool, str]]:
         """Check multiple bets. Returns ``{bet_id: (allowed, reason)}``."""
         ...
@@ -300,7 +322,10 @@ class BetFilter(Protocol):
     """
 
     def filter(
-        self, slip: BetSlip, config: BetFilterConfig, **kwargs: Any,
+        self,
+        slip: BetSlip,
+        config: BetFilterConfig,
+        **kwargs: Any,
     ) -> tuple[bool, str]:
         """Check if a bet proposal passes this filter.
 
@@ -417,4 +442,5 @@ class BettingABC(BettingModule):
     Subclasses must implement all Protocol methods plus can override
     ``__init__`` for custom initialisation.
     """
+
     pass

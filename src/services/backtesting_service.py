@@ -32,7 +32,9 @@ class BacktestingService:
         global container's ConfigProvider.
     """
 
-    def __init__(self, model_dir: Path | None = None, config: ConfigProvider | None = None) -> None:
+    def __init__(
+        self, model_dir: Path | None = None, config: ConfigProvider | None = None
+    ) -> None:
         self._config = config or get_container().resolve(ConfigProvider)  # type: ignore[type-abstract]
         self._model_dir = model_dir or self._config.paths.models
         self._model_dir.mkdir(parents=True, exist_ok=True)
@@ -76,7 +78,11 @@ class BacktestingService:
 
         from src.backtesting import BacktestEngine
 
-        logger.info("Running backtest (bankroll=%.0f, kelly=%.0f%%)", initial_bankroll, kelly_fraction * 100)
+        logger.info(
+            "Running backtest (bankroll=%.0f, kelly=%.0f%%)",
+            initial_bankroll,
+            kelly_fraction * 100,
+        )
 
         # ── 1. Load model ────────────────────────────────────
         model = self._load_model(model_name)
@@ -171,24 +177,26 @@ class BacktestingService:
         # ── 6. Save results ──────────────────────────────────
         output_path = self._output_dir / "backtest_results.csv"
         if engine._bets:
-            bets_df = pd.DataFrame([
-                {
-                    "match_index": b.match_index,
-                    "match_label": b.match_label,
-                    "outcome_bet": b.outcome_bet,
-                    "outcome_actual": b.outcome_actual,
-                    "decimal_odds": b.decimal_odds,
-                    "model_prob": b.model_prob,
-                    "fair_prob": b.fair_prob,
-                    "ev": b.ev,
-                    "stake_pct": b.stake_pct,
-                    "stake_amount": b.stake_amount,
-                    "profit": b.profit,
-                    "won": b.won,
-                    "bankroll_after": b.bankroll_after,
-                }
-                for b in engine._bets
-            ])
+            bets_df = pd.DataFrame(
+                [
+                    {
+                        "match_index": b.match_index,
+                        "match_label": b.match_label,
+                        "outcome_bet": b.outcome_bet,
+                        "outcome_actual": b.outcome_actual,
+                        "decimal_odds": b.decimal_odds,
+                        "model_prob": b.model_prob,
+                        "fair_prob": b.fair_prob,
+                        "ev": b.ev,
+                        "stake_pct": b.stake_pct,
+                        "stake_amount": b.stake_amount,
+                        "profit": b.profit,
+                        "won": b.won,
+                        "bankroll_after": b.bankroll_after,
+                    }
+                    for b in engine._bets
+                ]
+            )
             bets_df.to_csv(output_path, index=False)
             logger.info(f"Saved {len(bets_df)} bet records to {output_path}")
             report["bet_records_path"] = str(output_path)
@@ -237,14 +245,16 @@ class BacktestingService:
         logger.info("=" * 70)
         logger.info("  BACKTEST RESULTS".center(68))
         logger.info("=" * 70)
-        logger.info("  Model: %s", p['model_name'])
-        logger.info("  Test matches: %d", p['test_matches'])
-        logger.info("  Total bets: %d", m['total_bets'])
+        logger.info("  Model: %s", p["model_name"])
+        logger.info("  Test matches: %d", p["test_matches"])
+        logger.info("  Total bets: %d", m["total_bets"])
         logger.info("  Performance:")
-        logger.info("    ROI:          %+.2f%%", m['roi'])
-        logger.info("    Yield:        %+.2f%%", m['yield'])
-        logger.info("    Profit:       %+.2f", m['profit'])
-        logger.info("    Win rate:     %.1f%%", m['win_rate'])
-        logger.info("    Max drawdown: %.2f%%", m['max_drawdown'])
-        logger.info("  Bankroll: %.0f -> %.2f", p['initial_bankroll'], m['final_bankroll'])
+        logger.info("    ROI:          %+.2f%%", m["roi"])
+        logger.info("    Yield:        %+.2f%%", m["yield"])
+        logger.info("    Profit:       %+.2f", m["profit"])
+        logger.info("    Win rate:     %.1f%%", m["win_rate"])
+        logger.info("    Max drawdown: %.2f%%", m["max_drawdown"])
+        logger.info(
+            "  Bankroll: %.0f -> %.2f", p["initial_bankroll"], m["final_bankroll"]
+        )
         logger.info("=" * 70)

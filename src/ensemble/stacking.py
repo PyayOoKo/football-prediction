@@ -10,7 +10,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 
-from config import config
+from src.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +63,11 @@ class StackingEnsemble:
     ) -> None:
         self.name = name
         self.model_names = model_names or (
-            "xgboost", "lightgbm", "logistic_regression",
-            "random_forest", "catboost",
+            "xgboost",
+            "lightgbm",
+            "logistic_regression",
+            "random_forest",
+            "catboost",
         )
         self.use_cv_predictions = use_cv_predictions
 
@@ -110,7 +113,10 @@ class StackingEnsemble:
         if total > 0:
             importances = importances / total
 
-        parts = [f"  {name}: {imp:.3f}" for name, imp in zip(model_names, importances, strict=False)]
+        parts = [
+            f"  {name}: {imp:.3f}"
+            for name, imp in zip(model_names, importances, strict=False)
+        ]
         return "Meta-learner importance:\n" + "\n".join(parts)
 
     # ── Fit ───────────────────────────────────────────────
@@ -156,7 +162,9 @@ class StackingEnsemble:
         X_train.copy() if hasattr(X_train, "copy") else X_train
         # Get meta-features
         meta_probs = self._get_meta_features(
-            X_train, self.base_models, meta_train,
+            X_train,
+            self.base_models,
+            meta_train,
         )
         self._meta.fit(meta_probs, y_train)
 
@@ -168,18 +176,24 @@ class StackingEnsemble:
         val_metrics: dict[str, Any] = {}
         if X_val is not None and y_val is not None:
             val_meta = self._get_meta_features(
-                X_val, self.base_models, None,
+                X_val,
+                self.base_models,
+                None,
             )
             val_probs = self._meta.predict_proba(val_meta)
             self._val_log_loss = float(log_loss(y_val, val_probs))
             val_accuracy = float(np.mean(np.argmax(val_probs, axis=1) == y_val.values))
-            val_metrics = {"val_log_loss": self._val_log_loss, "val_accuracy": val_accuracy}
+            val_metrics = {
+                "val_log_loss": self._val_log_loss,
+                "val_accuracy": val_accuracy,
+            }
 
         self._fitted = True
 
         logger.info(
             "%s fitted — train log-loss: %.4f%s",
-            self.name, self._train_log_loss,
+            self.name,
+            self._train_log_loss,
             f", val log-loss: {self._val_log_loss:.4f}" if self._val_log_loss else "",
         )
 
@@ -190,7 +204,9 @@ class StackingEnsemble:
         }
 
     def _train_base_models(
-        self, X_train: pd.DataFrame, y_train: pd.Series,
+        self,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
     ) -> None:
         """Train all base models."""
         col_means = X_train.mean().fillna(0)
@@ -200,11 +216,17 @@ class StackingEnsemble:
             if name == "xgboost":
                 try:
                     import xgboost as xgb
+
                     model = xgb.XGBClassifier(
-                        objective="multi:softprob", eval_metric="mlogloss",
-                        n_estimators=100, max_depth=5, learning_rate=0.05,
-                        subsample=0.8, colsample_bytree=0.8,
-                        random_state=config.train.seed, n_jobs=-1,
+                        objective="multi:softprob",
+                        eval_metric="mlogloss",
+                        n_estimators=100,
+                        max_depth=5,
+                        learning_rate=0.05,
+                        subsample=0.8,
+                        colsample_bytree=0.8,
+                        random_state=config.train.seed,
+                        n_jobs=-1,
                     )
                     model.fit(X_train, y_train)
                 except ImportError:
@@ -214,12 +236,19 @@ class StackingEnsemble:
             elif name == "lightgbm":
                 try:
                     import lightgbm as lgb
+
                     model = lgb.LGBMClassifier(
-                        objective="multiclass", metric="multi_logloss",
-                        n_estimators=100, max_depth=5, learning_rate=0.05,
-                        subsample=0.8, colsample_bytree=0.8,
-                        num_leaves=31, random_state=config.train.seed,
-                        n_jobs=-1, verbose=-1,
+                        objective="multiclass",
+                        metric="multi_logloss",
+                        n_estimators=100,
+                        max_depth=5,
+                        learning_rate=0.05,
+                        subsample=0.8,
+                        colsample_bytree=0.8,
+                        num_leaves=31,
+                        random_state=config.train.seed,
+                        n_jobs=-1,
+                        verbose=-1,
                     )
                     model.fit(X_train, y_train)
                 except ImportError:
@@ -229,10 +258,15 @@ class StackingEnsemble:
             elif name == "catboost":
                 try:
                     from catboost import CatBoostClassifier
+
                     model = CatBoostClassifier(
-                        iterations=100, depth=5, learning_rate=0.05,
-                        l2_leaf_reg=3.0, random_seed=config.train.seed,
-                        loss_function="MultiClass", verbose=False,
+                        iterations=100,
+                        depth=5,
+                        learning_rate=0.05,
+                        l2_leaf_reg=3.0,
+                        random_seed=config.train.seed,
+                        loss_function="MultiClass",
+                        verbose=False,
                         allow_writing_files=False,
                     )
                     model.fit(X_train, y_train)
@@ -242,18 +276,25 @@ class StackingEnsemble:
 
             elif name == "logistic_regression":
                 model = LogisticRegression(
-                    solver="lbfgs", max_iter=2000,
+                    solver="lbfgs",
+                    max_iter=2000,
                     random_state=config.train.seed,
-                    class_weight="balanced", C=1.0, n_jobs=-1,
+                    class_weight="balanced",
+                    C=1.0,
+                    n_jobs=-1,
                 )
                 model.fit(X_clean, y_train)
 
             elif name == "random_forest":
                 from sklearn.ensemble import RandomForestClassifier
+
                 model = RandomForestClassifier(
-                    n_estimators=100, max_depth=8,
-                    min_samples_leaf=10, random_state=config.train.seed,
-                    class_weight="balanced_subsample", n_jobs=-1,
+                    n_estimators=100,
+                    max_depth=8,
+                    min_samples_leaf=10,
+                    random_state=config.train.seed,
+                    class_weight="balanced_subsample",
+                    n_jobs=-1,
                 )
                 model.fit(X_clean, y_train)
 
@@ -265,7 +306,9 @@ class StackingEnsemble:
             logger.debug("  Trained base model: %s", name)
 
     def _oof_predictions(
-        self, X: pd.DataFrame, y: pd.Series,
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
     ) -> dict[str, np.ndarray]:
         """Generate out-of-fold (OOF) predictions for meta-training.
 
@@ -286,20 +329,28 @@ class StackingEnsemble:
                 if name in ("xgboost", "lightgbm", "catboost"):
                     probs = cross_val_predict(
                         model.__class__(**model.get_params()),
-                        X, y, cv=ts_cv, method="predict_proba",
+                        X,
+                        y,
+                        cv=ts_cv,
+                        method="predict_proba",
                         n_jobs=1,  # 1 job to avoid pickling issues with custom classes
                     )
                 else:
                     probs = cross_val_predict(
                         model.__class__(**model.get_params()),
-                        X.fillna(col_means), y,
-                        cv=ts_cv, method="predict_proba", n_jobs=1,
+                        X.fillna(col_means),
+                        y,
+                        cv=ts_cv,
+                        method="predict_proba",
+                        n_jobs=1,
                     )
                 oof[name] = probs
                 logger.debug("  OOF predictions for %s: shape %s", name, probs.shape)
             except Exception as exc:
                 logger.warning(
-                    "OOF predictions failed for %s: %s — using direct", name, exc,
+                    "OOF predictions failed for %s: %s — using direct",
+                    name,
+                    exc,
                 )
                 # Fallback to direct predictions
                 if name in ("xgboost", "lightgbm", "catboost"):
@@ -310,7 +361,9 @@ class StackingEnsemble:
         return oof
 
     def _direct_predictions(
-        self, X: pd.DataFrame, models: dict[str, Any],
+        self,
+        X: pd.DataFrame,
+        models: dict[str, Any],
     ) -> dict[str, np.ndarray]:
         """Generate direct (non-OOF) predictions."""
         col_means = X.mean().fillna(0)
@@ -336,7 +389,9 @@ class StackingEnsemble:
         For ``n`` models each outputting ``k=3`` class probs, this produces
         an ``(N, n*k)`` feature matrix for the meta-learner.
         """
-        preds = oof_preds if oof_preds is not None else self._direct_predictions(X, models)
+        preds = (
+            oof_preds if oof_preds is not None else self._direct_predictions(X, models)
+        )
         if not preds:
             raise RuntimeError("No base model predictions available")
 
@@ -367,7 +422,9 @@ class StackingEnsemble:
         return cast(np.ndarray, np.argmax(probs, axis=1))
 
     def _evaluate_base_models(
-        self, X: pd.DataFrame, y: pd.Series,
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
     ) -> dict[str, float]:
         """Compute log-loss for each base model on training data."""
         losses: dict[str, float] = {}
@@ -387,7 +444,9 @@ class StackingEnsemble:
         return losses
 
     def evaluate(
-        self, X_test: pd.DataFrame, y_test: pd.Series,
+        self,
+        X_test: pd.DataFrame,
+        y_test: pd.Series,
     ) -> dict[str, Any]:
         """Evaluate the stacking ensemble on test data.
 
@@ -433,13 +492,17 @@ class StackingEnsemble:
 
         logger.info(
             "%s test log-loss: %.4f (best single: %.4f, Δ=%.4f)",
-            self.name, ensemble_loss, individual_losses[best_single], improvement,
+            self.name,
+            ensemble_loss,
+            individual_losses[best_single],
+            improvement,
         )
         return report
 
     def save(self, path: str | None = None) -> str:
         """Save the stacking ensemble via joblib."""
         import joblib
+
         if path is None:
             path = str(config.paths.models / "stacking_ensemble.joblib")
 
@@ -458,6 +521,7 @@ class StackingEnsemble:
     def load(cls, path: str) -> StackingEnsemble:
         """Load a saved stacking ensemble from disk."""
         import joblib
+
         payload = joblib.load(path)
         ensemble = cls(
             model_names=payload["model_names"],
@@ -472,5 +536,3 @@ class StackingEnsemble:
 # ============================================================
 #  Ensemble Model
 # ============================================================
-
-

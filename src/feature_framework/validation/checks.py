@@ -71,33 +71,39 @@ def check_data_leakage(
     n_zero = int((diffs == pd.Timedelta(0)).sum())
 
     if n_negative > 0:
-        violations.append({
-            "field": date_col,
-            "value": f"{n_negative} out-of-order date(s)",
-            "message": (
-                f"DataFrame is not sorted chronologically. "
-                f"{n_negative} row(s) have dates before the previous row. "
-                f"This could cause temporal leakage if rolling features "
-                f"are computed on unsorted data."
-            ),
-        })
+        violations.append(
+            {
+                "field": date_col,
+                "value": f"{n_negative} out-of-order date(s)",
+                "message": (
+                    f"DataFrame is not sorted chronologically. "
+                    f"{n_negative} row(s) have dates before the previous row. "
+                    f"This could cause temporal leakage if rolling features "
+                    f"are computed on unsorted data."
+                ),
+            }
+        )
 
     if n_zero > 0:
-        violations.append({
-            "field": date_col,
-            "value": f"{n_zero} duplicate date(s)",
-            "message": (
-                f"{n_zero} row(s) share the same date as the previous row. "
-                f"Ensure multiple matches on the same date are ordered "
-                f"consistently (e.g. by home team)."
-            ),
-        })
+        violations.append(
+            {
+                "field": date_col,
+                "value": f"{n_zero} duplicate date(s)",
+                "message": (
+                    f"{n_zero} row(s) share the same date as the previous row. "
+                    f"Ensure multiple matches on the same date are ordered "
+                    f"consistently (e.g. by home team)."
+                ),
+            }
+        )
 
     return {
         "check_name": "data_leakage",
         "passed": len(violations) == 0,
         "violations": violations,
-        "message": f"Temporal check: {n_negative} out-of-order, {n_zero} duplicate dates" if violations else "Dates are chronologically sorted",
+        "message": f"Temporal check: {n_negative} out-of-order, {n_zero} duplicate dates"
+        if violations
+        else "Dates are chronologically sorted",
     }
 
 
@@ -134,16 +140,18 @@ def check_constant_features(
         ratio = nunique / max(total, 1)
 
         if ratio < min_ratio or nunique <= 1:
-            violations.append({
-                "column": col,
-                "dtype": str(df[col].dtype),
-                "n_unique": int(nunique),
-                "unique_ratio": round(ratio, 4),
-                "message": (
-                    f"Feature '{col}' has only {nunique} unique value(s) "
-                    f"({ratio:.2%} of rows) — {'zero' if nunique <= 1 else 'near-zero'} variance."
-                ),
-            })
+            violations.append(
+                {
+                    "column": col,
+                    "dtype": str(df[col].dtype),
+                    "n_unique": int(nunique),
+                    "unique_ratio": round(ratio, 4),
+                    "message": (
+                        f"Feature '{col}' has only {nunique} unique value(s) "
+                        f"({ratio:.2%} of rows) — {'zero' if nunique <= 1 else 'near-zero'} variance."
+                    ),
+                }
+            )
 
     return {
         "check_name": "constant_features",
@@ -204,16 +212,18 @@ def check_highly_correlated(
 
             val = corr[i, j]
             if not pd.isna(val) and abs(val) >= threshold:
-                violations.append({
-                    "feature_1": cols[i],
-                    "feature_2": cols[j],
-                    "correlation": round(float(val), 4),
-                    "message": (
-                        f"Features '{cols[i]}' and '{cols[j]}' have "
-                        f"|r| = {abs(val):.4f} (threshold={threshold}). "
-                        f"Consider removing one to reduce multicollinearity."
-                    ),
-                })
+                violations.append(
+                    {
+                        "feature_1": cols[i],
+                        "feature_2": cols[j],
+                        "correlation": round(float(val), 4),
+                        "message": (
+                            f"Features '{cols[i]}' and '{cols[j]}' have "
+                            f"|r| = {abs(val):.4f} (threshold={threshold}). "
+                            f"Consider removing one to reduce multicollinearity."
+                        ),
+                    }
+                )
 
     return {
         "check_name": "highly_correlated",
@@ -257,17 +267,19 @@ def check_missing_values(
         rate = n_missing / max(total, 1)
         severity = "ERROR" if rate > 0.5 else "WARNING" if rate > 0.1 else "INFO"
 
-        violations.append({
-            "column": col,
-            "dtype": str(df[col].dtype),
-            "n_missing": n_missing,
-            "missing_rate": round(rate, 4),
-            "severity": severity,
-            "message": (
-                f"Feature '{col}' has {n_missing}/{total} missing values "
-                f"({rate:.1%})."
-            ),
-        })
+        violations.append(
+            {
+                "column": col,
+                "dtype": str(df[col].dtype),
+                "n_missing": n_missing,
+                "missing_rate": round(rate, 4),
+                "severity": severity,
+                "message": (
+                    f"Feature '{col}' has {n_missing}/{total} missing values "
+                    f"({rate:.1%})."
+                ),
+            }
+        )
 
     return {
         "check_name": "missing_values",
@@ -320,7 +332,9 @@ def check_invalid_ranges(
             continue
 
         values = df[col]
-        if not pd.api.types.is_float_dtype(values) and not pd.api.types.is_integer_dtype(values):
+        if not pd.api.types.is_float_dtype(
+            values
+        ) and not pd.api.types.is_integer_dtype(values):
             continue
 
         below = values < lo
@@ -329,19 +343,23 @@ def check_invalid_ranges(
         n_above = int(above.sum())
 
         if n_below > 0:
-            violations.append({
-                "column": col,
-                "range": f"[{lo}, {hi}]",
-                "n_below": n_below,
-                "message": f"{n_below} value(s) below minimum ({lo}) in '{col}'",
-            })
+            violations.append(
+                {
+                    "column": col,
+                    "range": f"[{lo}, {hi}]",
+                    "n_below": n_below,
+                    "message": f"{n_below} value(s) below minimum ({lo}) in '{col}'",
+                }
+            )
         if n_above > 0:
-            violations.append({
-                "column": col,
-                "range": f"[{lo}, {hi}]",
-                "n_above": n_above,
-                "message": f"{n_above} value(s) above maximum ({hi}) in '{col}'",
-            })
+            violations.append(
+                {
+                    "column": col,
+                    "range": f"[{lo}, {hi}]",
+                    "n_above": n_above,
+                    "message": f"{n_above} value(s) above maximum ({hi}) in '{col}'",
+                }
+            )
 
     return {
         "check_name": "invalid_ranges",
@@ -382,15 +400,17 @@ def check_infinite_values(
 
         n_inf = int(np.isinf(df[col]).sum())
         if n_inf > 0:
-            violations.append({
-                "column": col,
-                "dtype": str(df[col].dtype),
-                "n_infinite": n_inf,
-                "message": (
-                    f"Feature '{col}' has {n_inf} infinite value(s). "
-                    f"Replace with NaN or impute before training."
-                ),
-            })
+            violations.append(
+                {
+                    "column": col,
+                    "dtype": str(df[col].dtype),
+                    "n_infinite": n_inf,
+                    "message": (
+                        f"Feature '{col}' has {n_inf} infinite value(s). "
+                        f"Replace with NaN or impute before training."
+                    ),
+                }
+            )
 
     return {
         "check_name": "infinite_values",
@@ -427,20 +447,24 @@ def check_nan_values(
     violations: list[dict[str, Any]] = []
 
     for col in df.columns:
-        if not pd.api.types.is_float_dtype(df[col]) and not pd.api.types.is_integer_dtype(df[col]):
+        if not pd.api.types.is_float_dtype(
+            df[col]
+        ) and not pd.api.types.is_integer_dtype(df[col]):
             continue
 
         n_nan = int(df[col].isna().sum())
         if n_nan > 0:
-            violations.append({
-                "column": col,
-                "dtype": str(df[col].dtype),
-                "n_nan": n_nan,
-                "message": (
-                    f"Numeric feature '{col}' has {n_nan} NaN value(s). "
-                    f"ML models cannot handle NaN — impute or drop."
-                ),
-            })
+            violations.append(
+                {
+                    "column": col,
+                    "dtype": str(df[col].dtype),
+                    "n_nan": n_nan,
+                    "message": (
+                        f"Numeric feature '{col}' has {n_nan} NaN value(s). "
+                        f"ML models cannot handle NaN — impute or drop."
+                    ),
+                }
+            )
 
     return {
         "check_name": "nan_values",
@@ -494,15 +518,17 @@ def check_duplicate_features(
 
             # Check if values are identical
             if df[col_a].equals(df[col_b]):
-                violations.append({
-                    "feature_1": col_a,
-                    "feature_2": col_b,
-                    "identical": True,
-                    "message": (
-                        f"Features '{col_a}' and '{col_b}' are identical. "
-                        f"Keep one and drop the other."
-                    ),
-                })
+                violations.append(
+                    {
+                        "feature_1": col_a,
+                        "feature_2": col_b,
+                        "identical": True,
+                        "message": (
+                            f"Features '{col_a}' and '{col_b}' are identical. "
+                            f"Keep one and drop the other."
+                        ),
+                    }
+                )
             else:
                 # Check for near-identical (e.g. scaled version)
                 numeric_a = pd.to_numeric(df[col_a], errors="coerce")
@@ -515,17 +541,19 @@ def check_duplicate_features(
                         )
                     )
                     if not pd.isna(corr_val) and abs(corr_val) > 0.999:
-                        violations.append({
-                            "feature_1": col_a,
-                            "feature_2": col_b,
-                            "identical": False,
-                            "correlation": round(corr_val, 4),
-                            "message": (
-                                f"Features '{col_a}' and '{col_b}' are "
-                                f"near-identical (r={corr_val:.4f}). "
-                                f"They may represent the same signal."
-                            ),
-                        })
+                        violations.append(
+                            {
+                                "feature_1": col_a,
+                                "feature_2": col_b,
+                                "identical": False,
+                                "correlation": round(corr_val, 4),
+                                "message": (
+                                    f"Features '{col_a}' and '{col_b}' are "
+                                    f"near-identical (r={corr_val:.4f}). "
+                                    f"They may represent the same signal."
+                                ),
+                            }
+                        )
 
     return {
         "check_name": "duplicate_features",
@@ -564,7 +592,9 @@ def check_low_variance(
     violations: list[dict[str, Any]] = []
 
     for col in df.columns:
-        if not pd.api.types.is_float_dtype(df[col]) and not pd.api.types.is_integer_dtype(df[col]):
+        if not pd.api.types.is_float_dtype(
+            df[col]
+        ) and not pd.api.types.is_integer_dtype(df[col]):
             continue
 
         vals = df[col].dropna()
@@ -574,17 +604,19 @@ def check_low_variance(
         variance = float(vals.var(ddof=1))
 
         if variance < threshold:
-            violations.append({
-                "column": col,
-                "dtype": str(df[col].dtype),
-                "variance": round(variance, 6),
-                "std_dev": round(float(vals.std(ddof=1)), 4),
-                "message": (
-                    f"Feature '{col}' has variance {variance:.6f} "
-                    f"(threshold={threshold}). Low-variance features "
-                    f"provide little predictive signal."
-                ),
-            })
+            violations.append(
+                {
+                    "column": col,
+                    "dtype": str(df[col].dtype),
+                    "variance": round(variance, 6),
+                    "std_dev": round(float(vals.std(ddof=1)), 4),
+                    "message": (
+                        f"Feature '{col}' has variance {variance:.6f} "
+                        f"(threshold={threshold}). Low-variance features "
+                        f"provide little predictive signal."
+                    ),
+                }
+            )
 
     return {
         "check_name": "low_variance",
@@ -635,7 +667,8 @@ def check_feature_drift(
     # Find common numeric columns
     common = set(df.columns) & set(reference_df.columns)
     numeric_cols = [
-        c for c in common
+        c
+        for c in common
         if pd.api.types.is_float_dtype(df[c]) or pd.api.types.is_integer_dtype(df[c])
     ]
 
@@ -658,17 +691,19 @@ def check_feature_drift(
         psi = compute_psi(curr, ref)
 
         if psi > threshold:
-            violations.append({
-                "column": col,
-                "psi": round(psi, 4),
-                "current_mean": round(float(np.mean(curr)), 4),
-                "reference_mean": round(float(np.mean(ref)), 4),
-                "message": (
-                    f"Feature '{col}' shows drift (PSI={psi:.4f}). "
-                    f"Mean changed from {np.mean(ref):.3f} → {np.mean(curr):.3f}. "
-                    f"Model performance may degrade."
-                ),
-            })
+            violations.append(
+                {
+                    "column": col,
+                    "psi": round(psi, 4),
+                    "current_mean": round(float(np.mean(curr)), 4),
+                    "reference_mean": round(float(np.mean(ref)), 4),
+                    "message": (
+                        f"Feature '{col}' shows drift (PSI={psi:.4f}). "
+                        f"Mean changed from {np.mean(ref):.3f} → {np.mean(curr):.3f}. "
+                        f"Model performance may degrade."
+                    ),
+                }
+            )
 
     return {
         "check_name": "feature_drift",
@@ -719,7 +754,5 @@ def compute_psi(
     expected_pct = expected_counts / max(len(reference), 1) + 1e-6
     actual_pct = actual_counts / max(len(current), 1) + 1e-6
 
-    psi = float(np.sum(
-        (actual_pct - expected_pct) * np.log(actual_pct / expected_pct)
-    ))
+    psi = float(np.sum((actual_pct - expected_pct) * np.log(actual_pct / expected_pct)))
     return psi

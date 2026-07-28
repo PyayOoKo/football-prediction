@@ -40,7 +40,7 @@ def main() -> int:
     print("=" * 72)
 
     # ── 1. Disable DC (the 15-20 min bottleneck) ─────────
-    from config import config
+    from src.config import config
     dc_was_enabled = config.dixon_coles.enabled
     if dc_was_enabled:
         config.dixon_coles.enabled = False

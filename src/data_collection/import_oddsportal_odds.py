@@ -10,7 +10,9 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "football_data.db")
+DB_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "..", "data", "football_data.db"
+)
 CSV_PATH = os.path.join(os.path.dirname(__file__), "oddsportal_se1_historical.csv")
 
 OP_TO_DB = {
@@ -74,9 +76,21 @@ OP_TO_DB = {
 }
 
 UNMAPPED_OP_TEAMS = {
-    "Boden", "Enkoping SK", "Forward", "Friska Viljor", "Frolunda",
-    "Husqvarna", "Oskarshamn", "Qviding", "Sylvia", "Trollhattan",
-    "Bunkeflo IF", "Djursholm", "Hacken", "AIK", "Hammarby",
+    "Boden",
+    "Enkoping SK",
+    "Forward",
+    "Friska Viljor",
+    "Frolunda",
+    "Husqvarna",
+    "Oskarshamn",
+    "Qviding",
+    "Sylvia",
+    "Trollhattan",
+    "Bunkeflo IF",
+    "Djursholm",
+    "Hacken",
+    "AIK",
+    "Hammarby",
 }
 
 
@@ -176,10 +190,18 @@ def import_odds():
                     home_goals, away_goals, result,
                     home_odds, draw_odds, away_odds)
                    VALUES ('oddsportal', 'SE1', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (season, date_str,
-                 home_db or home, away_db or away,
-                 hg, ag, result,
-                 ho, do, ao),
+                (
+                    season,
+                    date_str,
+                    home_db or home,
+                    away_db or away,
+                    hg,
+                    ag,
+                    result,
+                    ho,
+                    do,
+                    ao,
+                ),
             )
             if cursor.rowcount > 0:
                 inserted += 1
@@ -192,8 +214,14 @@ def import_odds():
     conn.commit()
     conn.close()
 
-    logger.info("Done: updated=%d inserted=%d no_match=%d bad_date=%d bad_odds=%d",
-                 updated, inserted, no_match, bad_date, bad_odds)
+    logger.info(
+        "Done: updated=%d inserted=%d no_match=%d bad_date=%d bad_odds=%d",
+        updated,
+        inserted,
+        no_match,
+        bad_date,
+        bad_odds,
+    )
 
 
 if __name__ == "__main__":

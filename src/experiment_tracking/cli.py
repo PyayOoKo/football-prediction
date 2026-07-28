@@ -79,7 +79,9 @@ def cmd_show(args: argparse.Namespace) -> int:
     print(f"  Model:      {exp.model_version or '—'}")
     print(f"  Git:        {exp.git_commit or '—'}")
     print(f"  Notes:      {exp.notes or '—'}")
-    print(f"  Created:    {exp.created_at.strftime('%Y-%m-%d %H:%M:%S') if exp.created_at else '—'}")
+    print(
+        f"  Created:    {exp.created_at.strftime('%Y-%m-%d %H:%M:%S') if exp.created_at else '—'}"
+    )
 
     runs = tracker.list_runs(experiment_id=exp.id, limit=args.limit)
     if runs:
@@ -127,7 +129,11 @@ def cmd_compare(args: argparse.Namespace) -> int:
         print(f"\n  Run: {data.get('id', run_id)[:8]}")
         print(f"    Model:  {data.get('model_type', '?')}")
         print(f"    Status: {data.get('status', '?')}")
-        print(f"    Duration: {data.get('duration_seconds', '?'):.2f}s" if data.get("duration_seconds") else "")
+        print(
+            f"    Duration: {data.get('duration_seconds', '?'):.2f}s"
+            if data.get("duration_seconds")
+            else ""
+        )
         metrics = data.get("metrics", {})
         if metrics:
             for m, v in sorted(metrics.items()):
@@ -339,7 +345,9 @@ def create_parser() -> argparse.ArgumentParser:
     p_export.add_argument("--format", choices=["json", "csv", "html"], default="json")
     p_export.add_argument("--output", help="Output path or directory")
     p_export.add_argument("--experiment-id", help="Filter by experiment ID")
-    p_export.add_argument("--title", default="ML Experiment Report", help="HTML report title")
+    p_export.add_argument(
+        "--title", default="ML Experiment Report", help="HTML report title"
+    )
 
     # promote
     p_promote = subparsers.add_parser("promote", help="Promote a model to production")
@@ -349,24 +357,36 @@ def create_parser() -> argparse.ArgumentParser:
     p_api = subparsers.add_parser("api", help="Start the REST API server")
     p_api.add_argument("--port", type=int, default=8000, help="Port (default 8000)")
     p_api.add_argument("--host", default="127.0.0.1", help="Host (default 127.0.0.1)")
-    p_api.add_argument("--reload", action="store_true", help="Auto-reload on code changes")
+    p_api.add_argument(
+        "--reload", action="store_true", help="Auto-reload on code changes"
+    )
 
     # mlflow — export to MLflow
-    p_mlflow = subparsers.add_parser("mlflow", help="Export/import experiments to/from MLflow")
+    p_mlflow = subparsers.add_parser(
+        "mlflow", help="Export/import experiments to/from MLflow"
+    )
     p_mlflow.add_argument("--action", choices=["export", "import"], required=True)
     p_mlflow.add_argument("--tracking-uri", help="MLflow Tracking URI")
     p_mlflow.add_argument("--experiment-id", help="Local experiment ID to export")
-    p_mlflow.add_argument("--mlflow-experiment", help="MLflow experiment name (for import)")
+    p_mlflow.add_argument(
+        "--mlflow-experiment", help="MLflow experiment name (for import)"
+    )
 
     # wandb — export to W&B
-    p_wandb = subparsers.add_parser("wandb", help="Export experiments to Weights & Biases")
+    p_wandb = subparsers.add_parser(
+        "wandb", help="Export experiments to Weights & Biases"
+    )
     p_wandb.add_argument("--project", default="football-prediction", help="W&B project")
     p_wandb.add_argument("--entity", help="W&B team/username")
     p_wandb.add_argument("--experiment-id", help="Local experiment ID")
 
     # tensorboard — export to TensorBoard
-    p_tb = subparsers.add_parser("tensorboard", help="Export experiments to TensorBoard")
-    p_tb.add_argument("--log-dir", default="./runs/tensorboard", help="TensorBoard log directory")
+    p_tb = subparsers.add_parser(
+        "tensorboard", help="Export experiments to TensorBoard"
+    )
+    p_tb.add_argument(
+        "--log-dir", default="./runs/tensorboard", help="TensorBoard log directory"
+    )
     p_tb.add_argument("--experiment-id", help="Local experiment ID")
 
     return parser

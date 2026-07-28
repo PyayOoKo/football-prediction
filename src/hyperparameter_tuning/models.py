@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
-from config import config
+from src.config import config
 
 
 def build_baseline(model_type: str) -> Any:
@@ -32,6 +32,7 @@ def build_baseline(model_type: str) -> Any:
         )
     if model_type == "xgboost":
         import xgboost as xgb
+
         return xgb.XGBClassifier(
             objective="multi:softprob",
             eval_metric="mlogloss",
@@ -47,6 +48,7 @@ def build_baseline(model_type: str) -> Any:
         )
     if model_type == "lightgbm":
         import lightgbm as lgb
+
         return lgb.LGBMClassifier(
             objective="multiclass",
             metric="multi_logloss",
@@ -89,6 +91,7 @@ def build_with_params(model_type: str, params: dict[str, Any]) -> Any:
         )
     if model_type == "xgboost":
         import xgboost as xgb
+
         return xgb.XGBClassifier(
             objective="multi:softprob",
             eval_metric="mlogloss",
@@ -98,6 +101,7 @@ def build_with_params(model_type: str, params: dict[str, Any]) -> Any:
         )
     if model_type == "lightgbm":
         import lightgbm as lgb
+
         return lgb.LGBMClassifier(
             objective="multiclass",
             metric="multi_logloss",

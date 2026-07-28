@@ -1,960 +1,105 @@
 """
-Project-wide configuration.
+Project-wide configuration — re-exported from ``src.config.settings``.
 
-Centralises all paths, hyper-parameters, data sources,
-and model settings in one place for easy experimentation.
+Previously this file contained its own independent ``Config`` dataclass and
+all sub-config dataclasses.  These have been unified into a single hierarchy
+in ``src/config/settings.py`` to eliminate the duplicate config system.
 
-Automatically loads ``.env`` file from the project root so
-environment variables like ``THE_ODDS_API_KEY`` are always
-available without manual setup.
-
-Environment validation
-----------------------
-- ``APP_ENV`` controls production/development mode.
-- In production mode, required secrets are validated at import time.
-- Secrets are never logged.
+All existing imports (``from config import config``) continue to work
+transparently — this module simply re-exports the singleton from
+``src.config.settings``.
 """
 
 from __future__ import annotations
 
-import os
 import warnings
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Literal
 
-from dotenv import load_dotenv
+from src.config.settings import (  # noqa: F401
+    APIConfig,
+    AppConfig,
+    BacktestConfig,
+    BlendConfig,
+    ConfidenceConfig,
+    Config,
+    DataCollectionConfig,
+    DataConfig,
+    DatabaseConfig,
+    DixonColesConfig,
+    EloConfig,
+    EnsembleConfig,
+    EvalConfig,
+    ExtendedFeaturesConfig,
+    FeatureConfig,
+    FeatureSelectionConfig,
+    HyperTuneConfig,
+    LoggingConfig,
+    OddsAPIConfig,
+    OddsConfig,
+    Paths,
+    PlayerFeaturesConfig,
+    PlayerInfoConfig,
+    PoissonConfig,
+    PredictConfig,
+    PreprocessingConfig,
+    RefereeCollectorConfig,
+    RefereeConfig,
+    ScheduleConfig,
+    StatsBombCollectorConfig,
+    TransferCollectorConfig,
+    TrainConfig,
+    ValueBetConfig,
+    WeatherCollectorConfig,
+    WeatherConfig,
+    WorldCupConfig,
+    XgConfig,
+    config,
+)
 
-# Auto-load .env from project root — called once at import time
-# so env vars are available project-wide without manual setup.
-load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
+from src.config import configure_logging  # noqa: F401
 
-
-# ── Environment detection & validation ──────────────────
-APP_ENV = os.environ.get("APP_ENV", "production").lower()
-IS_PRODUCTION = APP_ENV == "production"
-
-_REQUIRED_IN_PRODUCTION = [
-    ("PREDICTION_API_KEY", "API authentication key"),
-    ("DATABASE_URL", "Database connection string"),
+__all__ = [
+    "APIConfig",
+    "AppConfig",
+    "BacktestConfig",
+    "BlendConfig",
+    "ConfidenceConfig",
+    "Config",
+    "DataCollectionConfig",
+    "DataConfig",
+    "DatabaseConfig",
+    "DixonColesConfig",
+    "EloConfig",
+    "EnsembleConfig",
+    "EvalConfig",
+    "ExtendedFeaturesConfig",
+    "FeatureConfig",
+    "FeatureSelectionConfig",
+    "HyperTuneConfig",
+    "LoggingConfig",
+    "OddsAPIConfig",
+    "OddsConfig",
+    "Paths",
+    "PlayerFeaturesConfig",
+    "PlayerInfoConfig",
+    "PoissonConfig",
+    "PredictConfig",
+    "PreprocessingConfig",
+    "RefereeCollectorConfig",
+    "RefereeConfig",
+    "ScheduleConfig",
+    "StatsBombCollectorConfig",
+    "TransferCollectorConfig",
+    "TrainConfig",
+    "ValueBetConfig",
+    "WeatherCollectorConfig",
+    "WeatherConfig",
+    "WorldCupConfig",
+    "XgConfig",
+    "config",
 ]
 
-if IS_PRODUCTION:
-    missing = []
-    for var_name, description in _REQUIRED_IN_PRODUCTION:
-        if not os.environ.get(var_name):
-            missing.append(f"  {var_name} ({description})")
-    if missing:
-        warnings.warn(
-            "PRODUCTION MODE: Required environment variables are not set:\n"
-            + "\n".join(missing)
-            + "\nSet these in your .env file or environment before running.",
-            stacklevel=2,
-        )
-
-
-# ── Data collection ─────────────────────────────────────
-@dataclass
-class DataCollectionConfig:
-    """Settings for the data collection pipeline."""
-
-    # League codes to collect for broad coverage.
-    # Covers Top 5 European leagues, English lower tiers, plus Irish league:
-    #   E0 = Premier League, E1 = Championship, E2 = League One, E3 = League Two
-    #   SC0 = Scottish Premiership, SC1 = Scottish Championship
-    #   D1 = German Bundesliga, D2 = German 2. Bundesliga
-    #   I1 = Italian Serie A, I2 = Italian Serie B
-    #   SP1 = Spanish La Liga, SP2 = Spanish La Liga 2
-    #   F1 = French Ligue 1, F2 = French Ligue 2
-    #   N1 = Dutch Eredivisie
-    #   B1 = Belgian Pro League
-    #   P1 = Portuguese Primeira Liga
-    #   T1 = Turkish Süper Lig
-    #   G1 = Greek Super League
-    #   IRL = Irish Premier Division (Shamrock Rovers' domestic league)
-    leagues: tuple[str, ...] = (
-        "E0", "E1", "E2", "E3",
-        "SC0", "SC1",
-        "D1", "D2",
-        "I1", "I2",
-        "SP1", "SP2",
-        "F1", "F2",
-        "N1", "B1", "P1", "T1", "G1",
-        "IRL",
-    )
-
-    # Number of most-recent seasons to download (8 covers ~8 years of history)
-    max_seasons: int = 8
-
-    # Strategy for handling missing values
-    missing_strategy: Literal["drop", "fill_zero", "fill_median"] = "fill_zero"
-
-    # Output file name for the combined dataset
-    output_file: str = "results.csv"
-
-    # Max missing percentage before a column is dropped
-    # Set to 90 to retain enriched bookmaker odds columns (which are ~75%
-    # sparse since they only cover 5 of 14 leagues).  Default was 50.
-    max_missing_pct: float = 90.0
-
-
-# ── Preprocessing ───────────────────────────────────────
-@dataclass
-class PreprocessingConfig:
-    """Settings for the data preprocessing pipeline."""
-
-    # Input file (relative to ``data/raw/``)
-    input_file: str = "results.csv"
-
-    # Output file (relative to ``data/processed/``)
-    output_file: str = "results_clean.csv"
-
-    # Whether to normalise team names
-    normalise_teams: bool = True
-
-    # Whether to add temporal features (year, month, day_of_week, etc.)
-    add_temporal_features: bool = True
-
-    # Whether to save the cleaned dataset
-    save_cleaned: bool = True
-
-
-# ── Project root ────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).resolve().parent
-
-
-# ── Paths ───────────────────────────────────────────────
-@dataclass
-class Paths:
-    """All managed directory & file paths."""
-
-    # Data
-    data: Path = PROJECT_ROOT / "data"
-    raw: Path = data / "raw"
-    processed: Path = data / "processed"
-    external: Path = data / "external"
-
-    # Models
-    models: Path = PROJECT_ROOT / "models"
-
-    # Notebooks
-    notebooks: Path = PROJECT_ROOT / "notebooks"
-
-    # Source
-    src: Path = PROJECT_ROOT / "src"
-
-    # App
-    app: Path = PROJECT_ROOT / "app"
-
-    def __post_init__(self) -> None:
-        """Ensure all essential directories exist."""
-        for d in (
-            self.data,
-            self.raw,
-            self.processed,
-            self.external,
-            self.models,
-            self.notebooks,
-            self.src,
-            self.app,
-        ):
-            d.mkdir(parents=True, exist_ok=True)
-
-
-# ── Data loading ────────────────────────────────────────
-@dataclass
-class DataConfig:
-    """Settings related to data ingestion."""
-
-    # Source: local CSV, API endpoint, or database connection string
-    source: str = "local"  # "local" | "api" | "db"
-    api_url: str = ""
-    api_key_env: str = "FOOTBALL_DATA_API_KEY"
-
-    # Local file name(s)
-    fixtures_file: str = "fixtures.csv"
-    results_file: str = "results.csv"
-    teams_file: str = "teams.csv"
-
-    # Train / validation / test split ratios (must sum to 1.0)
-    split_ratios: tuple[float, float, float] = (0.70, 0.15, 0.15)
-
-    # Random seed for reproducibility
-    seed: int = 42
-
-
-# ── Feature engineering ─────────────────────────────────
-@dataclass
-class FeatureConfig:
-    """Settings for feature-creation pipelines."""
-
-    # Rolling window sizes (number of matches)
-    form_window: int = 5
-    rolling_windows: tuple[int, ...] = (5, 10, 20)
-    rolling_avg_window: int = 10
-
-    # Whether to include head-to-head features
-    include_h2h: bool = True
-    h2h_window: int = 6
-
-    # Whether to include league-table position features
-    include_league_position: bool = True
-
-    # Encoding strategy for categorical columns
-    categorical_encoding: Literal["label", "onehot", "target"] = "label"
-
-    # Time decay halflife for rolling features (None = equal weight)
-    # Set to a positive integer (e.g. 5 or 10) to give recent matches
-    # exponentially more weight than older ones.
-    # Enabled by default with halflife=5 (5-match equivalent halflife)
-    time_decay_halflife: int | None = 5
-
-    # Whether to reset rolling features per season boundary
-    # (avoids pre-season including stats from previous seasons)
-    reset_per_season: bool = False
-
-
-# ── Training ────────────────────────────────────────────
-@dataclass
-class TrainConfig:
-    """Model training hyper-parameters."""
-
-    # Algorithm
-    model_type: Literal[
-        "logistic_regression",
-        "random_forest",
-        "xgboost",
-        "lightgbm",
-        "neural_network",
-    ] = "lightgbm"
-
-    # Time-decay halflife for sample weights during training.
-    # A match this many days ago gets 50% weight. Set to 0 to disable.
-    # Default 730 (~2 years) — recent form matters more.
-    sample_weight_halflife_days: float = 730.0
-
-    # Logistic Regression
-    C: float = 1.0
-    solver: str = "lbfgs"
-    max_iter: int = 2000
-
-    # Random forest / tree-specific
-    n_estimators: int = 300
-    max_depth: int = 8
-    min_samples_leaf: int = 10
-    min_samples_split: int = 2
-    max_features: str | None = "sqrt"
-
-    # XGBoost / LightGBM
-    learning_rate: float = 0.05
-    subsample: float = 0.8
-    colsample_bytree: float = 0.8
-    reg_lambda: float = 1.0
-    reg_alpha: float = 0.1
-    gamma: float = 0.0
-    min_child_weight: float = 1.0
-    num_leaves: int = 31
-    min_child_samples: int = 10
-
-    # Neural-network specific
-    hidden_layers: tuple[int, ...] = (128, 64, 32)
-    dropout: float = 0.3
-    batch_size: int = 64
-    epochs: int = 100
-    early_stopping_patience: int = 10
-
-    # Cross-validation
-    cv_folds: int = 5
-
-    # Objective — name of the target column
-    target_column: str = "result"  # "home_win" | "draw" | "away_win"
-
-    seed: int = 42
-
-
-# ── Prediction ──────────────────────────────────────────
-@dataclass
-class PredictConfig:
-    """Prediction-time settings."""
-
-    # Probability threshold for binary classification
-    probability_threshold: float = 0.5
-
-    # Number of top predictions to display
-    top_k: int = 10
-
-    # Output format: "csv", "json", or "console"
-    output_format: Literal["csv", "json", "console"] = "console"
-
-
-# ── Odds API (Live Odds) ──────────────────────────────
-@dataclass
-class OddsAPIConfig:
-    """Settings for The Odds API integration.
-
-    Attributes
-    ----------
-    api_key_env : str
-        Environment variable name for the API key (default ``THE_ODDS_API_KEY``).
-    regions : str
-        Bookmaker regions to query (default ``"uk,ie,eu"``).
-    markets : str
-        Markets to fetch (default ``"h2h"`` = head-to-head).
-    cache_ttl : int
-        Cache lifetime in seconds (default 3600 = 1 hour).
-    request_timeout : int
-        HTTP request timeout in seconds (default 15).
-    sport_key_wc : str
-        Sport key for World Cup / international soccer
-        (default ``"soccer_fifa_world_cup"``).
-    fallback_to_hardcoded : bool
-        If no API key or API fails, fall back to hardcoded odds
-        (default True).
-    """
-
-    api_key_env: str = "THE_ODDS_API_KEY"
-    regions: str = "us,uk,eu"
-    markets: str = "h2h"
-    cache_ttl: int = 3600
-    request_timeout: int = 15
-    sport_key_wc: str = "soccer_fifa_world_cup"
-    fallback_to_hardcoded: bool = True
-
-
-# ── Value Betting ──────────────────────────────────────
-@dataclass
-class ValueBetConfig:
-    """Settings for the value betting module."""
-
-    # Default bankroll for Kelly stake calculation
-    bankroll: float = 1000.0
-
-    # Fraction of full Kelly to use (0.25 = 25% Kelly — conservative)
-    kelly_fraction: float = 0.25
-
-    # Minimum EV threshold to flag as a value bet (raised from 0.0 to 0.05
-    # so only significant edges are bet on — avoids low-confidence bets)
-    min_ev: float = 0.05
-
-    # Maximum decimal odds to accept. Bets with odds above this are rejected
-    # because extreme longshots (> 30x) have too much variance to monetize
-    # the model's edge within a reasonable bankroll.
-    max_odds: float = 30.0
-
-    # Maximum single stake as fraction of bankroll (cap to avoid over-betting)
-    max_stake_pct: float = 0.10
-
-
-# ── Odds Processing ────────────────────────────────────
-@dataclass
-class OddsConfig:
-    """Settings for the odds processing module.
-
-    Attributes
-    ----------
-    opening_odds_cols : tuple[str, str, str]
-        Column names for opening odds ``(home, draw, away)``.
-        Default: ``("BbMxH", "BbMxD", "BbMxA")``.
-    closing_odds_cols : tuple[str, str, str]
-        Column names for closing odds ``(home, draw, away)``.
-        Default: ``("BbAvH", "BbAvD", "BbAvA")``.
-    compute_consensus : bool
-        Whether to compute multi-bookmaker consensus probabilities
-        (default True).
-    warn_missing : bool
-        Log a warning when odds columns not found (default True).
-    """
-
-    opening_odds_cols: tuple[str, str, str] = ("maxh", "maxd", "maxa")
-    closing_odds_cols: tuple[str, str, str] = ("avgh", "avgd", "avga")
-
-    # NOTE: The odds column resolver (in odds_processing.py and
-    # betting_market.py) performs **case-insensitive** matching and also
-    # falls back to the standard football-data.co.uk naming convention
-    # (BbMxH/BbMxD/BbMxA and BbAvH/BbAvD/BbAvA) when the lowercase names
-    # are not found.  So both naming conventions work transparently.
-    compute_consensus: bool = True
-    warn_missing: bool = True
-
-
-# ── Player Information ─────────────────────────────────
-@dataclass
-class PlayerInfoConfig:
-    """Settings for the player information module.
-
-    This module is **optional** — set ``enabled=False`` to skip it
-    entirely (no columns added, no processing time).
-
-    Attributes
-    ----------
-    enabled : bool
-        Whether to run the player info feature module (default True).
-    default_age : float
-        Neutral placeholder age when no player data (default 25).
-    placeholder_value : float
-        Neutral placeholder value for counts/flags when no data (default 0).
-    warn_missing : bool
-        Log a warning when no player data is provided (default True).
-    """
-
-    enabled: bool = True
-    default_age: float = 25.0
-    placeholder_value: float = 0.0
-    warn_missing: bool = True
-
-
-# ── Expected Goals (xG) Features ──────────────────────
-@dataclass
-class XgConfig:
-    """Settings for the Expected Goals feature module."""
-
-    # Rolling window sizes for xG/xGA averages
-    rolling_windows: tuple[int, ...] = (5, 10)
-
-    # Whether to compute Expected Points from xG using Poisson
-    compute_xpts: bool = True
-
-    # Max goals per team for the xPts probability table
-    max_goals_table: int = 8
-
-    # Placeholder value when no xG data is available (0 = all-zero placeholders)
-    placeholder_value: float = 0.0
-
-    # Whether to log a warning when xG columns are not found
-    warn_missing: bool = True
-
-
-# ── Enhanced Player Features ──────────────────────────
-@dataclass
-class PlayerFeaturesConfig:
-    """Settings for the enhanced player features module.
-
-    Attributes
-    ----------
-    enabled : bool
-        Whether to run the enhanced player feature module (default False).
-        When enabled, generates 10+ squad-level features from player data.
-    rolling_windows : tuple[int, ...]
-        Rolling windows for form features (default (5, 10)).
-    warn_missing : bool
-        Log a warning when no player data is provided (default True).
-    """
-
-    enabled: bool = False
-    rolling_windows: tuple[int, ...] = (5, 10)
-    warn_missing: bool = True
-
-
-# ── Poisson Model ─────────────────────────────────────
-@dataclass
-class PoissonConfig:
-    """Settings for the Poisson regression model.
-
-    Attributes
-    ----------
-    min_matches : int
-        Minimum matches a team must play before its strengths are used.
-        Teams with fewer matches default to league average (strength = 1.0).
-    max_goals : int
-        Maximum goals per team to consider in the probability table (0–*n*).
-    decay_halflife_days : float
-        Exponential time-decay halflife in days. A match this many days ago gets
-        50% weight. Set to 0 to disable time weighting (default 1460 = 4 years).
-    """
-
-    min_matches: int = 0
-    max_goals: int = 8
-    decay_halflife_days: float = 1460.0
-
-
-# ── Elo Rating System ──────────────────────────────────
-@dataclass
-class EloConfig:
-    """Settings for the dynamic Elo rating system.
-
-    Attributes
-    ----------
-    k : int
-        Base K-factor — how much a single match changes ratings (default 32).
-    home_advantage : int
-        Home advantage bonus in Elo points (default 100).
-    initial_rating : int
-        Starting Elo rating for unseen teams (default 1500).
-    regress_to_mean : bool
-        Regress ratings towards the mean between seasons (default True).
-    regress_factor : float
-        Fraction of distance to mean to regress each season (default 1/3).
-    use_goal_margin : bool
-        Scale K-factor by goal margin so bigger wins cause bigger changes
-        (default True).
-    max_goal_margin : int
-        Cap on goal margin in K-factor adjustment (default 5).
-    adjustments : dict[str, int]
-        Manual Elo adjustments per team (e.g. ``{"Morocco": 100}`` subtracts 100
-        from Morocco's rating after computation). Useful for applying domain
-        knowledge or skepticism about a team's performance.
-    per_league : dict[str, dict[str, int]]
-        Per-league overrides keyed by league code, each containing ``k`` and
-        ``home_advantage`` values.  Second-tier leagues like SE1 should use
-        higher K (more volatility) and lower home advantage.
-        Example: ``{"SE1": {"k": 48, "home_advantage": 70}}``
-    """
-
-    k: int = 32
-    home_advantage: int = 100
-    initial_rating: int = 1500
-    regress_to_mean: bool = True
-    regress_factor: float = 1 / 3
-    use_goal_margin: bool = True
-    max_goal_margin: int = 5
-    adjustments: dict[str, int] = field(default_factory=dict)
-    per_league: dict[str, dict[str, int]] = field(default_factory=lambda: {
-        "SE1": {"k": 48, "home_advantage": 70},
-        "NO2": {"k": 48, "home_advantage": 70},
-        "FI2": {"k": 48, "home_advantage": 70},
-    })
-
-
-# ── Hyper-parameter Tuning ───────────────────────────
-@dataclass
-class HyperTuneConfig:
-    """Settings for the hyper-parameter tuning orchestrator.
-
-    Attributes
-    ----------
-    model_types : tuple[str, ...]
-        Which model types to tune (default: all three).
-    n_iter_random : int
-        Number of random parameter samples for RandomizedSearchCV (default 50).
-    cv_folds : int
-        Cross-validation folds for the search (default 5).
-    save_models : bool
-        Save baseline and tuned models to ``models/`` (default True).
-    save_report : bool
-        Write the comparison report to ``reports/`` (default True).
-    verbose : bool
-        Print progress during tuning (default True).
-    """
-
-    model_types: tuple[str, ...] = ("logistic_regression", "random_forest", "xgboost")
-    n_iter_random: int = 50
-    cv_folds: int = 5
-    save_models: bool = True
-    save_report: bool = True
-    verbose: bool = True
-
-
-# ── Confidence Scoring ────────────────────────────────
-@dataclass
-class ConfidenceConfig:
-    """Settings for the confidence scoring system.
-
-    Attributes
-    ----------
-    weight_spread : float
-        Weight for the probability spread component (default 0.40).
-    weight_agreement : float
-        Weight for the model agreement component (default 0.35).
-    weight_calibration : float
-        Weight for the historical calibration component (default 0.25).
-    default_agreement : float
-        Default agreement score when no ensemble predictions are provided
-        (default 50 — neutral).
-    default_calibration : float
-        Default calibration score when no calibration data is available
-        (default 50 — neutral).
-    calibration_brier_default : float
-        Fallback Brier score if none is provided (default 0.25 — moderate).
-    """
-
-    weight_spread: float = 0.40
-    weight_agreement: float = 0.35
-    weight_calibration: float = 0.25
-    default_agreement: float = 50.0
-    default_calibration: float = 50.0
-    calibration_brier_default: float = 0.25
-
-
-# ── Ensemble Model ────────────────────────────────────
-@dataclass
-class EnsembleConfig:
-    """Settings for the ensemble prediction model.
-
-    Attributes
-    ----------
-    model_names : tuple[str, ...]
-        Which models to include in the ensemble.
-        Default includes 5 diverse models for robust predictions.
-    weight_grid_step : float
-        Step size for grid search weight optimisation (default 0.05).
-    tune_base_models : bool
-        If True, run hyper-parameter tuning on base models before
-        fitting the ensemble (default False).
-    model_weight_ranges : dict[str, tuple[float, float]]
-        Minimum and maximum weight boundaries for each model in the
-        ensemble (as fractions of total weight, sum to 1.0).
-        These ensure no single model dominates and each model type
-        contributes meaningfully based on its strengths.
-    """
-
-    model_names: tuple[str, ...] = ("xgboost", "logistic_regression", "poisson")
-    weight_grid_step: float = 0.10
-    tune_base_models: bool = False
-    model_weight_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
-
-
-# ── Backtesting ────────────────────────────────────────
-@dataclass
-class BacktestConfig:
-    """Settings for the backtesting engine."""
-
-    # Starting bankroll
-    initial_bankroll: float = 1000.0
-
-    # Fraction of full Kelly to use
-    kelly_fraction: float = 0.25
-
-    # Minimum EV to consider a bet
-    min_ev: float = 0.0
-
-    # Odds columns to use (preference order; engine tries each)
-    odds_column_sets: tuple[tuple[str, str, str], ...] = (
-        ("BbAvA", "BbAvD", "BbAvH"),
-        ("B365A", "B365D", "B365H"),
-        ("BWA", "BWD", "BWH"),
-    )
-
-    # Output directory for charts (relative to project root)
-    output_dir: str = "reports/backtest"
-
-
-# ── Evaluation ──────────────────────────────────────────
-# ── Weather Features (data collection) ────────────
-@dataclass
-class WeatherCollectorConfig:
-    """Settings for the OpenWeatherMap API collector."""
-
-    enabled: bool = False
-    api_key_env: str = "OPENWEATHER_API_KEY"
-    cache_ttl: int = 86400  # 24 hours
-    request_delay: float = 1.0  # seconds between calls (free tier limit)
-    output_file: str = "weather.csv"
-
-
-# ── Referee Data Collection ───────────────────────
-@dataclass
-class RefereeCollectorConfig:
-    """Settings for the referee statistics collector."""
-
-    enabled: bool = False
-    delay: float = 2.0  # polite delay between pages
-    output_file: str = "referees.csv"
-
-
-# ── Transfer Data Collection ──────────────────────
-@dataclass
-class TransferCollectorConfig:
-    """Settings for the Transfermarkt transfer scraper."""
-
-    enabled: bool = False
-    delay: float = 1.5
-    output_file: str = "transfers.csv"
-    max_windows: int = 5  # max transfer windows per team
-
-
-# ── StatsBomb Data Collection ─────────────────────
-@dataclass
-class StatsBombCollectorConfig:
-    """Settings for the StatsBomb open data reader."""
-
-    enabled: bool = False
-    repo_url: str = "https://raw.githubusercontent.com/statsbomb/open-data/master/data"
-    competitions: tuple[str, ...] = ("World Cup", "Champions League", "Premier League")
-    output_dir: str = "data/scrapers/statsbomb"
-
-
-# ── Weather Features ──────────────────────────────
-@dataclass
-class WeatherConfig:
-    """Settings for weather-based features."""
-
-    enabled: bool = False
-    default_temp: float = 15.0
-    placeholder_value: float = 0.0
-    warn_missing: bool = True
-
-
-# ── Referee Features ──────────────────────────────
-@dataclass
-class RefereeConfig:
-    """Settings for referee-based features."""
-
-    enabled: bool = True
-    window: int = 20
-    placeholder_value: float = 0.0
-    warn_missing: bool = True
-
-
-# ── Schedule / Congestion Features ────────────────
-@dataclass
-class ScheduleConfig:
-    """Settings for schedule/congestion features (travel, fatigue, rest)."""
-
-    enabled: bool = True
-    include_travel_distance: bool = True
-    include_fatigue: bool = True
-
-
-# ── Extended Feature Flags ────────────────────────
-@dataclass
-class ExtendedFeaturesConfig:
-    """Toggle advanced/extended feature sets."""
-
-    enabled: bool = False
-    include_extended_h2h: bool = True
-    include_extended_form: bool = True
-    h2h_windows: tuple[int, ...] = (3, 5, 10)
-    form_windows: tuple[int, ...] = (3, 5, 10, 20)
-
-
-@dataclass
-class BlendConfig:
-    """Settings for the 3-model blend integration.
-
-    Controls whether the ``PredictionEngine`` uses the market-specific
-    3-model blend (Poisson + Elo + XGBoost) for Over/Under and BTTS
-    markets, falling back to the current ensemble for 1X2.
-
-    Attributes
-    ----------
-    enabled : bool
-        Whether the 3-model blend is loaded and used (default ``True``).
-        Set to ``False`` to revert to the legacy single-model behaviour.
-    markets : tuple[str, ...]
-        Which markets to route to the blend. The current model is still
-        used for 1X2 regardless; this controls whether Over2.5, BTTS,
-        and Over3.5 predictions come from the blend or the legacy model.
-        Default: ``("Over2.5", "BTTS", "Over3.5")``.
-    weights_path : str | None
-        Path to a JSON file with optimal per-market weights. If ``None``,
-        the ``DEFAULT_WEIGHTS`` in ``ThreeModelBlend`` are used.
-        Default: ``"config/three_model_weights.json"``.
-    use_blend_for_1x2 : bool
-        If ``True``, also route 1X2 predictions through the 3-model blend
-        (default ``False`` — keep current ensemble for 1X2).
-    """
-
-    enabled: bool = True
-    markets: tuple[str, ...] = ("Over2.5", "BTTS", "Over3.5")
-    weights_path: str | None = "config/three_model_weights.json"
-    use_blend_for_1x2: bool = False
-
-
-@dataclass
-class EvalConfig:
-    """Evaluation metrics and visualisation settings."""
-
-    metrics: tuple[str, ...] = (
-        "accuracy",
-        "precision",
-        "recall",
-        "f1",
-        "roc_auc",
-        "log_loss",
-        "brier_score",
-    )
-    plot_confusion_matrix: bool = True
-    plot_feature_importance: bool = True
-    plot_roc_curve: bool = True
-    output_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "reports")
-
-    def __post_init__(self) -> None:
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-
-
-# ── Dixon-Coles Model ─────────────────────────────────
-@dataclass
-class DixonColesConfig:
-    """Settings for the Dixon-Coles MLE model.
-
-    Attributes
-    ----------
-    enabled : bool
-        Whether to compute Dixon-Coles features (default False).
-        **Disabled by default** — the MLE optimisation is extremely slow
-        on large datasets (~1,800 refits over 17k rows at refit_every=10).
-        Enable only for small datasets or when DC-specific features are
-        critical (e.g. international tournaments with sparse H2H data).
-    refit_every : int
-        How often to refit the MLE model when adding features (default 500).
-        Higher = faster but less responsive to recent form.
-        500 means ~34 refits over 17k rows instead of ~1,794 at refit_every=10.
-    decay_halflife_days : float
-        Recency decay halflife in days. A match this many days ago gets 50%
-        weight. Default 1460 (~4 years). Set to 0 to disable.
-    use_importance : bool
-        Apply tournament importance weighting (default True).
-    rho_fixed : float | None
-        Fix the tau-correction parameter (default None = estimate via MLE).
-        Set to 0.0 for standard independent Poisson.
-    regress_prior : bool
-        Apply L2 prior on attack/defence parameters (default True).
-    prior_strength : float
-        Strength of the L2 prior (default 0.01).
-    fit_intercept_only : bool
-        Only estimate home advantage and rho (default False).
-    """
-
-    enabled: bool = True
-    refit_every: int = 2000
-    decay_halflife_days: float = 1460.0
-    use_importance: bool = True
-    rho_fixed: float | None = None
-    regress_prior: bool = True
-    prior_strength: float = 0.01
-    fit_intercept_only: bool = False
-
-    # Per-league overrides for DC model parameters.
-    # Keyed by league code (e.g. "SE1", "D2"), each can contain:
-    #   - decay_halflife_days: recency halflife override (lower = more responsive)
-    #   - rho_fixed: fix the tau-correction parameter for this league
-    #   - home_advantage_prior: prior for gamma initialisation (overrides log-ratio)
-    # For second-tier leagues with fewer teams, a shorter halflife and fixed rho
-    # can prevent overfitting. Example:
-    #   {"SE1": {"decay_halflife_days": 730, "rho_fixed": -0.05}}
-    per_league: dict[str, dict[str, float]] = field(default_factory=lambda: {
-        # Second-tier / smaller leagues: faster decay, mild rho correction
-        "SE1": {"decay_halflife_days": 730, "rho_fixed": -0.05},
-        "NO2": {"decay_halflife_days": 730, "rho_fixed": -0.05},
-        "FI2": {"decay_halflife_days": 730, "rho_fixed": -0.05},
-        "IRL": {"decay_halflife_days": 730, "rho_fixed": -0.05},
-    })
-
-
-# ── Feature Selection ────────────────────────────
-@dataclass
-class FeatureSelectionConfig:
-    """Settings for the feature selection module.
-
-    When enabled during training, reduces the feature set dimensionality
-    before model fitting, which can improve generalisation and speed.
-
-    Attributes
-    ----------
-    enabled : bool
-        Whether to run feature selection during training (default False).
-    method : str
-        Selection method. One of ``"mutual_info"``, ``"rfe"``, ``"l1"``,
-        ``"threshold"``. Default ``"mutual_info"`` (fastest).
-    n_features : int
-        Number of features to keep (default 30). Ignored for ``"threshold"``.
-    importance_threshold : float
-        Minimum importance score to keep a feature, for ``"threshold"``
-        method (default 0.01).
-    correlation_threshold : float
-        Drop feature pairs with Pearson correlation above this threshold
-        before selection (default 0.95). Set to 1.0 to skip.
-    drop_redundant_first : bool
-        Whether to remove highly-correlated features before selection
-        (default True).
-    """
-
-    enabled: bool = False
-    method: Literal["mutual_info", "rfe", "l1", "threshold"] = "mutual_info"
-    n_features: int = 30
-    importance_threshold: float = 0.01
-    correlation_threshold: float = 0.95
-    drop_redundant_first: bool = True
-
-
-# ── World Cup paths ──────────────────────────────
-@dataclass
-class WorldCupConfig:
-    """Paths for World Cup data, predictions, and model artifacts.
-
-    Previously hardcoded in ``train_worldcup.py`` and two dozen other
-    scripts. Centralising here means a single change propagates
-    everywhere.
-
-    Attributes
-    ----------
-    data_path : str
-        Path to the combined World Cup CSV, relative to project root.
-        Default: ``"data/raw/worldcup_all.csv"``.
-    predictions_dir : str
-        Directory for prediction output CSVs, relative to project root.
-        Default: ``"reports/predictions_worldcup"``.
-    predictions_file : str
-        Filename for the main predictions CSV.
-        Default: ``"worldcup_predictions.csv"``.
-    model_save_name : str
-        Filename for the trained World Cup model (stored in ``models/``).
-        Default: ``"worldcup_lightgbm.joblib"``.
-    """
-
-    data_path: str = "data/raw/worldcup_all.csv"
-    predictions_dir: str = "reports/predictions_worldcup"
-    predictions_file: str = "worldcup_predictions.csv"
-    model_save_name: str = "worldcup_lightgbm.joblib"
-
-
-# ── Convenience singleton ───────────────────────────────
-@dataclass
-class Config:
-    """Top-level config aggregating all sub-configs."""
-
-    paths: Paths = field(default_factory=Paths)
-    data: DataConfig = field(default_factory=DataConfig)
-    data_collection: DataCollectionConfig = field(default_factory=DataCollectionConfig)
-    preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
-    features: FeatureConfig = field(default_factory=FeatureConfig)
-    train: TrainConfig = field(default_factory=TrainConfig)
-    predict: PredictConfig = field(default_factory=PredictConfig)
-    odds_api: OddsAPIConfig = field(default_factory=OddsAPIConfig)
-    value_betting: ValueBetConfig = field(default_factory=ValueBetConfig)
-    odds: OddsConfig = field(default_factory=OddsConfig)
-    player_info: PlayerInfoConfig = field(default_factory=PlayerInfoConfig)
-    xg: XgConfig = field(default_factory=XgConfig)
-    player_features: PlayerFeaturesConfig = field(default_factory=PlayerFeaturesConfig)
-    poisson: PoissonConfig = field(default_factory=PoissonConfig)
-    dixon_coles: DixonColesConfig = field(default_factory=DixonColesConfig)
-    elo: EloConfig = field(default_factory=EloConfig)
-    ensemble: EnsembleConfig = field(default_factory=EnsembleConfig)
-    hyper_tune: HyperTuneConfig = field(default_factory=HyperTuneConfig)
-    confidence: ConfidenceConfig = field(default_factory=ConfidenceConfig)
-    backtesting: BacktestConfig = field(default_factory=BacktestConfig)
-    eval: EvalConfig = field(default_factory=EvalConfig)
-    weather_collector: WeatherCollectorConfig = field(
-        default_factory=WeatherCollectorConfig
-    )
-    referee_collector: RefereeCollectorConfig = field(
-        default_factory=RefereeCollectorConfig
-    )
-    transfer_collector: TransferCollectorConfig = field(
-        default_factory=TransferCollectorConfig
-    )
-    statsbomb_collector: StatsBombCollectorConfig = field(
-        default_factory=StatsBombCollectorConfig
-    )
-    weather: WeatherConfig = field(default_factory=WeatherConfig)
-    referee: RefereeConfig = field(default_factory=RefereeConfig)
-    schedule: ScheduleConfig = field(default_factory=ScheduleConfig)
-    extended_features: ExtendedFeaturesConfig = field(
-        default_factory=ExtendedFeaturesConfig
-    )
-    worldcup: WorldCupConfig = field(
-        default_factory=WorldCupConfig
-    )
-    feature_selection: FeatureSelectionConfig = field(
-        default_factory=FeatureSelectionConfig
-    )
-    blend: BlendConfig = field(
-        default_factory=BlendConfig
-    )
-
-    # Global toggle
-    verbose: bool = True
-
-
-# Single importable instance
-config = Config()
+warnings.warn(
+    "config.py is deprecated. Import from 'src.config.settings' directly.",
+    DeprecationWarning,
+    stacklevel=2,
+)

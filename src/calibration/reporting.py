@@ -79,9 +79,13 @@ def calibration_report(
     brier = float(np.mean(np.sum((y_prob - y_onehot) ** 2, axis=1)))
 
     curve = calibration_curve(y_true, y_prob)
-    ece = float(np.mean(
-        curve["counts"] / curve["counts"].sum() * np.abs(curve["accuracies"] - curve["confidences"])
-    ))
+    ece = float(
+        np.mean(
+            curve["counts"]
+            / curve["counts"].sum()
+            * np.abs(curve["accuracies"] - curve["confidences"])
+        )
+    )
 
     lines = [
         f"Calibration Report — {model_name}",

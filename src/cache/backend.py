@@ -387,8 +387,11 @@ class SQLiteBackend(CacheBackend):
         try:
             for key, value in entries.items():
                 entry = CacheEntry(
-                    key=key, value=value, ttl=ttl,
-                    created_at=now, tags=tags or set(),
+                    key=key,
+                    value=value,
+                    ttl=ttl,
+                    created_at=now,
+                    tags=tags or set(),
                 )
                 serialized = pickle.dumps(entry)
                 conn.execute(
@@ -418,16 +421,17 @@ class SQLiteBackend(CacheBackend):
         """Remove expired entries."""
         conn = self._get_conn()
         cursor = conn.execute(
-            f"DELETE FROM {self.table_name} "
-            f"WHERE expires_at > 0 AND expires_at < ?",
+            f"DELETE FROM {self.table_name} WHERE expires_at > 0 AND expires_at < ?",
             (time.time(),),
         )
         cleared = cursor.rowcount
 
         with self._lock:
             self._cleanup_count += 1
-            if self.vacuum_after_n_cleanups > 0 and \
-               self._cleanup_count % self.vacuum_after_n_cleanups == 0:
+            if (
+                self.vacuum_after_n_cleanups > 0
+                and self._cleanup_count % self.vacuum_after_n_cleanups == 0
+            ):
                 try:
                     conn.execute("PRAGMA vacuum")
                     logger.debug("Vacuumed cache database")
@@ -462,6 +466,7 @@ class SQLiteBackend(CacheBackend):
                 if hasattr(self._local, "conn"):
                     del self._local.conn
                 import asyncio
+
                 asyncio.run(self.cleanup())
             except Exception as exc:
                 logger.warning("Cache cleanup error: %s", exc)
@@ -549,7 +554,9 @@ class RedisBackend(CacheBackend):
                 self._hits += 1
             return entry
         except Exception:
-            logger.warning("Cache read error for key %s, treating as miss", key, exc_info=True)
+            logger.warning(
+                "Cache read error for key %s, treating as miss", key, exc_info=True
+            )
             with self._lock:
                 self._misses += 1
             return None
@@ -565,7 +572,9 @@ class RedisBackend(CacheBackend):
         tags = tags or set()
 
         entry = CacheEntry(
-            key=key, value=value, ttl=ttl,
+            key=key,
+            value=value,
+            ttl=ttl,
             tags=tags,
         )
         data = entry.to_bytes()
@@ -599,7 +608,9 @@ class RedisBackend(CacheBackend):
         deleted = 0
         while True:
             cursor, keys = await self._redis.scan(
-                cursor, match=f"{self.key_prefix}*", count=100,
+                cursor,
+                match=f"{self.key_prefix}*",
+                count=100,
             )
             if keys:
                 deleted += await self._redis.delete(*keys)
@@ -619,7 +630,9 @@ class RedisBackend(CacheBackend):
         total_size = 0
         while True:
             cursor, keys = await self._redis.scan(
-                cursor, match=f"{self.key_prefix}*", count=1000,
+                cursor,
+                match=f"{self.key_prefix}*",
+                count=1000,
             )
             if keys:
                 count += len(keys)
@@ -628,7 +641,9 @@ class RedisBackend(CacheBackend):
                     try:
                         total_size += await self._redis.memory_usage(key) or 0
                     except Exception:
-                        logger.warning("Failed to get memory usage for key %s", key, exc_info=True)
+                        logger.warning(
+                            "Failed to get memory usage for key %s", key, exc_info=True
+                        )
             if cursor == 0:
                 break
 
@@ -666,7 +681,11 @@ class RedisBackend(CacheBackend):
                         with self._lock:
                             self._hits += 1
                 except Exception:
-                    logger.warning("Redis get_many deserialization error for key %s", key, exc_info=True)
+                    logger.warning(
+                        "Redis get_many deserialization error for key %s",
+                        key,
+                        exc_info=True,
+                    )
                     results[key] = None
                     with self._lock:
                         self._misses += 1
@@ -679,7 +698,9 @@ class RedisBackend(CacheBackend):
         if not keys:
             return 0
 
-        full_keys = [self._mk_key(k.decode() if isinstance(k, bytes) else k) for k in keys]
+        full_keys = [
+            self._mk_key(k.decode() if isinstance(k, bytes) else k) for k in keys
+        ]
         full_keys.append(tag_key)  # Also delete the tag set itself
 
         deleted = await self._redis.delete(*full_keys)

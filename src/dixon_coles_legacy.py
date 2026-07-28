@@ -156,7 +156,9 @@ TOURNAMENT_IMPORTANCE: dict[str, float] = {
 }
 
 
-def get_tournament_importance(league: str | None, round_str: str | None = None) -> float:
+def get_tournament_importance(
+    league: str | None, round_str: str | None = None
+) -> float:
     """Return the importance weight for a given competition.
 
     Matches against known league/competition names (case-insensitive).
@@ -184,7 +186,9 @@ def get_tournament_importance(league: str | None, round_str: str | None = None) 
             bonus = 1.0
             if round_str and weight >= 1.5:
                 round_lower = round_str.lower()
-                if any(kw in round_lower for kw in ["final", "semi", "quarter", "round of"]):
+                if any(
+                    kw in round_lower for kw in ["final", "semi", "quarter", "round of"]
+                ):
                     bonus = 1.2
             return weight * bonus
 
@@ -279,7 +283,9 @@ def dixon_coles_tau(
 
     # Vectorised case
     tau = np.ones_like(lam, dtype=float)
-    tau[(x == 0) & (y == 0)] = 1.0 - lam[(x == 0) & (y == 0)] * mu[(x == 0) & (y == 0)] * rho
+    tau[(x == 0) & (y == 0)] = (
+        1.0 - lam[(x == 0) & (y == 0)] * mu[(x == 0) & (y == 0)] * rho
+    )
     tau[(x == 0) & (y == 1)] = 1.0 + lam[(x == 0) & (y == 1)] * rho
     tau[(x == 1) & (y == 0)] = 1.0 + mu[(x == 1) & (y == 0)] * rho
     tau[(x == 1) & (y == 1)] = 1.0 - rho
@@ -289,6 +295,7 @@ def dixon_coles_tau(
 # ═══════════════════════════════════════════════════════════
 #  Main Model Class
 # ═══════════════════════════════════════════════════════════
+
 
 @dataclass
 class DixonColesResult:
@@ -355,10 +362,10 @@ class DixonColesModel:
 
         # Fitted parameters
         self._alpha: dict[str, float] = {}  # attack strengths
-        self._beta: dict[str, float] = {}   # defence weaknesses
-        self._gamma: float = 0.0            # home advantage
-        self._rho: float = 0.0              # tau correction
-        self._team_list: list[str] = []     # ordered team names (index = param position)
+        self._beta: dict[str, float] = {}  # defence weaknesses
+        self._gamma: float = 0.0  # home advantage
+        self._rho: float = 0.0  # tau correction
+        self._team_list: list[str] = []  # ordered team names (index = param position)
         self._reference_date: pd.Timestamp | None = None
         self._n_matches: int = 0
         self._optimise_success: bool = False
@@ -433,7 +440,9 @@ class DixonColesModel:
             for i in range(n):
                 match_date = pd.to_datetime(df.iloc[i][date_col])
                 weights[i] *= compute_recency_weight(
-                    match_date, self._reference_date, self.decay_halflife_days,
+                    match_date,
+                    self._reference_date,
+                    self.decay_halflife_days,
                 )
 
         # Tournament importance weighting
@@ -501,7 +510,9 @@ class DixonColesModel:
         if reference_date is not None:
             self._reference_date = pd.Timestamp(reference_date)
         else:
-            self._reference_date = pd.to_datetime(df[date_col].max()) + pd.Timedelta(days=1)
+            self._reference_date = pd.to_datetime(df[date_col].max()) + pd.Timedelta(
+                days=1
+            )
 
         # Collect all unique teams
         all_teams = sorted(
@@ -543,7 +554,7 @@ class DixonColesModel:
 
         def _full_defence(est_params: np.ndarray) -> np.ndarray:
             full = np.zeros(n_teams)
-            full[1:] = est_params[n_est:2 * n_est]
+            full[1:] = est_params[n_est : 2 * n_est]
             return full
 
         if self.regress_prior:
@@ -555,10 +566,7 @@ class DixonColesModel:
                 mu = np.exp(alpha_full[away_idx] + beta_full[home_idx])
                 rho = p[-1] if self.rho_fixed is None else self.rho_fixed
 
-                log_p = (
-                    poisson.logpmf(home_goals, lam)
-                    + poisson.logpmf(away_goals, mu)
-                )
+                log_p = poisson.logpmf(home_goals, lam) + poisson.logpmf(away_goals, mu)
                 tau = dixon_coles_tau(home_goals, away_goals, lam, mu, rho)
                 _tau_min = float(np.min(tau))
                 if _tau_min <= 0:
@@ -570,10 +578,11 @@ class DixonColesModel:
 
                 # L2 prior (shrinkage)
                 prior = self.prior_strength * float(
-                    np.sum(alpha_full ** 2) + np.sum(beta_full ** 2)
+                    np.sum(alpha_full**2) + np.sum(beta_full**2)
                 )
                 return nll + prior
         else:
+
             def objective(p: np.ndarray) -> float:
                 alpha_full = _full_attack(p)
                 beta_full = _full_defence(p)
@@ -581,10 +590,7 @@ class DixonColesModel:
                 mu = np.exp(alpha_full[away_idx] + beta_full[home_idx])
                 rho = p[-1] if self.rho_fixed is None else self.rho_fixed
 
-                log_p = (
-                    poisson.logpmf(home_goals, lam)
-                    + poisson.logpmf(away_goals, mu)
-                )
+                log_p = poisson.logpmf(home_goals, lam) + poisson.logpmf(away_goals, mu)
                 tau = dixon_coles_tau(home_goals, away_goals, lam, mu, rho)
                 _tau_min = float(np.min(tau))
                 if _tau_min <= 0:
@@ -604,7 +610,7 @@ class DixonColesModel:
         # Attack params: start at 0 (reference = 0, all others small random)
         x0[:n_est] = np.random.default_rng(42).normal(0, 0.1, size=n_est)
         # Defence params
-        x0[n_est:2 * n_est] = np.random.default_rng(43).normal(0, 0.1, size=n_est)
+        x0[n_est : 2 * n_est] = np.random.default_rng(43).normal(0, 0.1, size=n_est)
         # Home advantage
         x0[-2] = gamma_init * 0.5  # conservative initialisation
         # Rho
@@ -624,11 +630,14 @@ class DixonColesModel:
         if verbose:
             logger.info(
                 "Fitting Dixon-Coles MLE: %d teams, %d matches, %d parameters",
-                n_teams, n, n_total,
+                n_teams,
+                n,
+                n_total,
             )
             if self.decay_halflife_days > 0:
                 logger.info(
-                    "  Recency decay halflife: %.0f days", self.decay_halflife_days,
+                    "  Recency decay halflife: %.0f days",
+                    self.decay_halflife_days,
                 )
             logger.info("  Weight range: [%.4f, %.4f]", weights.min(), weights.max())
 
@@ -651,14 +660,15 @@ class DixonColesModel:
 
         if not result.success:
             logger.warning(
-                "Dixon-Coles MLE did not fully converge: %s", result.message,
+                "Dixon-Coles MLE did not fully converge: %s",
+                result.message,
             )
 
         # ── Extract parameters ────────────────────────────
         full_alpha = np.zeros(n_teams)
         full_alpha[1:] = result.x[:n_est]
         full_beta = np.zeros(n_teams)
-        full_beta[1:] = result.x[n_est:2 * n_est]
+        full_beta[1:] = result.x[n_est : 2 * n_est]
 
         self._alpha = {team: float(full_alpha[i]) for i, team in enumerate(all_teams)}
         self._beta = {team: float(full_beta[i]) for i, team in enumerate(all_teams)}
@@ -670,7 +680,10 @@ class DixonColesModel:
         if verbose:
             logger.info(
                 "Dixon-Coles fitted: γ=%.3f, ρ=%.3f, neg-LL=%.1f, %s",
-                self._gamma, self._rho, result.fun, "converged" if result.success else "partial",
+                self._gamma,
+                self._rho,
+                result.fun,
+                "converged" if result.success else "partial",
             )
 
         return self
@@ -741,13 +754,15 @@ class DixonColesModel:
                 p_j = poisson.pmf(j, mu)
                 tau = dixon_coles_tau(i, j, lam, mu, self._rho)
                 prob = float(p_i * p_j * tau)
-                records.append({
-                    "home_goals": i,
-                    "away_goals": j,
-                    "probability": max(prob, 0.0),
-                    "total_goals": i + j,
-                    "scoreline": f"{i}-{j}",
-                })
+                records.append(
+                    {
+                        "home_goals": i,
+                        "away_goals": j,
+                        "probability": max(prob, 0.0),
+                        "total_goals": i + j,
+                        "scoreline": f"{i}-{j}",
+                    }
+                )
 
         table = pd.DataFrame(records)
         total = table["probability"].sum()
@@ -851,20 +866,22 @@ class DixonColesModel:
             away = row[away_team_col]
             try:
                 result = self.predict(home, away, max_goals=max_goals)
-                records.append({
-                    "home_team": home,
-                    "away_team": away,
-                    "expected_home_goals": result.expected_home_goals,
-                    "expected_away_goals": result.expected_away_goals,
-                    "home_win_prob": result.home_win_prob,
-                    "draw_prob": result.draw_prob,
-                    "away_win_prob": result.away_win_prob,
-                    "most_likely_score": result.most_likely_score,
-                    "over_2_5_prob": result.over_2_5_prob,
-                    "under_2_5_prob": result.under_2_5_prob,
-                    "btts_prob": result.btts_prob,
-                    "btts_no_prob": result.btts_no_prob,
-                })
+                records.append(
+                    {
+                        "home_team": home,
+                        "away_team": away,
+                        "expected_home_goals": result.expected_home_goals,
+                        "expected_away_goals": result.expected_away_goals,
+                        "home_win_prob": result.home_win_prob,
+                        "draw_prob": result.draw_prob,
+                        "away_win_prob": result.away_win_prob,
+                        "most_likely_score": result.most_likely_score,
+                        "over_2_5_prob": result.over_2_5_prob,
+                        "under_2_5_prob": result.under_2_5_prob,
+                        "btts_prob": result.btts_prob,
+                        "btts_no_prob": result.btts_no_prob,
+                    }
+                )
             except Exception as e:
                 logger.warning("Prediction failed for %s vs %s: %s", home, away, e)
 
@@ -895,7 +912,9 @@ class DixonColesModel:
         np.ndarray
             Shape (n, 3), columns: [away, draw, home].
         """
-        preds_df = self.predict_matches(df, home_team_col=home_team_col, away_team_col=away_team_col)
+        preds_df = self.predict_matches(
+            df, home_team_col=home_team_col, away_team_col=away_team_col
+        )
         n = len(preds_df)
         probs = np.zeros((n, 3))
         if "away_win_prob" in preds_df.columns:
@@ -945,13 +964,17 @@ class DixonColesModel:
         actual_ag = df_test[away_goals_col].values.astype(float)
         actual_result = df_test["result"].map({"A": 0, "D": 1, "H": 2}).values
 
-        preds_df = self.predict_matches(df_test, home_team_col=home_team_col, away_team_col=away_team_col)
+        preds_df = self.predict_matches(
+            df_test, home_team_col=home_team_col, away_team_col=away_team_col
+        )
 
-        probs = np.column_stack([
-            preds_df["away_win_prob"].values,
-            preds_df["draw_prob"].values,
-            preds_df["home_win_prob"].values,
-        ])
+        probs = np.column_stack(
+            [
+                preds_df["away_win_prob"].values,
+                preds_df["draw_prob"].values,
+                preds_df["home_win_prob"].values,
+            ]
+        )
         pred_labels = np.argmax(probs, axis=1)
 
         accuracy = float(np.mean(pred_labels == actual_result))
@@ -967,8 +990,14 @@ class DixonColesModel:
         actual_btts = ((actual_hg > 0) & (actual_ag > 0)).astype(float)
         pred_btts_probs = preds_df["btts_prob"].values
         pred_btts = (pred_btts_probs > 0.5).astype(float)
-        btts_accuracy = float(np.mean(pred_btts == actual_btts)) if len(actual_btts) > 0 else 0.0
-        btts_brier = float(np.mean((pred_btts_probs - actual_btts) ** 2)) if len(actual_btts) > 0 else 0.0
+        btts_accuracy = (
+            float(np.mean(pred_btts == actual_btts)) if len(actual_btts) > 0 else 0.0
+        )
+        btts_brier = (
+            float(np.mean((pred_btts_probs - actual_btts) ** 2))
+            if len(actual_btts) > 0
+            else 0.0
+        )
 
         # Over/Under
         actual_total = actual_hg + actual_ag
@@ -976,8 +1005,14 @@ class DixonColesModel:
         ou_col = f"over_{over_under_threshold:.1f}_prob".replace(".", "_")
         pred_ou_probs = preds_df.get(ou_col, pd.Series([0.5] * len(df_test))).values
         pred_ou = (pred_ou_probs > 0.5).astype(float)
-        ou_accuracy = float(np.mean(pred_ou == actual_ou)) if len(actual_ou) > 0 else 0.0
-        ou_brier = float(np.mean((pred_ou_probs - actual_ou) ** 2)) if len(actual_ou) > 0 else 0.0
+        ou_accuracy = (
+            float(np.mean(pred_ou == actual_ou)) if len(actual_ou) > 0 else 0.0
+        )
+        ou_brier = (
+            float(np.mean((pred_ou_probs - actual_ou) ** 2))
+            if len(actual_ou) > 0
+            else 0.0
+        )
         ou_key = f"over_under_{over_under_threshold:.1f}_accuracy".replace(".", "_")
         ou_brier_key = f"over_under_{over_under_threshold:.1f}_brier".replace(".", "_")
 
@@ -1047,8 +1082,10 @@ class DixonColesModel:
         # Identify completed matches only (those with goals)
         # Use positional indices (0..n-1) throughout to avoid label/iloc confusion
         completed_pos = [
-            i for i in range(n)
-            if pd.notna(df.iloc[i][home_goals_col]) and pd.notna(df.iloc[i][away_goals_col])
+            i
+            for i in range(n)
+            if pd.notna(df.iloc[i][home_goals_col])
+            and pd.notna(df.iloc[i][away_goals_col])
         ]
 
         if len(completed_pos) < 5:
@@ -1069,7 +1106,9 @@ class DixonColesModel:
         def _get_train_df(up_to_pos: int) -> pd.DataFrame:
             """Get all completed matches up to (and including) a positional index."""
             mask = [
-                i <= up_to_pos and pd.notna(df.iloc[i][home_goals_col]) and pd.notna(df.iloc[i][away_goals_col])
+                i <= up_to_pos
+                and pd.notna(df.iloc[i][home_goals_col])
+                and pd.notna(df.iloc[i][away_goals_col])
                 for i in range(n)
             ]
             return df.iloc[mask].copy()
@@ -1081,7 +1120,8 @@ class DixonColesModel:
         train_df = _get_train_df(first_cutoff_pos)
         ref_date = (
             pd.to_datetime(df.iloc[first_cutoff_pos + 1][date_col])
-            if first_cutoff_pos + 1 < n and pd.notna(df.iloc[first_cutoff_pos + 1][date_col])
+            if first_cutoff_pos + 1 < n
+            and pd.notna(df.iloc[first_cutoff_pos + 1][date_col])
             else None
         )
 
@@ -1091,14 +1131,34 @@ class DixonColesModel:
             rho_fixed=self.rho_fixed,
             max_goals_table=self.max_goals_table,
         )
-        current_model.fit(train_df, date_col=date_col, league_col=league_col, round_col=round_col,
-                          reference_date=ref_date, verbose=False)
+        current_model.fit(
+            train_df,
+            date_col=date_col,
+            league_col=league_col,
+            round_col=round_col,
+            reference_date=ref_date,
+            verbose=False,
+        )
 
         # Fill features for rows up to the first cutoff
         for i in range(first_cutoff_pos):  # Exclude cutoff to prevent self-leakage
-            _fill_dc_row(df, current_model, i, home_team_col, away_team_col,
-                         exp_home, exp_away, home_attack, home_def,
-                         away_attack, away_def, hw_prob, d_prob, aw_prob, rho_vals)
+            _fill_dc_row(
+                df,
+                current_model,
+                i,
+                home_team_col,
+                away_team_col,
+                exp_home,
+                exp_away,
+                home_attack,
+                home_def,
+                away_attack,
+                away_def,
+                hw_prob,
+                d_prob,
+                aw_prob,
+                rho_vals,
+            )
 
         # ── Iterate through remaining completed-match chunks ──
         # Progressively double refit_every: early fits are cheap (few matches),
@@ -1124,14 +1184,36 @@ class DixonColesModel:
                 rho_fixed=self.rho_fixed,
                 max_goals_table=self.max_goals_table,
             )
-            current_model.fit(train_df, date_col=date_col, league_col=league_col, round_col=round_col,
-                              reference_date=ref_date, verbose=False)
+            current_model.fit(
+                train_df,
+                date_col=date_col,
+                league_col=league_col,
+                round_col=round_col,
+                reference_date=ref_date,
+                verbose=False,
+            )
 
             # Fill rows between last_filled_pos+1 and cutoff_pos
-            for i in range(last_filled_pos + 1, cutoff_pos):  # Exclude cutoff to prevent self-leakage
-                _fill_dc_row(df, current_model, i, home_team_col, away_team_col,
-                             exp_home, exp_away, home_attack, home_def,
-                             away_attack, away_def, hw_prob, d_prob, aw_prob, rho_vals)
+            for i in range(
+                last_filled_pos + 1, cutoff_pos
+            ):  # Exclude cutoff to prevent self-leakage
+                _fill_dc_row(
+                    df,
+                    current_model,
+                    i,
+                    home_team_col,
+                    away_team_col,
+                    exp_home,
+                    exp_away,
+                    home_attack,
+                    home_def,
+                    away_attack,
+                    away_def,
+                    hw_prob,
+                    d_prob,
+                    aw_prob,
+                    rho_vals,
+                )
 
             last_filled_pos = cutoff_pos
             chunk_idx = chunk_end_idx
@@ -1140,9 +1222,23 @@ class DixonColesModel:
         # Fill any remaining rows (future predictions after last completed match)
         if last_filled_pos < n - 1:
             for i in range(last_filled_pos + 1, n):
-                _fill_dc_row(df, current_model, i, home_team_col, away_team_col,
-                             exp_home, exp_away, home_attack, home_def,
-                             away_attack, away_def, hw_prob, d_prob, aw_prob, rho_vals)
+                _fill_dc_row(
+                    df,
+                    current_model,
+                    i,
+                    home_team_col,
+                    away_team_col,
+                    exp_home,
+                    exp_away,
+                    home_attack,
+                    home_def,
+                    away_attack,
+                    away_def,
+                    hw_prob,
+                    d_prob,
+                    aw_prob,
+                    rho_vals,
+                )
 
         df["DC_Expected_Home_Goals"] = exp_home
         df["DC_Expected_Away_Goals"] = exp_away
@@ -1159,7 +1255,9 @@ class DixonColesModel:
 
         logger.info(
             "Dixon-Coles features added: %d matches, refit every %d, last ρ=%.3f",
-            n, refit_every, rho_vals[completed_pos[-1]] if completed_pos else 0.0,
+            n,
+            refit_every,
+            rho_vals[completed_pos[-1]] if completed_pos else 0.0,
         )
 
         return df
@@ -1204,8 +1302,13 @@ def _fill_dc_row(
         aw_prob[i] = result.away_win_prob
         rho_vals[i] = model._rho
     except Exception as e:
-        logger.warning("DC fill failed for row %d (%s vs %s): %s", i,
-                       df.iloc[i][home_team_col], df.iloc[i][away_team_col], e)
+        logger.warning(
+            "DC fill failed for row %d (%s vs %s): %s",
+            i,
+            df.iloc[i][home_team_col],
+            df.iloc[i][away_team_col],
+            e,
+        )
         exp_home[i] = 1.0
         exp_away[i] = 1.0
         hw_prob[i] = 0.45

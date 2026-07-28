@@ -24,7 +24,7 @@ from typing import Any
 import pandas as pd
 import requests
 
-from config import config
+from src.config import config
 
 logging.basicConfig(
     level=logging.INFO,

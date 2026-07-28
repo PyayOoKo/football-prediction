@@ -77,23 +77,23 @@ COMPETITION_IDS: dict[str, tuple[int, int]] = {
     # Note: StatsBomb open-data includes the 2018 World Cup (competition=43, season=3).
     # The 2022 World Cup is not yet in the open-data repository. Using
     # competition_name="World Cup 2022" will raise a ValueError with guidance.
-    "World Cup 2018":             (43, 3),
-    "UEFA Euro 2020":             (55, 5),
-    "UEFA Euro 2024":             (55, 7),
-    "FA Women's World Cup 2019":  (72, 2),
-    "Premier League 2020/21":     (2, 44),
-    "Premier League 2021/22":     (2, 93),
-    "La Liga 2020/21":            (11, 45),
-    "La Liga 2021/22":            (11, 94),
-    "Serie A 2020/21":            (12, 46),
-    "Serie A 2021/22":            (12, 95),
-    "Bundesliga 2020/21":         (9, 47),
-    "Bundesliga 2021/22":         (9, 96),
-    "Ligue 1 2020/21":            (7, 48),
-    "Ligue 1 2021/22":            (7, 97),
+    "World Cup 2018": (43, 3),
+    "UEFA Euro 2020": (55, 5),
+    "UEFA Euro 2024": (55, 7),
+    "FA Women's World Cup 2019": (72, 2),
+    "Premier League 2020/21": (2, 44),
+    "Premier League 2021/22": (2, 93),
+    "La Liga 2020/21": (11, 45),
+    "La Liga 2021/22": (11, 94),
+    "Serie A 2020/21": (12, 46),
+    "Serie A 2021/22": (12, 95),
+    "Bundesliga 2020/21": (9, 47),
+    "Bundesliga 2021/22": (9, 96),
+    "Ligue 1 2020/21": (7, 48),
+    "Ligue 1 2021/22": (7, 97),
     "UEFA Champions League 2020/21": (16, 59),
     "UEFA Champions League 2021/22": (16, 98),
-    "Major League Soccer 2021":   (217, 87),
+    "Major League Soccer 2021": (217, 87),
 }
 
 
@@ -129,7 +129,9 @@ class StatsBombMatch:
             home_score=data.get("home_score", 0),
             away_score=data.get("away_score", 0),
             venue=data.get("venue", {}).get("name", ""),
-            referee=data.get("referee", {}).get("name", "") if isinstance(data.get("referee"), dict) else "",
+            referee=data.get("referee", {}).get("name", "")
+            if isinstance(data.get("referee"), dict)
+            else "",
             match_week=data.get("match_week", 0),
         )
 
@@ -157,9 +159,11 @@ def _session() -> requests.Session:
     sess = requests.Session()
     retries = Retry(total=3, backoff_factor=1.0, status_forcelist=[429, 502, 503, 504])
     sess.mount("https://", HTTPAdapter(max_retries=retries))
-    sess.headers.update({
-        "User-Agent": "FootballPrediction/2.0.0",
-    })
+    sess.headers.update(
+        {
+            "User-Agent": "FootballPrediction/2.0.0",
+        }
+    )
     return sess
 
 
@@ -250,7 +254,9 @@ def list_matches(
             competition_id, season_id = comp_info
 
     if competition_id is None or season_id is None:
-        raise ValueError("Must provide either competition_name or both competition_id and season_id")
+        raise ValueError(
+            "Must provide either competition_name or both competition_id and season_id"
+        )
 
     cache_path = Path(CACHE_DIR) / f"matches_{competition_id}_{season_id}.json"
 
@@ -399,7 +405,9 @@ def events_to_dataframe(events: list[dict[str, Any]]) -> pd.DataFrame:
             "player": event.get("player", {}).get("name", ""),
             "player_id": event.get("player", {}).get("id", 0),
             "type": event.get("type", {}).get("name", ""),
-            "subtype": event.get("sub_type", {}).get("name", "") if event.get("sub_type") else "",
+            "subtype": event.get("sub_type", {}).get("name", "")
+            if event.get("sub_type")
+            else "",
             "possession": event.get("possession", 0),
         }
 
@@ -417,17 +425,18 @@ def events_to_dataframe(events: list[dict[str, Any]]) -> pd.DataFrame:
             row["xg"] = shot.get("statsbomb_xg", None)
             row["shot_end_location_x"] = (
                 shot.get("end_location", [None])[0]
-                if shot.get("end_location") else None
+                if shot.get("end_location")
+                else None
             )
             row["shot_end_location_y"] = (
                 shot.get("end_location", [None, None])[1]
-                if len(shot.get("end_location", [])) > 1 else None
+                if len(shot.get("end_location", [])) > 1
+                else None
             )
 
             # Freeze frame (defender positions) — too complex to flatten fully
             row["shot_freeze_frame_count"] = (
-                len(shot.get("freeze_frame", []))
-                if shot.get("freeze_frame") else 0
+                len(shot.get("freeze_frame", [])) if shot.get("freeze_frame") else 0
             )
         else:
             row["shot_type"] = None
@@ -443,8 +452,12 @@ def events_to_dataframe(events: list[dict[str, Any]]) -> pd.DataFrame:
             p = event["pass"]
             row["pass_length"] = p.get("length", None)
             row["pass_angle"] = p.get("angle", None)
-            row["pass_height"] = p.get("height", {}).get("name", "") if p.get("height") else ""
-            row["pass_recipient"] = p.get("recipient", {}).get("name", "") if p.get("recipient") else ""
+            row["pass_height"] = (
+                p.get("height", {}).get("name", "") if p.get("height") else ""
+            )
+            row["pass_recipient"] = (
+                p.get("recipient", {}).get("name", "") if p.get("recipient") else ""
+            )
             row["pass_goal_assist"] = p.get("goal_assist", False)
             row["pass_shot_assist"] = p.get("shot_assist", False)
             row["pass_cross"] = p.get("cross", False)
@@ -500,7 +513,8 @@ def shots_to_dataframe(
                 # Freeze frame count
                 row["shot_freeze_frame_count"] = (
                     len(shot_data.get("freeze_frame", []))
-                    if shot_data.get("freeze_frame") else 0
+                    if shot_data.get("freeze_frame")
+                    else 0
                 )
                 all_shots.append(row)
 
@@ -531,17 +545,19 @@ def lineups_to_dataframe(
     for team_lineup in lineups:
         team_name = team_lineup.get("team_name", "")
         for player in team_lineup.get("lineup", []):
-            rows.append({
-                "match_id": match_id,
-                "team": team_name,
-                "player_id": player.get("player_id", 0),
-                "player_name": player.get("player_name", ""),
-                "jersey_number": player.get("jersey_number", 0),
-                "position": player.get("position", {}).get("name", ""),
-                "position_id": player.get("position", {}).get("id", 0),
-                "starting": player.get("starting", False),
-                "substitute": not player.get("starting", False),
-            })
+            rows.append(
+                {
+                    "match_id": match_id,
+                    "team": team_name,
+                    "player_id": player.get("player_id", 0),
+                    "player_name": player.get("player_name", ""),
+                    "jersey_number": player.get("jersey_number", 0),
+                    "position": player.get("position", {}).get("name", ""),
+                    "position_id": player.get("position", {}).get("id", 0),
+                    "starting": player.get("starting", False),
+                    "substitute": not player.get("starting", False),
+                }
+            )
 
     return pd.DataFrame(rows)
 
@@ -610,7 +626,6 @@ def save_match_data(
 # ═══════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-
     logging.basicConfig(
         level=logging.INFO,
         format="%(message)s",
@@ -627,6 +642,8 @@ if __name__ == "__main__":
         matches = list_matches(competition_name="World Cup 2022")
         print(f"  Found {len(matches)} matches\n")
         for m in matches[:5]:
-            print(f"    {m.match_date}: {m.home_team} {m.home_score}-{m.away_score} {m.away_team}")
+            print(
+                f"    {m.match_date}: {m.home_team} {m.home_score}-{m.away_score} {m.away_team}"
+            )
     except Exception as exc:
         print(f"  [W] Could not fetch matches: {exc}")

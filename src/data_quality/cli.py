@@ -56,18 +56,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Generate a complete data quality dashboard",
         description="Analyze dataset, build snapshot, and generate HTML/JSON/CSV.",
     )
-    gen.add_argument("--source", "-s", default="dataset",
-                     help="Source name for the dashboard")
-    gen.add_argument("--file", "-f", default="",
-                     help="Path to dataset CSV (default: data/processed/results_clean.csv)")
-    gen.add_argument("--prev", default="",
-                     help="Path to previous dataset version for drift detection")
-    gen.add_argument("--output", "-o", default="reports/data_quality",
-                     help="Output directory")
-    gen.add_argument("--days", type=int, default=30,
-                     help="Lookback days for trend charts")
-    gen.add_argument("--open", action="store_true",
-                     help="Open the dashboard in browser after generation")
+    gen.add_argument(
+        "--source", "-s", default="dataset", help="Source name for the dashboard"
+    )
+    gen.add_argument(
+        "--file",
+        "-f",
+        default="",
+        help="Path to dataset CSV (default: data/processed/results_clean.csv)",
+    )
+    gen.add_argument(
+        "--prev",
+        default="",
+        help="Path to previous dataset version for drift detection",
+    )
+    gen.add_argument(
+        "--output", "-o", default="reports/data_quality", help="Output directory"
+    )
+    gen.add_argument(
+        "--days", type=int, default=30, help="Lookback days for trend charts"
+    )
+    gen.add_argument(
+        "--open",
+        action="store_true",
+        help="Open the dashboard in browser after generation",
+    )
 
     # ── coverage ─────────────────────────────────────
     cov = subparsers.add_parser(
@@ -75,20 +88,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Analyze data coverage only",
         description="Compute odds/xG/league/season coverage percentages.",
     )
-    cov.add_argument("--file", "-f", required=True,
-                     help="Path to dataset CSV or Parquet")
+    cov.add_argument(
+        "--file", "-f", required=True, help="Path to dataset CSV or Parquet"
+    )
 
     # ── serve ────────────────────────────────────────
     serve = subparsers.add_parser(
         "serve",
         help="Serve the latest dashboard as an HTTP page",
     )
-    serve.add_argument("--port", type=int, default=8502,
-                       help="Port to serve on")
-    serve.add_argument("--dir", default="reports/data_quality",
-                       help="Dashboard output directory")
-    serve.add_argument("--open", action="store_true",
-                       help="Open browser automatically")
+    serve.add_argument("--port", type=int, default=8502, help="Port to serve on")
+    serve.add_argument(
+        "--dir", default="reports/data_quality", help="Dashboard output directory"
+    )
+    serve.add_argument("--open", action="store_true", help="Open browser automatically")
 
     # ── status ───────────────────────────────────────
     subparsers.add_parser(
@@ -103,7 +116,9 @@ def build_parser() -> argparse.ArgumentParser:
 def cmd_generate(args: argparse.Namespace) -> int:
     """Execute the ``generate`` command."""
     # Determine data file path
-    data_file = args.file or str(PROJECT_ROOT / "data" / "processed" / "results_clean.csv")
+    data_file = args.file or str(
+        PROJECT_ROOT / "data" / "processed" / "results_clean.csv"
+    )
     data_path = Path(data_file)
 
     df = None
@@ -139,8 +154,9 @@ def cmd_generate(args: argparse.Namespace) -> int:
         if path_str and not fmt.endswith("_error"):
             print(f"  ✅ {fmt.upper():6s}: {path_str}")
 
-    for fmt, error in [(k.replace("_error", ""), v)
-                        for k, v in results.items() if k.endswith("_error")]:
+    for fmt, error in [
+        (k.replace("_error", ""), v) for k, v in results.items() if k.endswith("_error")
+    ]:
         print(f"  ❌ {fmt}: {error}")
 
     if args.open and results.get("html"):
@@ -172,9 +188,13 @@ def cmd_coverage(args: argparse.Namespace) -> int:
     print(f"  {'─' * 48}")
     print(f"  Odds Coverage:    {metrics.odds_coverage_pct:>6.1f}%")
     print(f"  xG Coverage:      {metrics.xg_coverage_pct:>6.1f}%")
-    print(f"  League Coverage:  {metrics.league_coverage_pct:>6.1f}% ({len(metrics.league_coverage)} leagues)")
+    print(
+        f"  League Coverage:  {metrics.league_coverage_pct:>6.1f}% ({len(metrics.league_coverage)} leagues)"
+    )
     print(f"  Season Coverage:  {metrics.season_count} seasons")
-    print(f"  Schema:           {metrics.n_columns_actual}/{metrics.n_columns_expected} cols")
+    print(
+        f"  Schema:           {metrics.n_columns_actual}/{metrics.n_columns_expected} cols"
+    )
     if metrics.columns_missing:
         print(f"  Missing columns:  {', '.join(metrics.columns_missing[:8])}")
     return 0
@@ -243,7 +263,9 @@ def cmd_status(args: argparse.Namespace) -> int:
 
     if snap.system:
         s = snap.system
-        print(f"  💻 System:       CPU {s.cpu_percent:.1f}% / Mem {s.memory_percent:.1f}%")
+        print(
+            f"  💻 System:       CPU {s.cpu_percent:.1f}% / Mem {s.memory_percent:.1f}%"
+        )
         print(f"     DB Size:      {s.db_size_mb:.2f} MB")
 
     if snap.cache:

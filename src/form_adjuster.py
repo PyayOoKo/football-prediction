@@ -152,7 +152,9 @@ class RecentFormAdjuster:
         self._fitted = True
         logger.debug(
             "Form scores computed for %d teams (n=%d, weight=%.1f)",
-            len(self._form_cache), self.n_matches, self.form_weight,
+            len(self._form_cache),
+            self.n_matches,
+            self.form_weight,
         )
         return self
 
@@ -224,11 +226,13 @@ class RecentFormAdjuster:
             else:
                 label = "Ice Cold"
 
-            records.append({
-                "team": team,
-                "form_score": round(score, 3),
-                "elo_adjustment": round(adj, 1),
-                "form_label": label,
-            })
+            records.append(
+                {
+                    "team": team,
+                    "form_score": round(score, 3),
+                    "elo_adjustment": round(adj, 1),
+                    "form_label": label,
+                }
+            )
 
         return pd.DataFrame(records).sort_values("form_score", ascending=False)

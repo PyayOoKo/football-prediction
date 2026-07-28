@@ -46,6 +46,7 @@ def timer(func: F | None = None, *, label: str = "") -> Callable[..., Any]:
             elapsed = time.perf_counter() - start
             logger.info("[%s] completed in %.3fs", name, elapsed)
             return result
+
         return wrapper
     else:
         # Used as a decorator with arguments: @timer(label="...")
@@ -58,10 +59,12 @@ def timer(func: F | None = None, *, label: str = "") -> Callable[..., Any]:
                 elapsed = time.perf_counter() - start
                 logger.info("[%s] completed in %.3fs", name, elapsed)
                 return result
+
             return wrapper
+
         return decorator
 
 
 def chunks(items: list[Any], size: int) -> list[list[Any]]:
     """Split a list into chunks of at most ``size`` elements."""
-    return [items[i:i + size] for i in range(0, len(items), size)]
+    return [items[i : i + size] for i in range(0, len(items), size)]

@@ -75,7 +75,9 @@ def deduplicate(df: pd.DataFrame, key: list[str] | None = None) -> pd.DataFrame:
     df = df.drop_duplicates(subset=existing_key, keep="first")
     removed = before - len(df)
     if removed:
-        logger.info("Removed %d duplicate rows (%.1f%%)", removed, removed / before * 100)
+        logger.info(
+            "Removed %d duplicate rows (%.1f%%)", removed, removed / before * 100
+        )
     else:
         logger.info("No duplicates found")
     return df.reset_index(drop=True)
@@ -128,10 +130,11 @@ def handle_missing_values(
         essential = MATCH_KEY_COLS + ["result"]
         essential_cols = [c for c in essential if c in df.columns]
         df.dropna(subset=essential_cols, inplace=True)
-        logger.info("Dropped %d rows with missing essential values", before_drop - len(df))
+        logger.info(
+            "Dropped %d rows with missing essential values", before_drop - len(df)
+        )
 
     elif strategy in ("fill_zero", "fill_median"):
-
         # Fill match-stat columns
         stat_cols = [c for c in _ZEROABLE_STATS if c in df.columns]
         if strategy == "fill_zero":
@@ -274,7 +277,9 @@ def validate_data(df: pd.DataFrame) -> dict[str, Any]:
     report = {"is_valid": is_valid, "warnings": warnings, "stats": stats}
 
     if is_valid:
-        logger.info("Validation passed — %d rows, %d columns", stats["rows"], stats["columns"])
+        logger.info(
+            "Validation passed — %d rows, %d columns", stats["rows"], stats["columns"]
+        )
     else:
         logger.warning("Validation found %d issues", len(warnings))
         for w in warnings:

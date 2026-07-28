@@ -12,6 +12,7 @@ class FootballPredictionError(Exception):
 
 # ── Data layer ──────────────────────────────────────────
 
+
 class DataNotFoundError(FootballPredictionError):
     """Raised when requested data is not found (file, DB row, etc.)."""
 
@@ -33,6 +34,7 @@ class DataSourceError(FootballPredictionError):
 
 
 # ── Model layer ─────────────────────────────────────────
+
 
 class ModelNotFoundError(FootballPredictionError):
     """Raised when a trained model file cannot be located."""
@@ -64,11 +66,13 @@ class CalibrationError(FootballPredictionError):
 
 # ── Feature / engineering layer ─────────────────────────
 
+
 class FeatureEngineeringError(FootballPredictionError):
     """Raised when feature engineering or extraction fails."""
 
 
 # ── Betting layer ───────────────────────────────────────
+
 
 class BettingError(FootballPredictionError):
     """Raised on betting calculation errors."""
@@ -83,6 +87,7 @@ class OddsError(FootballPredictionError):
 
 
 # ── Scraper layer ───────────────────────────────────────
+
 
 class ScraperError(FootballPredictionError):
     """Raised when a data scraper encounters a non-recoverable error."""
@@ -102,6 +107,7 @@ class ScraperAuthError(ScraperError):
 
 # ── Config / validation layer ───────────────────────────
 
+
 class ConfigurationError(FootballPredictionError):
     """Raised when application configuration is invalid or incomplete."""
 
@@ -111,6 +117,7 @@ class ValidationError(FootballPredictionError):
 
 
 # ── Pipeline / orchestration layer ──────────────────────
+
 
 class PipelineError(FootballPredictionError):
     """Raised when a data pipeline step fails."""

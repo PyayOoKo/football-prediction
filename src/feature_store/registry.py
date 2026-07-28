@@ -32,11 +32,22 @@ logger = logging.getLogger(__name__)
 
 # ── Feature type constants ────────────────────────────────
 FEATURE_TYPES = [
-    "rolling_stat", "team_form", "elo", "attack_strength",
-    "defense_strength", "home_advantage", "away_advantage",
-    "rest_days", "fixture_congestion", "league_strength",
-    "team_momentum", "market_movement", "h2h_stat",
-    "xg_feature", "odds_feature", "composite",
+    "rolling_stat",
+    "team_form",
+    "elo",
+    "attack_strength",
+    "defense_strength",
+    "home_advantage",
+    "away_advantage",
+    "rest_days",
+    "fixture_congestion",
+    "league_strength",
+    "team_momentum",
+    "market_movement",
+    "h2h_stat",
+    "xg_feature",
+    "odds_feature",
+    "composite",
 ]
 
 
@@ -119,7 +130,11 @@ class FeatureRegistry:
 
         # Validate
         self._validate_registration(
-            name, feature_type, category, entity_type, version,
+            name,
+            feature_type,
+            category,
+            entity_type,
+            version,
         )
 
         # Check for existing definition with same name + version
@@ -136,7 +151,9 @@ class FeatureRegistry:
             version=version,
             feature_type=feature_type,
             category=category,
-            entity_type=EntityType(entity_type) if isinstance(entity_type, str) else entity_type,
+            entity_type=EntityType(entity_type)
+            if isinstance(entity_type, str)
+            else entity_type,
             description=description,
             computation_params=computation_params or {},
             validation_rules=validation_rules or {},
@@ -157,7 +174,10 @@ class FeatureRegistry:
 
         logger.info(
             "Registered feature %r v%d (type=%s, category=%s)",
-            name, version, feature_type, category.value,
+            name,
+            version,
+            feature_type,
+            category.value,
         )
         return definition
 
@@ -210,10 +230,12 @@ class FeatureRegistry:
             "entity_type": current.entity_type.value,
             "description": updates.pop("description", current.description),
             "computation_params": updates.pop(
-                "computation_params", current.computation_params,
+                "computation_params",
+                current.computation_params,
             ),
             "validation_rules": updates.pop(
-                "validation_rules", current.validation_rules,
+                "validation_rules",
+                current.validation_rules,
             ),
             "dependencies": updates.pop("dependencies", current.dependencies),
             "metadata": updates.pop("metadata", current.extra_metadata),
@@ -282,20 +304,21 @@ class FeatureRegistry:
         return self._session.execute(stmt).scalar_one_or_none()
 
     def get_by_name_version(
-        self, name: str, version: int,
+        self,
+        name: str,
+        version: int,
     ) -> FeatureDefinition | None:
         """Get a specific version of a feature definition."""
         return self._get_by_name_version(name, version)
 
     def _get_by_name_version(
-        self, name: str, version: int,
+        self,
+        name: str,
+        version: int,
     ) -> FeatureDefinition | None:
-        stmt = (
-            select(FeatureDefinition)
-            .where(
-                FeatureDefinition.name == name,
-                FeatureDefinition.version == version,
-            )
+        stmt = select(FeatureDefinition).where(
+            FeatureDefinition.name == name,
+            FeatureDefinition.version == version,
         )
         return self._session.execute(stmt).scalar_one_or_none()
 
@@ -409,7 +432,9 @@ class FeatureRegistry:
         definition.status = FeatureStatus.DEPRECATED
         definition.is_active = False
         self._session.flush()
-        self._record_version(definition, f"Deprecated: {reason}" if reason else "Deprecated")
+        self._record_version(
+            definition, f"Deprecated: {reason}" if reason else "Deprecated"
+        )
         logger.info("Deprecated feature %r v%d", name, definition.version)
         return definition
 
@@ -446,7 +471,8 @@ class FeatureRegistry:
     # ── Version history ───────────────────────────────────
 
     def get_history(
-        self, name: str,
+        self,
+        name: str,
     ) -> List[FeatureVersion]:
         """Get version history for a feature definition.
 
@@ -469,7 +495,9 @@ class FeatureRegistry:
         return list(self._session.execute(stmt).scalars().all())
 
     def _record_version(
-        self, definition: FeatureDefinition, changelog: str,
+        self,
+        definition: FeatureDefinition,
+        changelog: str,
     ) -> FeatureVersion:
         """Record a version entry for a definition.
 
@@ -524,19 +552,18 @@ class FeatureRegistry:
             if dep_def is None:
                 logger.warning(
                     "Dependency %r for feature %r not found — skipping edge.",
-                    dep_name, definition.name,
+                    dep_name,
+                    definition.name,
                 )
                 continue
 
             # Check for duplicate edge
-            existing = (
-                self._session.execute(
-                    select(FeatureDependency).where(
-                        FeatureDependency.dependent_feature_id == definition.id,
-                        FeatureDependency.dependency_feature_id == dep_def.id,
-                    )
-                ).scalar_one_or_none()
-            )
+            existing = self._session.execute(
+                select(FeatureDependency).where(
+                    FeatureDependency.dependent_feature_id == definition.id,
+                    FeatureDependency.dependency_feature_id == dep_def.id,
+                )
+            ).scalar_one_or_none()
             if existing is not None:
                 continue
 
@@ -566,9 +593,8 @@ class FeatureRegistry:
         -------
         list[FeatureDefinition]
         """
-        stmt = (
-            select(FeatureDependency)
-            .where(FeatureDependency.dependent_feature_id == definition_id)
+        stmt = select(FeatureDependency).where(
+            FeatureDependency.dependent_feature_id == definition_id
         )
         edges = self._session.execute(stmt).scalars().all()
 
@@ -601,9 +627,8 @@ class FeatureRegistry:
         -------
         list[FeatureDefinition]
         """
-        stmt = (
-            select(FeatureDependency)
-            .where(FeatureDependency.dependency_feature_id == definition_id)
+        stmt = select(FeatureDependency).where(
+            FeatureDependency.dependency_feature_id == definition_id
         )
         edges = self._session.execute(stmt).scalars().all()
 
@@ -642,10 +667,14 @@ class FeatureRegistry:
         """
         if feature_ids is not None:
             # Load all edges among the subset
-            stmt = select(FeatureDependency).where(
-                FeatureDependency.dependent_feature_id.in_(feature_ids),
-            ).where(
-                FeatureDependency.dependency_feature_id.in_(feature_ids),
+            stmt = (
+                select(FeatureDependency)
+                .where(
+                    FeatureDependency.dependent_feature_id.in_(feature_ids),
+                )
+                .where(
+                    FeatureDependency.dependency_feature_id.in_(feature_ids),
+                )
             )
         else:
             stmt = select(FeatureDependency)
@@ -673,9 +702,7 @@ class FeatureRegistry:
             return []
 
         # Kahn's algorithm
-        queue = deque(
-            id_ for id_, deg in in_degree.items() if deg == 0
-        )
+        queue = deque(id_ for id_, deg in in_degree.items() if deg == 0)
         sorted_ids: List[str] = []
 
         while queue:
@@ -700,9 +727,7 @@ class FeatureRegistry:
         def_stmt = select(FeatureDefinition).where(
             FeatureDefinition.id.in_(sorted_ids),
         )
-        defs = {
-            d.id: d for d in self._session.execute(def_stmt).scalars().all()
-        }
+        defs = {d.id: d for d in self._session.execute(def_stmt).scalars().all()}
         return [defs[i] for i in sorted_ids if i in defs]
 
     def has_cycle(self) -> bool:
@@ -743,6 +768,3 @@ class FeatureRegistry:
             .order_by(FeatureDefinition.name)
         )
         return list(self._session.execute(stmt).scalars().all())
-
-
-

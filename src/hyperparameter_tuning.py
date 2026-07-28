@@ -43,11 +43,12 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
-from config import HyperTuneConfig, config
+from src.config import HyperTuneConfig, config
 from src.time_series_cv import create_time_series_folds
 
 try:
     import optuna
+
     _HAS_OPTUNA = True
 except ImportError:
     _HAS_OPTUNA = False
@@ -319,9 +320,12 @@ def _optimise_lr(
         class_weight="balanced",
     )
     searcher = GridSearchCV(
-        base, _lr_param_grid(),
-        cv=ts_cv, scoring="neg_log_loss",
-        n_jobs=-1, verbose=1 if verbose else 0,
+        base,
+        _lr_param_grid(),
+        cv=ts_cv,
+        scoring="neg_log_loss",
+        n_jobs=-1,
+        verbose=1 if verbose else 0,
     )
     searcher.fit(_impute(X_train), y_train)
     return searcher.best_params_, -searcher.best_score_
@@ -341,7 +345,8 @@ def _optimise_rf(
     """
     logger.info(
         "  RandomizedSearchCV (Random Forest) — %d-fold time-series CV, %d iters",
-        cv, n_iter,
+        cv,
+        n_iter,
     )
     ts_cv = create_time_series_folds(n_splits=cv)
     base = RandomForestClassifier(
@@ -350,10 +355,13 @@ def _optimise_rf(
         n_jobs=-1,
     )
     searcher = RandomizedSearchCV(
-        base, _rf_param_dist(),
-        n_iter=n_iter, cv=ts_cv,
+        base,
+        _rf_param_dist(),
+        n_iter=n_iter,
+        cv=ts_cv,
         scoring="neg_log_loss",
-        n_jobs=-1, random_state=config.train.seed,
+        n_jobs=-1,
+        random_state=config.train.seed,
         verbose=1 if verbose else 0,
     )
     searcher.fit(_impute(X_train), y_train)
@@ -374,7 +382,8 @@ def _optimise_xgb(
     """
     logger.info(
         "  RandomizedSearchCV (XGBoost) — %d-fold time-series CV, %d iters",
-        cv, n_iter,
+        cv,
+        n_iter,
     )
     ts_cv = create_time_series_folds(n_splits=cv)
     import xgboost as xgb
@@ -386,10 +395,13 @@ def _optimise_xgb(
         n_jobs=-1,
     )
     searcher = RandomizedSearchCV(
-        base, _xgb_param_dist(),
-        n_iter=n_iter, cv=ts_cv,
+        base,
+        _xgb_param_dist(),
+        n_iter=n_iter,
+        cv=ts_cv,
         scoring="neg_log_loss",
-        n_jobs=-1, random_state=config.train.seed,
+        n_jobs=-1,
+        random_state=config.train.seed,
         verbose=1 if verbose else 0,
     )
     # XGBoost handles NaN natively — no imputation
@@ -411,7 +423,8 @@ def _optimise_lgbm(
     """
     logger.info(
         "  RandomizedSearchCV (LightGBM) — %d-fold time-series CV, %d iters",
-        cv, n_iter,
+        cv,
+        n_iter,
     )
     ts_cv = create_time_series_folds(n_splits=cv)
     import lightgbm as lgb
@@ -424,10 +437,13 @@ def _optimise_lgbm(
         verbose=-1,
     )
     searcher = RandomizedSearchCV(
-        base, _lgbm_param_dist(),
-        n_iter=n_iter, cv=ts_cv,
+        base,
+        _lgbm_param_dist(),
+        n_iter=n_iter,
+        cv=ts_cv,
         scoring="neg_log_loss",
-        n_jobs=-1, random_state=config.train.seed,
+        n_jobs=-1,
+        random_state=config.train.seed,
         verbose=1 if verbose else 0,
     )
     # LightGBM handles NaN natively — no imputation
@@ -509,7 +525,9 @@ def tune_hyperparameters(
 
     optim_fn = {
         "logistic_regression": lambda: _optimise_lr(X_train, y_train, n_folds, verbose),
-        "random_forest": lambda: _optimise_rf(X_train, y_train, n_folds, n_iter, verbose),
+        "random_forest": lambda: _optimise_rf(
+            X_train, y_train, n_folds, n_iter, verbose
+        ),
         "xgboost": lambda: _optimise_xgb(X_train, y_train, n_folds, n_iter, verbose),
         "lightgbm": lambda: _optimise_lgbm(X_train, y_train, n_folds, n_iter, verbose),
     }
@@ -609,7 +627,9 @@ class HyperTuner:
         # Optionally evaluate on test
         test_results: dict[str, Any] = {}
         if X_test is not None and y_test is not None:
-            test_results = self._evaluate_on_test(best_model, best_model_type, X_test, y_test)
+            test_results = self._evaluate_on_test(
+                best_model, best_model_type, X_test, y_test
+            )
 
         # Save report
         report_path: str | None = None
@@ -645,9 +665,9 @@ class HyperTuner:
         cfg = self.cfg
 
         if cfg.verbose:
-            logger.info("  ┌─ %s", '=' * 60)
+            logger.info("  ┌─ %s", "=" * 60)
             logger.info("  │  MODEL: %s", model_type)
-            logger.info("  └─ %s", '=' * 60)
+            logger.info("  └─ %s", "=" * 60)
 
         # ── 1. Train baseline ─────────────────────────
         if cfg.verbose:
@@ -662,22 +682,40 @@ class HyperTuner:
 
         baseline_ll, baseline_acc = _evaluate(baseline, X_val, y_val, model_type)
         if cfg.verbose:
-            logger.info("  │    ✓ Baseline  |  log-loss: %.4f  |  accuracy: %.2f%%", baseline_ll, baseline_acc * 100)
+            logger.info(
+                "  │    ✓ Baseline  |  log-loss: %.4f  |  accuracy: %.2f%%",
+                baseline_ll,
+                baseline_acc * 100,
+            )
 
         # ── 2. Hyper-parameter search ─────────────────
         if model_type == "logistic_regression":
-            best_params, cv_loss = _optimise_lr(X_train, y_train, cfg.cv_folds, cfg.verbose)
+            best_params, cv_loss = _optimise_lr(
+                X_train, y_train, cfg.cv_folds, cfg.verbose
+            )
         elif model_type == "random_forest":
             best_params, cv_loss = _optimise_rf(
-                X_train, y_train, cfg.cv_folds, cfg.n_iter_random, cfg.verbose,
+                X_train,
+                y_train,
+                cfg.cv_folds,
+                cfg.n_iter_random,
+                cfg.verbose,
             )
         elif model_type == "xgboost":
             best_params, cv_loss = _optimise_xgb(
-                X_train, y_train, cfg.cv_folds, cfg.n_iter_random, cfg.verbose,
+                X_train,
+                y_train,
+                cfg.cv_folds,
+                cfg.n_iter_random,
+                cfg.verbose,
             )
         elif model_type == "lightgbm":
             best_params, cv_loss = _optimise_lgbm(
-                X_train, y_train, cfg.cv_folds, cfg.n_iter_random, cfg.verbose,
+                X_train,
+                y_train,
+                cfg.cv_folds,
+                cfg.n_iter_random,
+                cfg.verbose,
             )
         else:
             raise ValueError(f"Unknown model_type: {model_type}")
@@ -698,10 +736,16 @@ class HyperTuner:
 
         tuned_ll, tuned_acc = _evaluate(tuned, X_val, y_val, model_type)
         if cfg.verbose:
-            logger.info("  │    ✓ Tuned     |  log-loss: %.4f  |  accuracy: %.2f%%", tuned_ll, tuned_acc * 100)
+            logger.info(
+                "  │    ✓ Tuned     |  log-loss: %.4f  |  accuracy: %.2f%%",
+                tuned_ll,
+                tuned_acc * 100,
+            )
             imp_ll = baseline_ll - tuned_ll
             imp_acc = tuned_acc - baseline_acc
-            logger.info("  │    Δ log-loss: %+.4f  |  Δ accuracy: %+.4f", imp_ll, imp_acc)
+            logger.info(
+                "  │    Δ log-loss: %+.4f  |  Δ accuracy: %+.4f", imp_ll, imp_acc
+            )
 
         # ── 4. Save models ────────────────────────────
         if cfg.save_models:
@@ -749,18 +793,22 @@ class HyperTuner:
         """Build a pandas DataFrame with before/after comparison."""
         rows = []
         for r in self.results:
-            rows.append({
-                "Model": r.model_type,
-                "Baseline LogLoss": round(r.baseline_val_log_loss, 4),
-                "Tuned LogLoss": round(r.tuned_val_log_loss, 4),
-                "LogLoss Δ": round(r.improvement_log_loss, 4),
-                "Baseline Accuracy": round(r.baseline_val_accuracy, 4),
-                "Tuned Accuracy": round(r.tuned_val_accuracy, 4),
-                "Accuracy Δ": round(r.improvement_accuracy, 4),
-                "CV LogLoss": round(r.cv_log_loss, 4) if r.cv_log_loss is not None else None,
-                "Baseline Time (s)": round(r.baseline_train_time, 2),
-                "Tuned Time (s)": round(r.tuned_train_time, 2),
-            })
+            rows.append(
+                {
+                    "Model": r.model_type,
+                    "Baseline LogLoss": round(r.baseline_val_log_loss, 4),
+                    "Tuned LogLoss": round(r.tuned_val_log_loss, 4),
+                    "LogLoss Δ": round(r.improvement_log_loss, 4),
+                    "Baseline Accuracy": round(r.baseline_val_accuracy, 4),
+                    "Tuned Accuracy": round(r.tuned_val_accuracy, 4),
+                    "Accuracy Δ": round(r.improvement_accuracy, 4),
+                    "CV LogLoss": round(r.cv_log_loss, 4)
+                    if r.cv_log_loss is not None
+                    else None,
+                    "Baseline Time (s)": round(r.baseline_train_time, 2),
+                    "Tuned Time (s)": round(r.tuned_train_time, 2),
+                }
+            )
         return pd.DataFrame(rows)
 
     def _build_report(self) -> dict[str, str]:
@@ -782,18 +830,30 @@ class HyperTuner:
 
         # ── Before / After Table ──────────────────────────
         lines.append(f"  {'─' * 88}")
-        lines.append(f"  {'Model':<22s} {'Baseline':>12s} {'Tuned':>12s} {'Δ LogLoss':>12s}  "
-                      f"{'Baseline':>10s} {'Tuned':>10s} {'Δ Acc':>10s}")
-        lines.append(f"  {'':<22s} {'LogLoss':>12s} {'LogLoss':>12s} {'':>12s}  "
-                      f"{'Accuracy':>10s} {'Accuracy':>10s} {'':>10s}")
+        lines.append(
+            f"  {'Model':<22s} {'Baseline':>12s} {'Tuned':>12s} {'Δ LogLoss':>12s}  "
+            f"{'Baseline':>10s} {'Tuned':>10s} {'Δ Acc':>10s}"
+        )
+        lines.append(
+            f"  {'':<22s} {'LogLoss':>12s} {'LogLoss':>12s} {'':>12s}  "
+            f"{'Accuracy':>10s} {'Accuracy':>10s} {'':>10s}"
+        )
         lines.append(f"  {'─' * 88}")
 
         best_row = df.loc[df["Tuned LogLoss"].idxmin()]
         for _, row in df.iterrows():
             is_best = row["Model"] == best_row["Model"]
             marker = " ★" if is_best else "  "
-            ll_delta_str = f"{row['LogLoss Δ']:+.4f}" if pd.notna(row.get("LogLoss Δ")) else "  N/A"
-            acc_delta_str = f"{row['Accuracy Δ']:+.4f}" if pd.notna(row.get("Accuracy Δ")) else "  N/A"
+            ll_delta_str = (
+                f"{row['LogLoss Δ']:+.4f}"
+                if pd.notna(row.get("LogLoss Δ"))
+                else "  N/A"
+            )
+            acc_delta_str = (
+                f"{row['Accuracy Δ']:+.4f}"
+                if pd.notna(row.get("Accuracy Δ"))
+                else "  N/A"
+            )
             lines.append(
                 f"  {row['Model']:<20s}{marker} "
                 f"{row['Baseline LogLoss']:>12.4f} "
@@ -811,12 +871,16 @@ class HyperTuner:
         lines.append(f"  {'★' * 30}  BEST MODEL  {'★' * 30}")
         lines.append("")
         lines.append(f"    {best_row['Model']}")
-        lines.append(f"      Validation log-loss: {best_row['Baseline LogLoss']:.4f} → "
-                      f"{best_row['Tuned LogLoss']:.4f} "
-                      f"(Δ = {best_row['LogLoss Δ']:+.4f})")
-        lines.append(f"      Validation accuracy: {best_row['Baseline Accuracy']:.2%} → "
-                      f"{best_row['Tuned Accuracy']:.2%} "
-                      f"(Δ = {best_row['Accuracy Δ']:+.4f})")
+        lines.append(
+            f"      Validation log-loss: {best_row['Baseline LogLoss']:.4f} → "
+            f"{best_row['Tuned LogLoss']:.4f} "
+            f"(Δ = {best_row['LogLoss Δ']:+.4f})"
+        )
+        lines.append(
+            f"      Validation accuracy: {best_row['Baseline Accuracy']:.2%} → "
+            f"{best_row['Tuned Accuracy']:.2%} "
+            f"(Δ = {best_row['Accuracy Δ']:+.4f})"
+        )
         lines.append("")
         lines.append(f"  {'★' * 76}")
 
@@ -831,8 +895,12 @@ class HyperTuner:
             lines.append(f"  ── {r.model_type} ──")
             lines.append(f"    Default params:  {r.baseline_params}")
             lines.append(f"    Tuned params:    {r.tuned_params}")
-            lines.append(f"    CV log-loss:     {r.cv_log_loss:.4f}" if r.cv_log_loss else "")
-            lines.append(f"    Train time:      {r.baseline_train_time:.2f}s → {r.tuned_train_time:.2f}s")
+            lines.append(
+                f"    CV log-loss:     {r.cv_log_loss:.4f}" if r.cv_log_loss else ""
+            )
+            lines.append(
+                f"    Train time:      {r.baseline_train_time:.2f}s → {r.tuned_train_time:.2f}s"
+            )
             lines.append("")
 
         lines.append(sep)
@@ -858,16 +926,22 @@ class HyperTuner:
 
         if self.cfg.verbose:
             logger.info("")
-            logger.info("  %s", '=' * 90)
+            logger.info("  %s", "=" * 90)
             logger.info("  TEST SET EVALUATION")
-            logger.info("  %s", '=' * 90)
+            logger.info("  %s", "=" * 90)
             logger.info("    Best model (%s):", model_type)
             logger.info("      Test log-loss: %.4f", test_ll)
             logger.info("      Test accuracy: %.2f%%", test_acc * 100)
             logger.info("    All tuned models on test set:")
             for mt, m in all_test.items():
                 marker = " ★" if mt == model_type else "  "
-                logger.info("      %-22s%s  log-loss: %.4f  |  accuracy: %.2f%%", mt, marker, m['log_loss'], m['accuracy'] * 100)
+                logger.info(
+                    "      %-22s%s  log-loss: %.4f  |  accuracy: %.2f%%",
+                    mt,
+                    marker,
+                    m["log_loss"],
+                    m["accuracy"] * 100,
+                )
 
         return {
             "best_model_log_loss": test_ll,
@@ -884,7 +958,7 @@ class HyperTuner:
         logger.info("=" * 90)
         logger.info("  HYPER-PARAMETER TUNING".center(88))
         logger.info("=" * 90)
-        logger.info("  Model types:  %s", ', '.join(self.cfg.model_types))
+        logger.info("  Model types:  %s", ", ".join(self.cfg.model_types))
         logger.info("  CV folds:     %d", self.cfg.cv_folds)
         logger.info("  Random iters: %d", self.cfg.n_iter_random)
         logger.info("  Saving models: %s", self.cfg.save_models)
@@ -893,9 +967,21 @@ class HyperTuner:
         if not self.cfg.verbose:
             return
         logger.info("  ── %s complete ──", result.model_type)
-        logger.info("     Baseline:  log-loss=%.4f  accuracy=%.2f%%", result.baseline_val_log_loss, result.baseline_val_accuracy * 100)
-        logger.info("     Tuned:     log-loss=%.4f  accuracy=%.2f%%", result.tuned_val_log_loss, result.tuned_val_accuracy * 100)
-        logger.info("     Δ log-loss: %+.4f  |  Δ accuracy: %+.4f", result.improvement_log_loss, result.improvement_accuracy)
+        logger.info(
+            "     Baseline:  log-loss=%.4f  accuracy=%.2f%%",
+            result.baseline_val_log_loss,
+            result.baseline_val_accuracy * 100,
+        )
+        logger.info(
+            "     Tuned:     log-loss=%.4f  accuracy=%.2f%%",
+            result.tuned_val_log_loss,
+            result.tuned_val_accuracy * 100,
+        )
+        logger.info(
+            "     Δ log-loss: %+.4f  |  Δ accuracy: %+.4f",
+            result.improvement_log_loss,
+            result.improvement_accuracy,
+        )
 
     def _print_footer(self, best: ModelResult) -> None:
         if not self.cfg.verbose:
@@ -905,7 +991,11 @@ class HyperTuner:
         logger.info("  TUNING COMPLETE".center(88))
         logger.info("=" * 90)
         logger.info("  Best model:          %s", best.model_type)
-        logger.info("  Validation log-loss: %.4f -> %.4f", best.baseline_val_log_loss, best.tuned_val_log_loss)
+        logger.info(
+            "  Validation log-loss: %.4f -> %.4f",
+            best.baseline_val_log_loss,
+            best.tuned_val_log_loss,
+        )
         logger.info("  Δ log-loss:          %+.4f", best.improvement_log_loss)
         logger.info("  Tuned params:        %s", best.tuned_params)
         logger.info("  Models saved to:     %s", config.paths.models)
@@ -925,7 +1015,9 @@ def _get_params(model: Any) -> dict[str, Any]:
     try:
         return model.get_params()
     except Exception:
-        logger.debug("Failed to get params for %s, returning empty dict", type(model).__name__)
+        logger.debug(
+            "Failed to get params for %s, returning empty dict", type(model).__name__
+        )
         return {}
 
 
@@ -1003,7 +1095,8 @@ class OptunaTuner:
             # Fallback to regular scikit-learn tuner (already in scope)
             logger.info("Optuna not available — falling back to RandomizedSearchCV")
             result = tune_hyperparameters(
-                X_train, y_train,
+                X_train,
+                y_train,
                 model_type=model_type,  # type: ignore[arg-type]
                 n_folds=self.cv_folds,
                 n_iter=self.n_trials,
@@ -1035,18 +1128,24 @@ class OptunaTuner:
                         probs = model.predict_proba(X_vl)
                     losses.append(float(log_loss(y_vl, probs)))
                 except Exception:
-                    logger.debug("Optuna trial failed for %s, returning penalty", model_type)
+                    logger.debug(
+                        "Optuna trial failed for %s, returning penalty", model_type
+                    )
                     return 1.0  # Penalty for failed trial
             return float(np.mean(losses)) if losses else 1.0
 
         logger.info(
             "Optuna tuning %s — %d trials, %d-fold CV",
-            model_type, self.n_trials, self.cv_folds,
+            model_type,
+            self.n_trials,
+            self.cv_folds,
         )
 
         sampler = optuna.samplers.TPESampler(seed=self.seed)
         pruner = optuna.pruners.HyperbandPruner(
-            min_resource=1, max_resource=self.n_trials, reduction_factor=3,
+            min_resource=1,
+            max_resource=self.n_trials,
+            reduction_factor=3,
         )
         study = optuna.create_study(
             direction="minimize",
@@ -1083,7 +1182,9 @@ class OptunaTuner:
             return {
                 "n_estimators": trial.suggest_int("n_estimators", 100, 1000, step=50),
                 "max_depth": trial.suggest_int("max_depth", 3, 12),
-                "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.3, log=True),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.005, 0.3, log=True
+                ),
                 "subsample": trial.suggest_float("subsample", 0.5, 1.0),
                 "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
                 "reg_lambda": trial.suggest_float("reg_lambda", 0.001, 10.0, log=True),
@@ -1095,14 +1196,18 @@ class OptunaTuner:
             return {
                 "n_estimators": trial.suggest_int("n_estimators", 100, 800, step=50),
                 "max_depth": trial.suggest_int("max_depth", 3, 12),
-                "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.3, log=True),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.005, 0.3, log=True
+                ),
                 "subsample": trial.suggest_float("subsample", 0.5, 1.0),
                 "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
                 "reg_lambda": trial.suggest_float("reg_lambda", 0.001, 10.0, log=True),
                 "reg_alpha": trial.suggest_float("reg_alpha", 0.0, 1.0),
                 "num_leaves": trial.suggest_int("num_leaves", 15, 255, step=8),
                 "min_child_samples": trial.suggest_int("min_child_samples", 5, 100),
-                "min_child_weight": trial.suggest_float("min_child_weight", 0.001, 10.0, log=True),
+                "min_child_weight": trial.suggest_float(
+                    "min_child_weight", 0.001, 10.0, log=True
+                ),
             }
         elif model_type == "random_forest":
             return {
@@ -1126,8 +1231,12 @@ class OptunaTuner:
             return {
                 "iterations": trial.suggest_int("iterations", 100, 800, step=50),
                 "depth": trial.suggest_int("depth", 3, 10),
-                "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.3, log=True),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 0.001, 10.0, log=True),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.005, 0.3, log=True
+                ),
+                "l2_leaf_reg": trial.suggest_float(
+                    "l2_leaf_reg", 0.001, 10.0, log=True
+                ),
                 "border_count": trial.suggest_int("border_count", 32, 255),
             }
         else:

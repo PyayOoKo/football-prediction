@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from config import config as _global_config
+from src.config import config as _global_config
 from src.features.helpers import _match_points
 
 logger = logging.getLogger(__name__)
@@ -249,8 +249,17 @@ def _merge_team_stats(
             "date",
             "season",
             "league",
-            "opponent",            "goals_scored", "goals_conceded", "is_home", "points", "gd",
-            "total_goals", "over_2_5", "btts", "clean_sheet", "scored",
+            "opponent",
+            "goals_scored",
+            "goals_conceded",
+            "is_home",
+            "points",
+            "gd",
+            "total_goals",
+            "over_2_5",
+            "btts",
+            "clean_sheet",
+            "scored",
         ]
     ]
 

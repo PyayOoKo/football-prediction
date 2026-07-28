@@ -305,7 +305,9 @@ class VariableRatioStaking(StakingStrategy):
                 f"max_ratio ({max_ratio}) must be >= base_ratio ({base_ratio})"
             )
         super().__init__(
-            base_ratio=base_ratio, max_ratio=max_ratio, min_ev=min_ev,
+            base_ratio=base_ratio,
+            max_ratio=max_ratio,
+            min_ev=min_ev,
         )
         self.base_ratio = base_ratio
         self.max_ratio = max_ratio
@@ -398,8 +400,11 @@ class VolatilityStaking(StakingStrategy):
                 f"min_ratio ({min_ratio}) must be in [0, base_ratio ({base_ratio})]"
             )
         super().__init__(
-            base_ratio=base_ratio, window=window,
-            sensitivity=sensitivity, min_ratio=min_ratio, min_ev=min_ev,
+            base_ratio=base_ratio,
+            window=window,
+            sensitivity=sensitivity,
+            min_ratio=min_ratio,
+            min_ev=min_ev,
         )
         self.base_ratio = base_ratio
         self.window = window
@@ -428,7 +433,9 @@ class VolatilityStaking(StakingStrategy):
         self._recent_results.append(float(clv_or_profit))
         logger.debug(
             "VolatilityStaking: recorded result %.6f — window=%d/%d",
-            clv_or_profit, len(self._recent_results), self.window,
+            clv_or_profit,
+            len(self._recent_results),
+            self.window,
         )
 
     def reset_history(self) -> None:
@@ -593,7 +600,8 @@ class PortfolioStaking(StakingStrategy):
         self._concurrent_weights = list(bets)
         logger.debug(
             "PortfolioStaking: set %d concurrent bets (method=%s)",
-            len(bets), self.allocation_method,
+            len(bets),
+            self.allocation_method,
         )
 
     def clear_concurrent_bets(self) -> None:
@@ -752,7 +760,10 @@ class KellyStaking(StakingStrategy):
         """Return the full Kelly stake amount, or 0.0 for negative-EV bets."""
         _ = ev  # Kelly recomputes EV internally
         result = calculate_kelly(
-            model_prob, decimal_odds, bankroll=bankroll, round_to=2,
+            model_prob,
+            decimal_odds,
+            bankroll=bankroll,
+            round_to=2,
         )
         return result.get("stake_amount", 0.0) or 0.0
 
@@ -796,7 +807,8 @@ class FractionalKellyStaking(StakingStrategy):
         """Return the fractional Kelly stake amount, or 0.0 for negative-EV."""
         _ = ev  # Fractional Kelly recomputes EV internally
         result = calculate_fractional_kelly(
-            model_prob, decimal_odds,
+            model_prob,
+            decimal_odds,
             fraction=self.fraction,
             bankroll=bankroll,
             round_to=2,
@@ -913,5 +925,6 @@ class StakingFactory:
         cls._REGISTRY[name] = strategy_cls
         logger.info(
             "Registered staking strategy: %s (%s)",
-            name, strategy_cls.__name__,
+            name,
+            strategy_cls.__name__,
         )

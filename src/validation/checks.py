@@ -18,42 +18,76 @@ from src.validation.models import CheckResult, Severity
 # or ``ValidationEngine.run()``.
 _KNOWN_LEAGUES: set[str] = {
     # England
-    "E0", "E1", "E2", "E3", "EC", "FA Cup", "EFL Cup",
-    "Premier League", "Championship", "League One", "League Two",
+    "E0",
+    "E1",
+    "E2",
+    "E3",
+    "EC",
+    "FA Cup",
+    "EFL Cup",
+    "Premier League",
+    "Championship",
+    "League One",
+    "League Two",
     "National League",
     # Scotland
-    "SC0", "SC1", "SC2", "SC3",
-    "Scottish Premiership", "Scottish Championship",
+    "SC0",
+    "SC1",
+    "SC2",
+    "SC3",
+    "Scottish Premiership",
+    "Scottish Championship",
     # Germany
-    "D1", "D2",
-    "Bundesliga", "2. Bundesliga", "3. Liga",
+    "D1",
+    "D2",
+    "Bundesliga",
+    "2. Bundesliga",
+    "3. Liga",
     # Spain
-    "SP1", "SP2",
-    "La Liga", "La Liga 2", "Segunda Division",
+    "SP1",
+    "SP2",
+    "La Liga",
+    "La Liga 2",
+    "Segunda Division",
     # Italy
-    "I1", "I2",
-    "Serie A", "Serie B", "Serie C",
+    "I1",
+    "I2",
+    "Serie A",
+    "Serie B",
+    "Serie C",
     # France
-    "F1", "F2",
-    "Ligue 1", "Ligue 2",
+    "F1",
+    "F2",
+    "Ligue 1",
+    "Ligue 2",
     # Netherlands
     "N1",
-    "Eredivisie", "Eerste Divisie",
+    "Eredivisie",
+    "Eerste Divisie",
     # Portugal
     "P1",
-    "Primeira Liga", "Liga Portugal",
+    "Primeira Liga",
+    "Liga Portugal",
     # Belgium
     "B1",
-    "Pro League", "Jupiler League",
+    "Pro League",
+    "Jupiler League",
     # Turkey
     "T1",
     "Super Lig",
     # International
-    "World Cup", "FIFA World Cup", "European Championship",
-    "Euros", "Copa America", "Africa Cup of Nations",
-    "Champions League", "UEFA Champions League",
-    "Europa League", "UEFA Europa League",
-    "Conference League", "UEFA Conference League",
+    "World Cup",
+    "FIFA World Cup",
+    "European Championship",
+    "Euros",
+    "Copa America",
+    "Africa Cup of Nations",
+    "Champions League",
+    "UEFA Champions League",
+    "Europa League",
+    "UEFA Europa League",
+    "Conference League",
+    "UEFA Conference League",
 }
 
 # ── Common date format patterns for validation ────────
@@ -66,9 +100,23 @@ _DATE_PATTERNS = [
 ]
 
 # ── Odds column keywords for auto-detection ───────────
-_ODDS_KEYWORDS = ["odds", "bbav", "b365", "psh", "psd", "psa",
-                  "home_odds", "draw_odds", "away_odds",
-                  "maxh", "maxd", "maxa", "avh", "avd", "ava"]
+_ODDS_KEYWORDS = [
+    "odds",
+    "bbav",
+    "b365",
+    "psh",
+    "psd",
+    "psa",
+    "home_odds",
+    "draw_odds",
+    "away_odds",
+    "maxh",
+    "maxd",
+    "maxa",
+    "avh",
+    "avd",
+    "ava",
+]
 
 
 def _parse_date_flexible(value: Any) -> date | None:
@@ -98,6 +146,7 @@ def _column_matches_odds(col: str) -> bool:
 
 # ── Check 1: Duplicate matches ────────────────────────
 
+
 def check_duplicate_matches(
     data: list[dict[str, Any]],
     **kwargs: Any,
@@ -113,12 +162,14 @@ def check_duplicate_matches(
 
         key = (home.lower().strip(), away.lower().strip(), str(dt).strip())
         if key in seen:
-            violations.append({
-                "row_index": i,
-                "field": "match",
-                "value": f"{home} vs {away} on {dt}",
-                "message": f"Duplicate match: first seen at row {seen[key][0]}",
-            })
+            violations.append(
+                {
+                    "row_index": i,
+                    "field": "match",
+                    "value": f"{home} vs {away} on {dt}",
+                    "message": f"Duplicate match: first seen at row {seen[key][0]}",
+                }
+            )
             seen[key].append(i)
         else:
             seen[key] = [i]
@@ -136,6 +187,7 @@ def check_duplicate_matches(
 
 # ── Check 2: Invalid dates ────────────────────────────
 
+
 def check_invalid_dates(
     data: list[dict[str, Any]],
     **kwargs: Any,
@@ -150,33 +202,39 @@ def check_invalid_dates(
 
         # Null date
         if raw is None or (isinstance(raw, str) and not raw.strip()):
-            violations.append({
-                "row_index": i,
-                "field": date_col,
-                "value": str(raw),
-                "message": "Date is null or empty",
-            })
+            violations.append(
+                {
+                    "row_index": i,
+                    "field": date_col,
+                    "value": str(raw),
+                    "message": "Date is null or empty",
+                }
+            )
             continue
 
         # Try to parse
         parsed = _parse_date_flexible(raw)
         if parsed is None:
-            violations.append({
-                "row_index": i,
-                "field": date_col,
-                "value": str(raw),
-                "message": f"Unrecognised date format: {raw!r}",
-            })
+            violations.append(
+                {
+                    "row_index": i,
+                    "field": date_col,
+                    "value": str(raw),
+                    "message": f"Unrecognised date format: {raw!r}",
+                }
+            )
             continue
 
         # Future date more than 3 years ahead
         if parsed > date(today.year + 3, 1, 1):
-            violations.append({
-                "row_index": i,
-                "field": date_col,
-                "value": str(raw),
-                "message": f"Date is more than 3 years in the future: {parsed}",
-            })
+            violations.append(
+                {
+                    "row_index": i,
+                    "field": date_col,
+                    "value": str(raw),
+                    "message": f"Date is more than 3 years in the future: {parsed}",
+                }
+            )
 
     return CheckResult(
         check_name="Invalid Dates",
@@ -190,6 +248,7 @@ def check_invalid_dates(
 
 
 # ── Check 3: Invalid odds ─────────────────────────────
+
 
 def check_invalid_odds(
     data: list[dict[str, Any]],
@@ -229,19 +288,23 @@ def check_invalid_odds(
             try:
                 float_val = float(val)
                 if float_val <= 1.0:
-                    violations.append({
+                    violations.append(
+                        {
+                            "row_index": i,
+                            "field": col,
+                            "value": str(val),
+                            "message": f"Odds must be > 1.0, got {float_val}",
+                        }
+                    )
+            except (ValueError, TypeError):
+                violations.append(
+                    {
                         "row_index": i,
                         "field": col,
                         "value": str(val),
-                        "message": f"Odds must be > 1.0, got {float_val}",
-                    })
-            except (ValueError, TypeError):
-                violations.append({
-                    "row_index": i,
-                    "field": col,
-                    "value": str(val),
-                    "message": f"Non-numeric odds value: {val!r}",
-                })
+                        "message": f"Non-numeric odds value: {val!r}",
+                    }
+                )
 
     return CheckResult(
         check_name="Invalid Odds",
@@ -255,6 +318,7 @@ def check_invalid_odds(
 
 
 # ── Check 4: Missing goals ───────────────────────────
+
 
 def check_missing_goals(
     data: list[dict[str, Any]],
@@ -272,9 +336,10 @@ def check_missing_goals(
         # Determine if match is finished
         status = str(row.get(status_col, "unknown")).lower()
         result = str(row.get(result_col, "") or "")
-        is_finished = (
-            status in ("finished", "completed", "played")
-            or result in ("H", "D", "A")
+        is_finished = status in ("finished", "completed", "played") or result in (
+            "H",
+            "D",
+            "A",
         )
 
         if not is_finished:
@@ -287,12 +352,14 @@ def check_missing_goals(
         away_missing = away is None or (isinstance(away, str) and away.strip() == "")
 
         if home_missing or away_missing:
-            violations.append({
-                "row_index": i,
-                "field": f"{home_goal_col}/{away_goal_col}",
-                "value": f"home={home!r}, away={away!r}",
-                "message": f"Finished match has missing goals (status={status}, result={result})",
-            })
+            violations.append(
+                {
+                    "row_index": i,
+                    "field": f"{home_goal_col}/{away_goal_col}",
+                    "value": f"home={home!r}, away={away!r}",
+                    "message": f"Finished match has missing goals (status={status}, result={result})",
+                }
+            )
 
     return CheckResult(
         check_name="Missing Goals",
@@ -306,6 +373,7 @@ def check_missing_goals(
 
 
 # ── Check 5: Missing teams ───────────────────────────
+
 
 def check_missing_teams(
     data: list[dict[str, Any]],
@@ -322,27 +390,36 @@ def check_missing_teams(
         away = row.get(away_col)
 
         if home is None or (isinstance(home, str) and home.strip() == ""):
-            violations.append({
-                "row_index": i,
-                "field": home_col,
-                "value": str(home),
-                "message": "Home team name is null or empty",
-            })
+            violations.append(
+                {
+                    "row_index": i,
+                    "field": home_col,
+                    "value": str(home),
+                    "message": "Home team name is null or empty",
+                }
+            )
         if away is None or (isinstance(away, str) and away.strip() == ""):
-            violations.append({
-                "row_index": i,
-                "field": away_col,
-                "value": str(away),
-                "message": "Away team name is null or empty",
-            })
-        if (home is not None and away is not None
-                and str(home).strip().lower() == str(away).strip().lower()):
-            violations.append({
-                "row_index": i,
-                "field": f"{home_col}/{away_col}",
-                "value": f"home={home}, away={away}",
-                "message": "Home and away team names are identical",
-            })
+            violations.append(
+                {
+                    "row_index": i,
+                    "field": away_col,
+                    "value": str(away),
+                    "message": "Away team name is null or empty",
+                }
+            )
+        if (
+            home is not None
+            and away is not None
+            and str(home).strip().lower() == str(away).strip().lower()
+        ):
+            violations.append(
+                {
+                    "row_index": i,
+                    "field": f"{home_col}/{away_col}",
+                    "value": f"home={home}, away={away}",
+                    "message": "Home and away team names are identical",
+                }
+            )
 
     return CheckResult(
         check_name="Missing Teams",
@@ -356,6 +433,7 @@ def check_missing_teams(
 
 
 # ── Check 6: Incorrect league names ───────────────────
+
 
 def check_incorrect_leagues(
     data: list[dict[str, Any]],
@@ -374,32 +452,38 @@ def check_incorrect_leagues(
     for i, row in enumerate(data):
         league = row.get(league_col)
         if league is None:
-            violations.append({
-                "row_index": i,
-                "field": league_col,
-                "value": "None",
-                "message": "League column is null",
-            })
+            violations.append(
+                {
+                    "row_index": i,
+                    "field": league_col,
+                    "value": "None",
+                    "message": "League column is null",
+                }
+            )
             continue
 
         league_str = str(league).strip()
         if not league_str:
-            violations.append({
-                "row_index": i,
-                "field": league_col,
-                "value": "",
-                "message": "League name is empty",
-            })
+            violations.append(
+                {
+                    "row_index": i,
+                    "field": league_col,
+                    "value": "",
+                    "message": "League name is empty",
+                }
+            )
             continue
 
         # Check against known list (case-insensitive)
         if league_str not in known_leagues and league_str.upper() not in known_leagues:
-            violations.append({
-                "row_index": i,
-                "field": league_col,
-                "value": league_str,
-                "message": f"Unrecognised league name: {league_str!r}",
-            })
+            violations.append(
+                {
+                    "row_index": i,
+                    "field": league_col,
+                    "value": league_str,
+                    "message": f"Unrecognised league name: {league_str!r}",
+                }
+            )
 
     return CheckResult(
         check_name="Incorrect Leagues",
@@ -413,6 +497,7 @@ def check_incorrect_leagues(
 
 
 # ── Check 7: Invalid statistics ──────────────────────
+
 
 def check_invalid_statistics(
     data: list[dict[str, Any]],
@@ -456,19 +541,23 @@ def check_invalid_statistics(
                     continue
 
                 if num_val < lo:
-                    violations.append({
-                        "row_index": i,
-                        "field": col,
-                        "value": str(val),
-                        "message": f"{display} is negative: {num_val}",
-                    })
+                    violations.append(
+                        {
+                            "row_index": i,
+                            "field": col,
+                            "value": str(val),
+                            "message": f"{display} is negative: {num_val}",
+                        }
+                    )
                 elif hi is not None and num_val > hi:
-                    violations.append({
-                        "row_index": i,
-                        "field": col,
-                        "value": str(val),
-                        "message": f"{message}: {num_val}",
-                    })
+                    violations.append(
+                        {
+                            "row_index": i,
+                            "field": col,
+                            "value": str(val),
+                            "message": f"{message}: {num_val}",
+                        }
+                    )
 
     return CheckResult(
         check_name="Invalid Statistics",
@@ -482,6 +571,7 @@ def check_invalid_statistics(
 
 
 # ── Check 8: Duplicate IDs ───────────────────────────
+
 
 def check_duplicate_ids(
     data: list[dict[str, Any]],
@@ -500,12 +590,14 @@ def check_duplicate_ids(
 
         key = str(id_val).strip()
         if key in seen:
-            violations.append({
-                "row_index": i,
-                "field": id_col,
-                "value": key,
-                "message": f"Duplicate ID: first seen at row {seen[key][0]}",
-            })
+            violations.append(
+                {
+                    "row_index": i,
+                    "field": id_col,
+                    "value": key,
+                    "message": f"Duplicate ID: first seen at row {seen[key][0]}",
+                }
+            )
             seen[key].append(i)
         else:
             seen[key] = [i]
@@ -522,6 +614,7 @@ def check_duplicate_ids(
 
 
 # ── Check 9: Impossible scores ────────────────────────
+
 
 def check_impossible_scores(
     data: list[dict[str, Any]],
@@ -551,68 +644,88 @@ def check_impossible_scores(
             try:
                 h = int(home)
                 if h < 0:
-                    violations.append({
-                        "row_index": i,
-                        "field": home_goal_col,
-                        "value": str(home),
-                        "message": f"Negative home goals: {h}",
-                    })
+                    violations.append(
+                        {
+                            "row_index": i,
+                            "field": home_goal_col,
+                            "value": str(home),
+                            "message": f"Negative home goals: {h}",
+                        }
+                    )
                 elif h > max_score:
-                    violations.append({
+                    violations.append(
+                        {
+                            "row_index": i,
+                            "field": home_goal_col,
+                            "value": str(home),
+                            "message": f"Home goals exceeds max ({max_score}): {h}",
+                        }
+                    )
+            except (ValueError, TypeError):
+                violations.append(
+                    {
                         "row_index": i,
                         "field": home_goal_col,
                         "value": str(home),
-                        "message": f"Home goals exceeds max ({max_score}): {h}",
-                    })
-            except (ValueError, TypeError):
-                violations.append({
-                    "row_index": i,
-                    "field": home_goal_col,
-                    "value": str(home),
-                    "message": f"Non-integer home goals: {home!r}",
-                })
+                        "message": f"Non-integer home goals: {home!r}",
+                    }
+                )
 
         if away is not None:
             try:
                 a = int(away)
                 if a < 0:
-                    violations.append({
-                        "row_index": i,
-                        "field": away_goal_col,
-                        "value": str(away),
-                        "message": f"Negative away goals: {a}",
-                    })
+                    violations.append(
+                        {
+                            "row_index": i,
+                            "field": away_goal_col,
+                            "value": str(away),
+                            "message": f"Negative away goals: {a}",
+                        }
+                    )
                 elif a > max_score:
-                    violations.append({
+                    violations.append(
+                        {
+                            "row_index": i,
+                            "field": away_goal_col,
+                            "value": str(away),
+                            "message": f"Away goals exceeds max ({max_score}): {a}",
+                        }
+                    )
+            except (ValueError, TypeError):
+                violations.append(
+                    {
                         "row_index": i,
                         "field": away_goal_col,
                         "value": str(away),
-                        "message": f"Away goals exceeds max ({max_score}): {a}",
-                    })
-            except (ValueError, TypeError):
-                violations.append({
-                    "row_index": i,
-                    "field": away_goal_col,
-                    "value": str(away),
-                    "message": f"Non-integer away goals: {away!r}",
-                })
+                        "message": f"Non-integer away goals: {away!r}",
+                    }
+                )
 
         # Check result consistency
         if home is not None and away is not None:
             try:
                 h_val = int(home)
                 a_val = int(away)
-                expected_result = "H" if h_val > a_val else "A" if a_val > h_val else "D"
-                if result and result not in ("", None) and str(result).upper() != expected_result:
-                    violations.append({
-                        "row_index": i,
-                        "field": result_col,
-                        "value": f"score={home}-{away}, result={result}",
-                        "message": (
-                            f"Score {home}-{away} implies '{expected_result}' "
-                            f"but result column says '{result}'"
-                        ),
-                    })
+                expected_result = (
+                    "H" if h_val > a_val else "A" if a_val > h_val else "D"
+                )
+                if (
+                    result
+                    and result not in ("", None)
+                    and str(result).upper() != expected_result
+                ):
+                    violations.append(
+                        {
+                            "row_index": i,
+                            "field": result_col,
+                            "value": f"score={home}-{away}, result={result}",
+                            "message": (
+                                f"Score {home}-{away} implies '{expected_result}' "
+                                f"but result column says '{result}'"
+                            ),
+                        }
+                    )
             except (ValueError, TypeError):
                 pass  # Already caught non-integer goals above
 

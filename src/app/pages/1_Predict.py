@@ -19,7 +19,8 @@ from src.feature_engineering import build_features
 st.set_page_config(page_title="Predict a Match", page_icon="🔮", layout="wide")
 
 # ── Custom CSS ──────────────────────────────────────────
-st.markdown("""
+st.markdown(
+    """
 <style>
     .stApp { background: #0e1117; }
     .predict-card {
@@ -51,7 +52,9 @@ st.markdown("""
     .stat-label { color: #8b8fa3; font-size: 0.85rem; }
     .stat-value { color: #ffffff; font-size: 1.1rem; font-weight: 600; }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 
 # ── Header ──────────────────────────────────────────────
@@ -87,9 +90,19 @@ teams = get_available_teams(data)
 
 col1, col2 = st.columns(2)
 with col1:
-    home_team = st.selectbox("🏠 **Home Team**", teams, index=teams.index("Manchester United") if "Manchester United" in teams else 0)
+    home_team = st.selectbox(
+        "🏠 **Home Team**",
+        teams,
+        index=teams.index("Manchester United") if "Manchester United" in teams else 0,
+    )
 with col2:
-    away_team = st.selectbox("✈️ **Away Team**", teams, index=teams.index("Liverpool") if "Liverpool" in teams else (teams.index("Chelsea") if "Chelsea" in teams else min(1, len(teams) - 1)))
+    away_team = st.selectbox(
+        "✈️ **Away Team**",
+        teams,
+        index=teams.index("Liverpool")
+        if "Liverpool" in teams
+        else (teams.index("Chelsea") if "Chelsea" in teams else min(1, len(teams) - 1)),
+    )
 
 
 # ── Matchup info ───────────────────────────────────────
@@ -97,18 +110,33 @@ h2h = get_matchup_stats(data, home_team, away_team)
 
 info_col1, info_col2, info_col3, info_col4 = st.columns(4)
 with info_col1:
-    st.markdown(f'<div class="stat-label">Previous meetings</div><div class="stat-value">{h2h["matches"]}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="stat-label">Previous meetings</div><div class="stat-value">{h2h["matches"]}</div>',
+        unsafe_allow_html=True,
+    )
 with info_col2:
-    st.markdown(f'<div class="stat-label">{home_team} wins</div><div class="stat-value">{h2h["home_wins"]}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="stat-label">{home_team} wins</div><div class="stat-value">{h2h["home_wins"]}</div>',
+        unsafe_allow_html=True,
+    )
 with info_col3:
-    st.markdown(f'<div class="stat-label">Draws</div><div class="stat-value">{h2h["draws"]}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="stat-label">Draws</div><div class="stat-value">{h2h["draws"]}</div>',
+        unsafe_allow_html=True,
+    )
 with info_col4:
-    st.markdown(f'<div class="stat-label">{away_team} wins</div><div class="stat-value">{h2h["away_wins"]}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="stat-label">{away_team} wins</div><div class="stat-value">{h2h["away_wins"]}</div>',
+        unsafe_allow_html=True,
+    )
 
 if h2h.get("last_results"):
     result_map = {"H": f"✅ {home_team}", "A": f"✅ {away_team}", "D": "🤝 Draw"}
     labels = [result_map.get(r, r) for r in h2h["last_results"]]
-    st.markdown(f'<div class="stat-label">Last {len(labels)} meetings: {"  •  ".join(labels)}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="stat-label">Last {len(labels)} meetings: {"  •  ".join(labels)}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ── Predict button ─────────────────────────────────────
@@ -116,12 +144,13 @@ st.markdown("---")
 
 predict_col1, predict_col2, predict_col3 = st.columns([1, 2, 1])
 with predict_col2:
-    predict_clicked = st.button("🔮 PREDICT NOW", type="primary", use_container_width=True)
+    predict_clicked = st.button(
+        "🔮 PREDICT NOW", type="primary", use_container_width=True
+    )
 
 
 if predict_clicked:
     with st.spinner("Building features and running model ..."):
-
         # Build features on the full dataset to get the feature matrix
         result = build_feature_matrix(data)
         if result is None:
@@ -267,11 +296,15 @@ if predict_clicked:
             impact_data = []
             for idx in indices:
                 val = feature_row.iloc[0, idx]
-                impact_data.append({
-                    "Feature": feature_names[idx],
-                    "Importance": f"{importances[idx]:.4f}",
-                    "Value": f"{val:.3f}" if isinstance(val, (int, float)) else str(val),
-                })
+                impact_data.append(
+                    {
+                        "Feature": feature_names[idx],
+                        "Importance": f"{importances[idx]:.4f}",
+                        "Value": f"{val:.3f}"
+                        if isinstance(val, (int, float))
+                        else str(val),
+                    }
+                )
 
             st.dataframe(
                 pd.DataFrame(impact_data),

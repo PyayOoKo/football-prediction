@@ -163,7 +163,8 @@ class TaskEngine:
                 report.errors.append(f"{task_def.name}: {result.error}")
                 if self.config.abort_on_failure:
                     logger.warning(
-                        "Pipeline aborted after %s failed", task_def.name,
+                        "Pipeline aborted after %s failed",
+                        task_def.name,
                     )
                     break
             elif result.status == TaskStatus.SKIPPED:
@@ -205,18 +206,26 @@ class TaskEngine:
             if attempt > 1:
                 logger.info(
                     "Retry %d/%d for task '%s' ...",
-                    attempt, task_def.retry_count, task_def.name,
+                    attempt,
+                    task_def.retry_count,
+                    task_def.name,
                 )
                 time.sleep(2.0 * attempt)  # Linear backoff between retries
 
             try:
                 result = func(self.config)
 
-                if result.status == TaskStatus.FAILED and attempt < task_def.retry_count:
+                if (
+                    result.status == TaskStatus.FAILED
+                    and attempt < task_def.retry_count
+                ):
                     last_error = result.error
                     logger.warning(
                         "Task '%s' failed (attempt %d/%d): %s",
-                        task_def.name, attempt, task_def.retry_count, result.error,
+                        task_def.name,
+                        attempt,
+                        task_def.retry_count,
+                        result.error,
                     )
                     continue
 
@@ -226,7 +235,9 @@ class TaskEngine:
                 last_error = str(exc)
                 logger.exception(
                     "Task '%s' crashed (attempt %d/%d)",
-                    task_def.name, attempt, task_def.retry_count,
+                    task_def.name,
+                    attempt,
+                    task_def.retry_count,
                 )
                 if attempt >= task_def.retry_count:
                     return TaskResult(

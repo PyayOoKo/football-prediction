@@ -210,7 +210,7 @@ def train_xgboost(df: pd.DataFrame) -> Any | None:
     best_params = tune_hyperparameters(splits["X_train"], splits["y_train"], n_folds=5, n_iter=50)
     logger.info("  Best params: %s", best_params)
 
-    from config import config
+    from src.config import config
     for k, v in best_params.items():
         if hasattr(config.train, k):
             setattr(config.train, k, v)

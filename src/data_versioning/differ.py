@@ -69,12 +69,8 @@ def compute_delta(
         raise ValueError(f"Key columns not found in DataFrame: {missing}")
 
     # Compute fingerprint (SHA256 hash of key column values) for each row
-    old_fp = old_df[key_columns].apply(
-        lambda r: _row_hash(r, key_columns), axis=1
-    )
-    new_fp = new_df[key_columns].apply(
-        lambda r: _row_hash(r, key_columns), axis=1
-    )
+    old_fp = old_df[key_columns].apply(lambda r: _row_hash(r, key_columns), axis=1)
+    new_fp = new_df[key_columns].apply(lambda r: _row_hash(r, key_columns), axis=1)
 
     old_set = set(old_fp)
     new_set = set(new_fp)
@@ -120,7 +116,7 @@ def compute_delta(
             new_idx = new_fp_idx.get(fp)
             if old_idx is not None and new_idx is not None:
                 if old_content_hash.iloc[old_idx] != new_content_hash.iloc[new_idx]:
-                    updated_row = new_df.iloc[new_idx:new_idx + 1].copy()
+                    updated_row = new_df.iloc[new_idx : new_idx + 1].copy()
                     updated_row["_change_type"] = ChangeType.UPDATED.value
                     updated_row["_fingerprint"] = fp
                     delta_rows.append(updated_row)
@@ -186,7 +182,10 @@ def compare_versions(
 
     # Detect changed columns (cross-reference old vs new values)
     changed_cols = _detect_changed_columns(
-        delta_df, key_columns, old_df=old_df, new_df=new_df,
+        delta_df,
+        key_columns,
+        old_df=old_df,
+        new_df=new_df,
     )
 
     # Sample rows

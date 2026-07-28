@@ -133,7 +133,7 @@ def main() -> int:
         print(f"  TRAINING ON LEAGUE DATA")
         print(f"  {'=' * 60}")
 
-        from config import config
+        from src.config import config
 
         config.data_collection.leagues = tuple(TOP5_LEAGUES.keys())
         config.data_collection.output_file = "league_all.csv"

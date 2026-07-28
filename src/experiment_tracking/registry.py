@@ -76,7 +76,9 @@ class ModelRegistry:
 
         if rank is None:
             rank = self._compute_rank(
-                metric_name, metric_value, lower_is_better,
+                metric_name,
+                metric_value,
+                lower_is_better,
             )
 
         # Check for existing entry at this rank
@@ -85,7 +87,9 @@ class ModelRegistry:
             logger.warning(
                 "Replacing existing best model at rank %d for metric %s "
                 "(experiment %s)",
-                rank, metric_name, experiment_id[:8],
+                rank,
+                metric_name,
+                experiment_id[:8],
             )
             self._session.delete(existing)
             self._session.flush()
@@ -102,7 +106,10 @@ class ModelRegistry:
         self._session.flush()
         logger.info(
             "Registered best model: rank=%d metric=%s value=%.4f run=%s",
-            rank, metric_name, metric_value, run_id[:8],
+            rank,
+            metric_name,
+            metric_value,
+            run_id[:8],
         )
         return entry
 
@@ -148,7 +155,9 @@ class ModelRegistry:
 
         # Shift ranks of existing entries that are now lower
         self._shift_ranks(
-            metric_name, new_rank, lower_is_better,
+            metric_name,
+            new_rank,
+            lower_is_better,
         )
 
         return new_rank
@@ -287,7 +296,9 @@ class ModelRegistry:
         self._session.flush()
         logger.info(
             "Promoted best model %s to production (metric=%s, value=%.4f)",
-            entry_id[:8], entry.metric_name, entry.metric_value,
+            entry_id[:8],
+            entry.metric_name,
+            entry.metric_value,
         )
         return entry
 
@@ -352,15 +363,17 @@ class ModelRegistry:
         rows = []
         for e in entries:
             run = self._session.get(Run, e.run_id)
-            rows.append({
-                "rank": e.rank,
-                "metric_name": e.metric_name,
-                "metric_value": e.metric_value,
-                "model_type": run.model_type if run else "?",
-                "run_id": e.run_id[:8],
-                "experiment_id": e.experiment_id[:8],
-                "is_promoted": e.is_promoted,
-                "promoted_at": e.promoted_at,
-                "notes": e.notes,
-            })
+            rows.append(
+                {
+                    "rank": e.rank,
+                    "metric_name": e.metric_name,
+                    "metric_value": e.metric_value,
+                    "model_type": run.model_type if run else "?",
+                    "run_id": e.run_id[:8],
+                    "experiment_id": e.experiment_id[:8],
+                    "is_promoted": e.is_promoted,
+                    "promoted_at": e.promoted_at,
+                    "notes": e.notes,
+                }
+            )
         return pd.DataFrame(rows)

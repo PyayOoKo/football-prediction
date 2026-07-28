@@ -204,7 +204,8 @@ class CronScheduler:
         try:
             proc = subprocess.run(
                 ["crontab", "-r"],
-                capture_output=True, check=False,
+                capture_output=True,
+                check=False,
             )
             if proc.returncode == 0:
                 logger.info("Crontab cleared")

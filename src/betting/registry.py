@@ -142,6 +142,7 @@ class BettingRegistry:
         """
         try:
             from src.betting.plugins import PluginRegistry
+
             pr = PluginRegistry()
             return pr.discover_into(self)
         except ImportError:

@@ -108,14 +108,15 @@ class BettingAPI:
 
     # ── Endpoint handlers ─────────────────────────────
 
-    def evaluate_bets(self, request: EvaluateBetsRequest | dict[str, Any]) -> dict[str, Any]:
+    def evaluate_bets(
+        self, request: EvaluateBetsRequest | dict[str, Any]
+    ) -> dict[str, Any]:
         """Handle a bet evaluation request.
 
         Maps directly to ``POST /api/v1/bets/evaluate``.
         """
         if isinstance(request, dict):
             request = EvaluateBetsRequest(**request)
-
 
         # Create a fresh engine for this request
         engine = EngineFactory.create(

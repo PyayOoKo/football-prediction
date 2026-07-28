@@ -140,7 +140,11 @@ def calculate_clv(
 
     # Edge case: non-finite values
     if not np.isfinite(your_odds_f) or not np.isfinite(closing_f):
-        logger.debug("CLV = 0.0 — non-finite odds (your=%.4f, closing=%.4f)", your_odds_f, closing_f)
+        logger.debug(
+            "CLV = 0.0 — non-finite odds (your=%.4f, closing=%.4f)",
+            your_odds_f,
+            closing_f,
+        )
         return _zero_clv(your_odds_f, closing_f, error="non-finite odds")
 
     # ── Compute CLV ──
@@ -605,7 +609,8 @@ class CLVTracker:
 
         # Valid closing odds count
         n_with = sum(
-            1 for b in self.bets
+            1
+            for b in self.bets
             if b.get("closing_odds") is not None
             and b.get("closing_odds", 0) > _MIN_ODDS
         )
@@ -638,8 +643,7 @@ class CLVTracker:
             clv_by_month[month_key].append(b.get("clv", 0.0))
 
         month_avgs = {
-            k: round(float(np.mean(v)), 6)
-            for k, v in sorted(clv_by_month.items())
+            k: round(float(np.mean(v)), 6) for k, v in sorted(clv_by_month.items())
         }
 
         # Best / worst dates
@@ -651,7 +655,9 @@ class CLVTracker:
             "n_with_closing": n_with,
             "avg_clv": round(overall_avg, 6),
             "median_clv": round(float(np.median(clv_values)), 6),
-            "std_clv": round(float(np.std(clv_values, ddof=1)), 6) if total > 1 else 0.0,
+            "std_clv": round(float(np.std(clv_values, ddof=1)), 6)
+            if total > 1
+            else 0.0,
             "min_clv": round(float(np.min(clv_values)), 6),
             "max_clv": round(float(np.max(clv_values)), 6),
             "clv_gt_0_pct": round(n_positive / total * 100, 2),
@@ -687,16 +693,18 @@ class CLVTracker:
 
         records = []
         for b in self.bets:
-            records.append({
-                "index": b.get("index"),
-                "date": b.get("date", ""),
-                "your_odds": b.get("your_odds"),
-                "closing_odds": b.get("closing_odds"),
-                "clv": b.get("clv", 0.0),
-                "clv_pct": b.get("clv_pct", 0.0),
-                "positive": b.get("positive", False),
-                "error": b.get("error", ""),
-            })
+            records.append(
+                {
+                    "index": b.get("index"),
+                    "date": b.get("date", ""),
+                    "your_odds": b.get("your_odds"),
+                    "closing_odds": b.get("closing_odds"),
+                    "clv": b.get("clv", 0.0),
+                    "clv_pct": b.get("clv_pct", 0.0),
+                    "positive": b.get("positive", False),
+                    "error": b.get("error", ""),
+                }
+            )
         return pd.DataFrame(records)
 
     def save(
@@ -734,16 +742,18 @@ class CLVTracker:
         # Per-bet records (omit full dicts to keep file manageable)
         bet_records: list[dict[str, Any]] = []
         for b in self.bets:
-            bet_records.append({
-                "index": b.get("index"),
-                "date": b.get("date", ""),
-                "your_odds": b.get("your_odds"),
-                "closing_odds": b.get("closing_odds"),
-                "clv": b.get("clv"),
-                "clv_pct": b.get("clv_pct"),
-                "positive": b.get("positive"),
-                "error": b.get("error", ""),
-            })
+            bet_records.append(
+                {
+                    "index": b.get("index"),
+                    "date": b.get("date", ""),
+                    "your_odds": b.get("your_odds"),
+                    "closing_odds": b.get("closing_odds"),
+                    "clv": b.get("clv"),
+                    "clv_pct": b.get("clv_pct"),
+                    "positive": b.get("positive"),
+                    "error": b.get("error", ""),
+                }
+            )
 
         output = {
             "generated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
@@ -789,7 +799,9 @@ class CLVTracker:
             "first_avg": ..., "last_avg": ...}``
         """
         if clv_values is None:
-            clv_values = np.array([b.get("clv", 0.0) for b in self.bets], dtype=np.float64)
+            clv_values = np.array(
+                [b.get("clv", 0.0) for b in self.bets], dtype=np.float64
+            )
 
         total = len(clv_values)
         if total < 5:

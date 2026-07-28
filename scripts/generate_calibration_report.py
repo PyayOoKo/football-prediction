@@ -607,7 +607,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # ── 3. Build features ──
     print("\n  Building features...")
-    from config import config
+    from src.config import config
     config.dixon_coles.enabled = False
     config.features.include_h2h = True
     config.elo.regress_to_mean = True

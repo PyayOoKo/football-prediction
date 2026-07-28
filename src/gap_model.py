@@ -170,14 +170,22 @@ class GAPModel:
         # Home team: attack updated by home stat, defence by away stat
         ha = self._get_rating(home_team, "home_attack")
         hd = self._get_rating(home_team, "home_defence")
-        self._ratings[home_team]["home_attack"] = ha + k_weighted * (observed_home_std - exp_home_std)  # type: ignore[index]
-        self._ratings[home_team]["home_defence"] = hd + k_weighted * (observed_away_std - exp_away_std)  # type: ignore[index]
+        self._ratings[home_team]["home_attack"] = ha + k_weighted * (
+            observed_home_std - exp_home_std
+        )  # type: ignore[index]
+        self._ratings[home_team]["home_defence"] = hd + k_weighted * (
+            observed_away_std - exp_away_std
+        )  # type: ignore[index]
 
         # Away team: attack updated by away stat, defence by home stat
         aa = self._get_rating(away_team, "away_attack")
         ad = self._get_rating(away_team, "away_defence")
-        self._ratings[away_team]["away_attack"] = aa + k_weighted * (observed_away_std - exp_away_std)  # type: ignore[index]
-        self._ratings[away_team]["away_defence"] = ad + k_weighted * (observed_home_std - exp_home_std)  # type: ignore[index]
+        self._ratings[away_team]["away_attack"] = aa + k_weighted * (
+            observed_away_std - exp_away_std
+        )  # type: ignore[index]
+        self._ratings[away_team]["away_defence"] = ad + k_weighted * (
+            observed_home_std - exp_home_std
+        )  # type: ignore[index]
 
     # ── Fit (iterative rating computation + logistic regression) ──
 
@@ -214,8 +222,14 @@ class GAPModel:
                 f"so that 'away_' variant can be derived"
             )
 
-        required = [home_team_col, away_team_col, home_stat, away_stat,
-                    "home_goals", "away_goals"]
+        required = [
+            home_team_col,
+            away_team_col,
+            home_stat,
+            away_stat,
+            "home_goals",
+            "away_goals",
+        ]
         missing = [c for c in required if c not in df.columns]
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
@@ -236,7 +250,9 @@ class GAPModel:
 
         logger.info(
             "Stat normalisation: mean=%.2f, std=%.2f (%s)",
-            self._stat_mean, self._stat_std, home_stat,
+            self._stat_mean,
+            self._stat_std,
+            home_stat,
         )
 
         # Stage 1: Iterative rating updates
@@ -277,12 +293,14 @@ class GAPModel:
             exp_away_raw = max(exp_away_raw, 0.01)
 
             total_exp = exp_home_raw + exp_away_raw
-            features.append({
-                "exp_home_stat": exp_home_raw,
-                "exp_away_stat": exp_away_raw,
-                "exp_total_stat": total_exp,
-                "exp_diff": exp_home_raw - exp_away_raw,
-            })
+            features.append(
+                {
+                    "exp_home_stat": exp_home_raw,
+                    "exp_away_stat": exp_away_raw,
+                    "exp_total_stat": total_exp,
+                    "exp_diff": exp_home_raw - exp_away_raw,
+                }
+            )
 
             # Label: was the total goals > 2.5?
             total_goals = float(row["home_goals"]) + float(row["away_goals"])
@@ -290,7 +308,11 @@ class GAPModel:
 
             # Compute recency weight from reference date (standard Elo-style decay)
             weight = 1.0
-            if self.decay_halflife_days > 0 and reference_date is not None and date_col in df.columns:
+            if (
+                self.decay_halflife_days > 0
+                and reference_date is not None
+                and date_col in df.columns
+            ):
                 try:
                     match_date = pd.to_datetime(row[date_col])
                     days_ago = (reference_date - match_date).days
@@ -298,20 +320,33 @@ class GAPModel:
                     weight = np.exp(-np.log(2) * days_ago / self.decay_halflife_days)
                     weight = max(weight, 0.01)
                 except Exception:
-                    logger.debug("GAP weight computation failed, using default weight=1.0")
+                    logger.debug(
+                        "GAP weight computation failed, using default weight=1.0"
+                    )
                     weight = 1.0
 
             # Update ratings using STANDARDISED stats
             self.update_ratings(ht, at, obs_home_std, obs_away_std, weight=weight)
 
         # Stage 2: Logistic regression
-        X = np.array([[f["exp_home_stat"], f["exp_away_stat"],
-                       f["exp_total_stat"], f["exp_diff"]]
-                      for f in features])
+        X = np.array(
+            [
+                [
+                    f["exp_home_stat"],
+                    f["exp_away_stat"],
+                    f["exp_total_stat"],
+                    f["exp_diff"],
+                ]
+                for f in features
+            ]
+        )
         y = np.array(labels)
 
         self._logistic = LogisticRegression(
-            C=1.0, penalty="l2", solver="lbfgs", max_iter=1000,
+            C=1.0,
+            penalty="l2",
+            solver="lbfgs",
+            max_iter=1000,
             class_weight="balanced",
         )
         self._logistic.fit(X, y)
@@ -320,9 +355,10 @@ class GAPModel:
         # Report
         train_score = self._logistic.score(X, y)
         logger.info(
-            "GAP model fitted on %d matches (%s). "
-            "LR train accuracy: %.1f%%",
-            n, self.stat_column, train_score * 100,
+            "GAP model fitted on %d matches (%s). LR train accuracy: %.1f%%",
+            n,
+            self.stat_column,
+            train_score * 100,
         )
         return self
 
@@ -334,14 +370,16 @@ class GAPModel:
             raise RuntimeError("Model must be fitted before predicting")
 
         exp_home, exp_away = self.expected_stat(home_team, away_team)
-        X = np.array([[exp_home, exp_away,
-                       exp_home + exp_away, exp_home - exp_away]])
+        X = np.array([[exp_home, exp_away, exp_home + exp_away, exp_home - exp_away]])
         prob = self._logistic.predict_proba(X)[0, 1]
         return float(prob)
 
-    def predict(self, df: pd.DataFrame,
-                home_team_col: str = "home_team",
-                away_team_col: str = "away_team") -> pd.DataFrame:
+    def predict(
+        self,
+        df: pd.DataFrame,
+        home_team_col: str = "home_team",
+        away_team_col: str = "away_team",
+    ) -> pd.DataFrame:
         """Return DataFrame with P(Over 2.5) for each fixture row."""
         if not self._fitted or self._logistic is None:
             raise RuntimeError("Model must be fitted before predicting")
@@ -351,26 +389,34 @@ class GAPModel:
             ht = str(row[home_team_col])
             at = str(row[away_team_col])
             prob = self.predict_single(ht, at)
-            results.append({
-                "home_team": ht,
-                "away_team": at,
-                "over_2_5_prob": prob,
-                "under_2_5_prob": 1.0 - prob,
-            })
+            results.append(
+                {
+                    "home_team": ht,
+                    "away_team": at,
+                    "over_2_5_prob": prob,
+                    "under_2_5_prob": 1.0 - prob,
+                }
+            )
         return pd.DataFrame(results)
 
-    def predict_proba(self, df: pd.DataFrame,
-                      home_team_col: str = "home_team",
-                      away_team_col: str = "away_team") -> np.ndarray:
+    def predict_proba(
+        self,
+        df: pd.DataFrame,
+        home_team_col: str = "home_team",
+        away_team_col: str = "away_team",
+    ) -> np.ndarray:
         """Return P(Over 2.5) as a 1D numpy array aligned to df rows."""
         preds = self.predict(df, home_team_col, away_team_col)
         return preds["over_2_5_prob"].values
 
     # ── Evaluation ────────────────────────────────────────
 
-    def evaluate(self, df: pd.DataFrame,
-                 home_team_col: str = "home_team",
-                 away_team_col: str = "away_team") -> dict[str, float]:
+    def evaluate(
+        self,
+        df: pd.DataFrame,
+        home_team_col: str = "home_team",
+        away_team_col: str = "away_team",
+    ) -> dict[str, float]:
         """Evaluate GAP model on test data.
 
         Returns Brier score, accuracy, log loss for O/U 2.5.
@@ -378,7 +424,9 @@ class GAPModel:
         from sklearn.metrics import log_loss as sk_ll
 
         probs = self.predict_proba(df, home_team_col, away_team_col)
-        actual = ((df["home_goals"].values + df["away_goals"].values) > 2.5).astype(float)
+        actual = ((df["home_goals"].values + df["away_goals"].values) > 2.5).astype(
+            float
+        )
 
         brier = float(np.mean((probs - actual) ** 2))
         acc = float(np.mean((probs > 0.5).astype(float) == actual))

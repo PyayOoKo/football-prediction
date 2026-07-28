@@ -103,8 +103,9 @@ class DataQualityDashboard:
             snap.columns_with_missing = int((df.isna().sum() > 0).sum())
 
             # ── 2. Duplicate Matches ──
-            key_cols = [c for c in ["date", "home_team", "away_team"]
-                        if c in df.columns]
+            key_cols = [
+                c for c in ["date", "home_team", "away_team"] if c in df.columns
+            ]
             if key_cols:
                 dup_count = int(df.duplicated(subset=key_cols, keep="first").sum())
             else:
@@ -122,9 +123,7 @@ class DataQualityDashboard:
 
                 profiler = DataProfiler()
                 curr_report = profiler.profile(df, source_name=self.source_name)
-                prev_report = profiler.profile(
-                    self.df_previous, source_name="previous"
-                )
+                prev_report = profiler.profile(self.df_previous, source_name="previous")
                 drift = DataDriftDetector().detect(curr_report, prev_report)
                 snap.drift_metrics_count = len(drift.metrics)
                 snap.drift_warnings = drift.n_warnings
@@ -154,14 +153,14 @@ class DataQualityDashboard:
                     sum(r["duration_seconds"] for r in etl_hist) / len(etl_hist)
                 )
                 successes = sum(1 for r in etl_hist if r.get("success"))
-                snap.import_success_rate = successes / len(etl_hist) if etl_hist else 1.0
+                snap.import_success_rate = (
+                    successes / len(etl_hist) if etl_hist else 1.0
+                )
 
             # ── 12. Database Growth ──
             sys_hist = self.monitor.get_system_history(days=90)
             if sys_hist:
-                snap.db_size_mb = float(
-                    max(r.get("db_size_mb", 0) for r in sys_hist)
-                )
+                snap.db_size_mb = float(max(r.get("db_size_mb", 0) for r in sys_hist))
 
         self.snapshot = snap
         return snap
@@ -218,7 +217,9 @@ class DataQualityDashboard:
 
         logger.info(
             "Data Quality Dashboard generated: HTML=%s JSON=%s CSV=%s",
-            results.get("html"), results.get("json"), results.get("csv"),
+            results.get("html"),
+            results.get("json"),
+            results.get("csv"),
         )
         return results
 
@@ -393,28 +394,66 @@ class DataQualityDashboard:
         cards = ""
 
         # 1. Missing Values
-        mv_sev = "good" if snap.missing_pct < 1 else "warn" if snap.missing_pct < 5 else "bad"
-        cards += c("Missing Values", f"{snap.missing_pct:.1f}%", f"{snap.missing_cells:,} cells / {snap.columns_with_missing} cols", "#f44336", mv_sev)
+        mv_sev = (
+            "good"
+            if snap.missing_pct < 1
+            else "warn"
+            if snap.missing_pct < 5
+            else "bad"
+        )
+        cards += c(
+            "Missing Values",
+            f"{snap.missing_pct:.1f}%",
+            f"{snap.missing_cells:,} cells / {snap.columns_with_missing} cols",
+            "#f44336",
+            mv_sev,
+        )
 
         # 2. Duplicate Matches
-        dup_sev = "good" if snap.duplicate_count == 0 else "warn" if snap.duplicate_pct < 2 else "bad"
-        cards += c("Duplicate Matches", f"{snap.duplicate_count:,}", f"{snap.duplicate_pct:.2f}% of rows", "#ff9800", dup_sev)
+        dup_sev = (
+            "good"
+            if snap.duplicate_count == 0
+            else "warn"
+            if snap.duplicate_pct < 2
+            else "bad"
+        )
+        cards += c(
+            "Duplicate Matches",
+            f"{snap.duplicate_count:,}",
+            f"{snap.duplicate_pct:.2f}% of rows",
+            "#ff9800",
+            dup_sev,
+        )
 
         # 3. Odds Coverage
         oc = snap.coverage.odds_coverage_pct
         oc_sev = "good" if oc >= 90 else "warn" if oc >= 50 else "bad"
-        cards += c("Odds Coverage", f"{oc:.1f}%", "of matches have odds data", "#3b82f6", oc_sev)
+        cards += c(
+            "Odds Coverage",
+            f"{oc:.1f}%",
+            "of matches have odds data",
+            "#3b82f6",
+            oc_sev,
+        )
 
         # 4. xG Coverage
         xg = snap.coverage.xg_coverage_pct
         xg_sev = "good" if xg >= 80 else "warn" if xg >= 30 else "bad"
-        cards += c("xG Coverage", f"{xg:.1f}%", "of matches have xG data", "#a855f7", xg_sev)
+        cards += c(
+            "xG Coverage", f"{xg:.1f}%", "of matches have xG data", "#a855f7", xg_sev
+        )
 
         # 5. League Coverage
         lc = snap.coverage.league_coverage_pct
         lc_sev = "good" if lc >= 95 else "warn" if lc >= 80 else "bad"
         n_leagues = len(snap.coverage.league_coverage)
-        cards += c("League Coverage", f"{lc:.1f}%", f"{n_leagues} leagues mapped", "#14b8a6", lc_sev)
+        cards += c(
+            "League Coverage",
+            f"{lc:.1f}%",
+            f"{n_leagues} leagues mapped",
+            "#14b8a6",
+            lc_sev,
+        )
 
         # 6. Season Coverage
         sc = snap.coverage.season_count
@@ -427,31 +466,64 @@ class DataQualityDashboard:
         else:
             ds = f"⚠ {snap.drift_warnings} warnings"
             dsev = "warn" if snap.drift_warnings < 5 else "bad"
-        cards += c("Data Drift", ds, f"{snap.drift_metrics_count} metrics checked", "#ffc107", dsev)
+        cards += c(
+            "Data Drift",
+            ds,
+            f"{snap.drift_metrics_count} metrics checked",
+            "#ffc107",
+            dsev,
+        )
 
         # 8. Schema Changes
-        if snap.schema_ok and snap.coverage.n_columns_actual >= snap.coverage.n_columns_expected:
+        if (
+            snap.schema_ok
+            and snap.coverage.n_columns_actual >= snap.coverage.n_columns_expected
+        ):
             ss = "✅ Stable"
             ssev = "good"
         else:
             ss = f"⚠ {len(snap.coverage.columns_missing)} missing / {len(snap.coverage.columns_added)} added"
             ssev = "warn"
-        cards += c("Schema", ss, f"{snap.coverage.n_columns_actual}/{snap.coverage.n_columns_expected} cols", "#607d8b", ssev)
+        cards += c(
+            "Schema",
+            ss,
+            f"{snap.coverage.n_columns_actual}/{snap.coverage.n_columns_expected} cols",
+            "#607d8b",
+            ssev,
+        )
 
         # 9. Import Success Rate
         isr = snap.import_success_rate * 100
         isev = "good" if isr >= 98 else "warn" if isr >= 90 else "bad"
-        cards += c("Import Success", f"{isr:.1f}%", f"{snap.pipeline_runs} runs tracked", "#4caf50", isev)
+        cards += c(
+            "Import Success",
+            f"{isr:.1f}%",
+            f"{snap.pipeline_runs} runs tracked",
+            "#4caf50",
+            isev,
+        )
 
         # 10. Pipeline Runtime
         avg = snap.pipeline_runtime_avg
         psev = "good" if avg < 60 else "warn" if avg < 300 else "bad"
-        cards += c("Avg Runtime", f"{avg:.0f}s", f"over {snap.pipeline_runs} runs", "#2196f3", psev)
+        cards += c(
+            "Avg Runtime",
+            f"{avg:.0f}s",
+            f"over {snap.pipeline_runs} runs",
+            "#2196f3",
+            psev,
+        )
 
         # 11. Validation Errors
         ve = snap.validation_errors
         vsev = "good" if ve == 0 else "warn" if ve < 20 else "bad"
-        cards += c("Validation Errors", f"{ve:,}", f"{snap.validation_passed}/{snap.validation_total} checks passed", "#e91e63", vsev)
+        cards += c(
+            "Validation Errors",
+            f"{ve:,}",
+            f"{snap.validation_passed}/{snap.validation_total} checks passed",
+            "#e91e63",
+            vsev,
+        )
 
         # 12. Database Growth
         dbs = snap.db_size_mb
@@ -460,8 +532,9 @@ class DataQualityDashboard:
 
         return cards
 
-    def _kpi_card(self, title: str, value: str, sub: str, color: str,
-                  severity: str = "good") -> str:
+    def _kpi_card(
+        self, title: str, value: str, sub: str, color: str, severity: str = "good"
+    ) -> str:
         badge = f'<span class="badge badge-{severity}">{severity.upper()}</span>'
         return f"""
 <div class="kpi-card">
@@ -492,12 +565,22 @@ class DataQualityDashboard:
             "margin": {"l": 40, "r": 16, "t": 30, "b": 40},
             "paper_bgcolor": "rgba(0,0,0,0)",
             "plot_bgcolor": "rgba(0,0,0,0)",
-            "font": {"family": "Segoe UI, Arial, sans-serif", "size": 11, "color": "#8b8fa3"},
+            "font": {
+                "family": "Segoe UI, Arial, sans-serif",
+                "size": 11,
+                "color": "#8b8fa3",
+            },
             "hovermode": "x unified",
             "xaxis": GRID,
             "yaxis": GRID,
             "showlegend": True,
-            "legend": {"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "center", "x": 0.5},
+            "legend": {
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.02,
+                "xanchor": "center",
+                "x": 0.5,
+            },
         }
 
         # Chart 1: Pipeline Runtime + Rows Imported
@@ -506,22 +589,34 @@ class DataQualityDashboard:
             etl_sorted = sorted(etl_data, key=lambda r: r["recorded_at"])
             ts = [r["recorded_at"] for r in etl_sorted]
             fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r["duration_seconds"] for r in etl_sorted],
-                mode="lines+markers", name="Runtime (s)",
-                line={"color": C["blue"], "width": 2}, marker={"size": 5},
-            ))
-            fig.add_trace(go.Bar(
-                x=ts, y=[r["rows_imported"] for r in etl_sorted],
-                name="Rows Imported", yaxis="y2",
-                marker_color=C["green"], opacity=0.4,
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r["duration_seconds"] for r in etl_sorted],
+                    mode="lines+markers",
+                    name="Runtime (s)",
+                    line={"color": C["blue"], "width": 2},
+                    marker={"size": 5},
+                )
+            )
+            fig.add_trace(
+                go.Bar(
+                    x=ts,
+                    y=[r["rows_imported"] for r in etl_sorted],
+                    name="Rows Imported",
+                    yaxis="y2",
+                    marker_color=C["green"],
+                    opacity=0.4,
+                )
+            )
             fig.update_layout(
                 **layout,
                 title="⏱ Pipeline Runtime & Volume",
                 yaxis2=YAXIS2,
             )
-            figures.append(f'<div class="chart-box">{pio.to_html(fig, include_plotlyjs=False, full_html=False, default_width="100%", default_height="300px")}</div>')
+            figures.append(
+                f'<div class="chart-box">{pio.to_html(fig, include_plotlyjs=False, full_html=False, default_width="100%", default_height="300px")}</div>'
+            )
 
         # Chart 2: Data Quality Trends
         dq_data = self.monitor.get_data_quality_history(days=days)
@@ -529,27 +624,42 @@ class DataQualityDashboard:
             dq_sorted = sorted(dq_data, key=lambda r: r["recorded_at"])
             ts = [r["recorded_at"] for r in dq_sorted]
             fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r.get("null_pct", 0) for r in dq_sorted],
-                mode="lines+markers", name="Null %",
-                line={"color": C["red"], "width": 2},
-            ))
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r.get("duplicate_pct", 0) for r in dq_sorted],
-                mode="lines+markers", name="Duplicate %",
-                line={"color": C["amber"], "width": 2},
-            ))
-            fig.add_trace(go.Bar(
-                x=ts, y=[r.get("n_rows", 0) for r in dq_sorted],
-                name="Row Count", yaxis="y2",
-                marker_color=C["blue"], opacity=0.3,
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r.get("null_pct", 0) for r in dq_sorted],
+                    mode="lines+markers",
+                    name="Null %",
+                    line={"color": C["red"], "width": 2},
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r.get("duplicate_pct", 0) for r in dq_sorted],
+                    mode="lines+markers",
+                    name="Duplicate %",
+                    line={"color": C["amber"], "width": 2},
+                )
+            )
+            fig.add_trace(
+                go.Bar(
+                    x=ts,
+                    y=[r.get("n_rows", 0) for r in dq_sorted],
+                    name="Row Count",
+                    yaxis="y2",
+                    marker_color=C["blue"],
+                    opacity=0.3,
+                )
+            )
             fig.update_layout(
                 **layout,
                 title="✅ Data Quality Trends",
                 yaxis2=YAXIS2,
             )
-            figures.append(f'<div class="chart-box">{pio.to_html(fig, include_plotlyjs=False, full_html=False, default_width="100%", default_height="300px")}</div>')
+            figures.append(
+                f'<div class="chart-box">{pio.to_html(fig, include_plotlyjs=False, full_html=False, default_width="100%", default_height="300px")}</div>'
+            )
 
         # Chart 3: DB Size Growth
         sys_data = self.monitor.get_system_history(days=days)
@@ -557,22 +667,34 @@ class DataQualityDashboard:
             sys_sorted = sorted(sys_data, key=lambda r: r["recorded_at"])
             ts = [r["recorded_at"] for r in sys_sorted]
             fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r.get("db_size_mb", 0) for r in sys_sorted],
-                mode="lines+markers", name="DB Size (MB)",
-                line={"color": C["teal"], "width": 2}, fill="tozeroy",
-            ))
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r.get("cpu_percent", 0) for r in sys_sorted],
-                mode="lines+markers", name="CPU %",
-                line={"color": C["amber"], "width": 2}, yaxis="y2",
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r.get("db_size_mb", 0) for r in sys_sorted],
+                    mode="lines+markers",
+                    name="DB Size (MB)",
+                    line={"color": C["teal"], "width": 2},
+                    fill="tozeroy",
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r.get("cpu_percent", 0) for r in sys_sorted],
+                    mode="lines+markers",
+                    name="CPU %",
+                    line={"color": C["amber"], "width": 2},
+                    yaxis="y2",
+                )
+            )
             fig.update_layout(
                 **layout,
                 title="💾 Database Growth & System Load",
                 yaxis2=YAXIS2,
             )
-            figures.append(f'<div class="chart-box">{pio.to_html(fig, include_plotlyjs=False, full_html=False, default_width="100%", default_height="300px")}</div>')
+            figures.append(
+                f'<div class="chart-box">{pio.to_html(fig, include_plotlyjs=False, full_html=False, default_width="100%", default_height="300px")}</div>'
+            )
 
         # Chart 4: Import Success Rate
         if len(etl_data) >= 2:
@@ -580,29 +702,51 @@ class DataQualityDashboard:
             ts = [r["recorded_at"] for r in etl_sorted]
             fig = go.Figure()
             successes = [1 if r.get("success") else 0 for r in etl_sorted]
-            fig.add_trace(go.Bar(
-                x=ts, y=successes,
-                name="Success", marker_color=C["green"], opacity=0.7,
-            ))
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r.get("retry_count", 0) for r in etl_sorted],
-                mode="lines+markers", name="Retries",
-                line={"color": C["red"], "width": 2}, yaxis="y2",
-            ))
+            fig.add_trace(
+                go.Bar(
+                    x=ts,
+                    y=successes,
+                    name="Success",
+                    marker_color=C["green"],
+                    opacity=0.7,
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r.get("retry_count", 0) for r in etl_sorted],
+                    mode="lines+markers",
+                    name="Retries",
+                    line={"color": C["red"], "width": 2},
+                    yaxis="y2",
+                )
+            )
             # Add validation errors
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r.get("validation_failures", 0) for r in etl_sorted],
-                mode="lines+markers", name="Validation Failures",
-                line={"color": C["amber"], "width": 2, "dash": "dot"}, yaxis="y2",
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r.get("validation_failures", 0) for r in etl_sorted],
+                    mode="lines+markers",
+                    name="Validation Failures",
+                    line={"color": C["amber"], "width": 2, "dash": "dot"},
+                    yaxis="y2",
+                )
+            )
             fig.update_layout(
                 **layout,
                 title="📊 Import Success & Retries",
-                yaxis={"range": [-0.1, 1.3], "gridcolor": "#2a2d3a", "zeroline": False,
-                           "tickvals": [0, 1], "ticktext": ["Fail", "Success"]},
+                yaxis={
+                    "range": [-0.1, 1.3],
+                    "gridcolor": "#2a2d3a",
+                    "zeroline": False,
+                    "tickvals": [0, 1],
+                    "ticktext": ["Fail", "Success"],
+                },
                 yaxis2=YAXIS2,
             )
-            figures.append(f'<div class="chart-box">{pio.to_html(fig, include_plotlyjs=False, full_html=False, default_width="100%", default_height="300px")}</div>')
+            figures.append(
+                f'<div class="chart-box">{pio.to_html(fig, include_plotlyjs=False, full_html=False, default_width="100%", default_height="300px")}</div>'
+            )
 
         if not figures:
             return '<p style="color:#888;padding:32px;text-align:center;">Not enough historical data — run the pipeline a few times to populate trends.</p>'
@@ -610,7 +754,7 @@ class DataQualityDashboard:
         # Pair charts into rows
         rows = []
         for i in range(0, len(figures), 2):
-            pair = figures[i:i+2]
+            pair = figures[i : i + 2]
             rows.append(f'<div class="chart-row">{"".join(pair)}</div>')
         return "".join(rows)
 
@@ -622,8 +766,9 @@ class DataQualityDashboard:
 
         # Top leagues table
         league_rows = ""
-        top_leagues = dict(sorted(cove.league_coverage.items(),
-                                   key=lambda x: x[1], reverse=True)[:15])
+        top_leagues = dict(
+            sorted(cove.league_coverage.items(), key=lambda x: x[1], reverse=True)[:15]
+        )
         for league, count in top_leagues.items():
             pct = count / snap.n_rows * 100 if snap.n_rows > 0 else 0
             league_rows += f"<tr><td>{self._e(league)}</td><td>{count:,}</td><td>{pct:.1f}%</td></tr>"
@@ -677,6 +822,7 @@ class DataQualityDashboard:
     def _generate_csv(self, snap: DataQualitySnapshot) -> Path:
         """Export key metrics as a flat CSV."""
         import csv
+
         out = self.output_dir / "data_quality.csv"
 
         rows = [
@@ -687,15 +833,30 @@ class DataQualityDashboard:
             {"metric": "columns_with_missing", "value": snap.columns_with_missing},
             {"metric": "duplicate_count", "value": snap.duplicate_count},
             {"metric": "duplicate_pct", "value": round(snap.duplicate_pct, 2)},
-            {"metric": "odds_coverage_pct", "value": round(snap.coverage.odds_coverage_pct, 2)},
-            {"metric": "xg_coverage_pct", "value": round(snap.coverage.xg_coverage_pct, 2)},
-            {"metric": "league_coverage_pct", "value": round(snap.coverage.league_coverage_pct, 2)},
+            {
+                "metric": "odds_coverage_pct",
+                "value": round(snap.coverage.odds_coverage_pct, 2),
+            },
+            {
+                "metric": "xg_coverage_pct",
+                "value": round(snap.coverage.xg_coverage_pct, 2),
+            },
+            {
+                "metric": "league_coverage_pct",
+                "value": round(snap.coverage.league_coverage_pct, 2),
+            },
             {"metric": "season_count", "value": snap.coverage.season_count},
             {"metric": "drift_passed", "value": int(snap.drift_passed)},
             {"metric": "drift_warnings", "value": snap.drift_warnings},
             {"metric": "schema_ok", "value": int(snap.schema_ok)},
-            {"metric": "import_success_rate", "value": round(snap.import_success_rate, 4)},
-            {"metric": "pipeline_runtime_avg", "value": round(snap.pipeline_runtime_avg, 2)},
+            {
+                "metric": "import_success_rate",
+                "value": round(snap.import_success_rate, 4),
+            },
+            {
+                "metric": "pipeline_runtime_avg",
+                "value": round(snap.pipeline_runtime_avg, 2),
+            },
             {"metric": "pipeline_runs", "value": snap.pipeline_runs},
             {"metric": "validation_passed", "value": snap.validation_passed},
             {"metric": "validation_total", "value": snap.validation_total},
@@ -720,26 +881,42 @@ class DataQualityDashboard:
         summary.add("")
         summary.add(f"📊 Dataset: {snap.n_rows:,} rows × {snap.n_columns} columns")
         summary.add("")
-        summary.add(f"🟢 Missing Values:     {snap.missing_pct:.2f}% ({snap.missing_cells:,} cells, {snap.columns_with_missing} cols)")
-        summary.add(f"🟢 Duplicate Matches:  {snap.duplicate_count:,} ({snap.duplicate_pct:.2f}%)")
+        summary.add(
+            f"🟢 Missing Values:     {snap.missing_pct:.2f}% ({snap.missing_cells:,} cells, {snap.columns_with_missing} cols)"
+        )
+        summary.add(
+            f"🟢 Duplicate Matches:  {snap.duplicate_count:,} ({snap.duplicate_pct:.2f}%)"
+        )
         summary.add(f"🔵 Odds Coverage:      {snap.coverage.odds_coverage_pct:.1f}%")
         summary.add(f"🟣 xG Coverage:        {snap.coverage.xg_coverage_pct:.1f}%")
-        summary.add(f"🟢 League Coverage:    {snap.coverage.league_coverage_pct:.1f}% ({len(snap.coverage.league_coverage)} leagues)")
+        summary.add(
+            f"🟢 League Coverage:    {snap.coverage.league_coverage_pct:.1f}% ({len(snap.coverage.league_coverage)} leagues)"
+        )
         summary.add(f"🟢 Season Coverage:    {snap.coverage.season_count} seasons")
         summary.add("")
         drift_icon = "✅" if snap.drift_passed else "⚠️"
         schema_icon = "✅" if snap.schema_ok else "⚠️"
-        summary.add(f"{drift_icon} Data Drift:          {snap.drift_warnings} warnings ({snap.drift_metrics_count} metrics)")
-        summary.add(f"{schema_icon} Schema:              {snap.coverage.n_columns_actual}/{snap.coverage.n_columns_expected} cols")
+        summary.add(
+            f"{drift_icon} Data Drift:          {snap.drift_warnings} warnings ({snap.drift_metrics_count} metrics)"
+        )
+        summary.add(
+            f"{schema_icon} Schema:              {snap.coverage.n_columns_actual}/{snap.coverage.n_columns_expected} cols"
+        )
         if snap.coverage.columns_missing:
-            summary.add(f"                        Missing: {', '.join(snap.coverage.columns_missing[:5])}")
+            summary.add(
+                f"                        Missing: {', '.join(snap.coverage.columns_missing[:5])}"
+            )
         summary.add("")
-        summary.add(f"🟢 Import Success:     {snap.import_success_rate:.1%} ({snap.pipeline_runs} runs)")
+        summary.add(
+            f"🟢 Import Success:     {snap.import_success_rate:.1%} ({snap.pipeline_runs} runs)"
+        )
         summary.add(f"🔵 Avg Runtime:        {snap.pipeline_runtime_avg:.0f}s")
         summary.add(f"🔴 Validation Errors:  {snap.validation_errors:,}")
         summary.add(f"🟣 DB Size:            {snap.db_size_mb:.1f} MB")
         summary.add("")
-        summary.add(f"  Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
+        summary.add(
+            f"  Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"
+        )
 
         text = str(summary)
         out = self.output_dir / "daily_summary.txt"
@@ -805,4 +982,10 @@ class DataQualityDashboard:
     @staticmethod
     def _e(text: str) -> str:
         """Escape HTML special characters."""
-        return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+        return (
+            str(text)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+        )

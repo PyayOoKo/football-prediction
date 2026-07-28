@@ -262,7 +262,8 @@ def _detect_or_create_xg_columns(
         )
         logger.info(
             "Real xG columns detected: '%s' / '%s'",
-            home_xg_col, away_xg_col,
+            home_xg_col,
+            away_xg_col,
         )
         return df, True
 
@@ -304,26 +305,30 @@ def _build_team_xg_stats(
         a_xg = float(row.get("away_xg", 0.0) or 0.0)
 
         # Home team
-        records.append({
-            "team": home,
-            "date": row.get("date", pd.NaT),
-            "opponent": away,
-            "is_home": 1,
-            "xg": h_xg,
-            "xga": a_xg,
-            "match_id": idx,
-        })
+        records.append(
+            {
+                "team": home,
+                "date": row.get("date", pd.NaT),
+                "opponent": away,
+                "is_home": 1,
+                "xg": h_xg,
+                "xga": a_xg,
+                "match_id": idx,
+            }
+        )
 
         # Away team
-        records.append({
-            "team": away,
-            "date": row.get("date", pd.NaT),
-            "opponent": home,
-            "is_home": 0,
-            "xg": a_xg,
-            "xga": h_xg,
-            "match_id": idx,
-        })
+        records.append(
+            {
+                "team": away,
+                "date": row.get("date", pd.NaT),
+                "opponent": home,
+                "is_home": 0,
+                "xg": a_xg,
+                "xga": h_xg,
+                "match_id": idx,
+            }
+        )
 
     team_df = pd.DataFrame(records)
     team_df.sort_values(["team", "date"], inplace=True)
@@ -362,22 +367,16 @@ def _compute_rolling_xg(
 
         # Rolling xG
         for w, suffix in zip(windows, rolling_suffixes, strict=False):
-            grp[f"xg_{suffix}"] = (
-                grp["xg"].rolling(w, min_periods=1).mean().shift(1)
-            )
+            grp[f"xg_{suffix}"] = grp["xg"].rolling(w, min_periods=1).mean().shift(1)
 
         # Rolling xGA
         for w, suffix in zip(windows, rolling_suffixes, strict=False):
-            grp[f"xga_{suffix}"] = (
-                grp["xga"].rolling(w, min_periods=1).mean().shift(1)
-            )
+            grp[f"xga_{suffix}"] = grp["xga"].rolling(w, min_periods=1).mean().shift(1)
 
         # Rolling xG Difference (xG - xGA)
         grp["xgd"] = grp["xg"] - grp["xga"]
         for w, suffix in zip(windows, rolling_suffixes, strict=False):
-            grp[f"xgd_{suffix}"] = (
-                grp["xgd"].rolling(w, min_periods=1).mean().shift(1)
-            )
+            grp[f"xgd_{suffix}"] = grp["xgd"].rolling(w, min_periods=1).mean().shift(1)
 
         return grp
 
@@ -402,24 +401,49 @@ def _merge_xg_features(
     """
     # Home team features
     home_stats = team_rolling[team_rolling["is_home"] == 1].copy()
-    home_cols = {c: f"h_{c}" for c in home_stats.columns if c not in ("match_id", "is_home")}
+    home_cols = {
+        c: f"h_{c}" for c in home_stats.columns if c not in ("match_id", "is_home")
+    }
     home_stats.rename(columns=home_cols, inplace=True)
     # Keep match_id to join on; drop the _y duplicate after merge
-    df = df.merge(home_stats, left_index=True, right_on="match_id", how="left", suffixes=("", "_home"))
-    df.drop(columns=[c for c in df.columns if c.endswith("_home") and c != "is_home"],
-            inplace=True, errors="ignore")
+    df = df.merge(
+        home_stats,
+        left_index=True,
+        right_on="match_id",
+        how="left",
+        suffixes=("", "_home"),
+    )
+    df.drop(
+        columns=[c for c in df.columns if c.endswith("_home") and c != "is_home"],
+        inplace=True,
+        errors="ignore",
+    )
 
     # Away team features
     away_stats = team_rolling[team_rolling["is_home"] == 0].copy()
-    away_cols = {c: f"a_{c}" for c in away_stats.columns if c not in ("match_id", "is_home")}
+    away_cols = {
+        c: f"a_{c}" for c in away_stats.columns if c not in ("match_id", "is_home")
+    }
     away_stats.rename(columns=away_cols, inplace=True)
-    df = df.merge(away_stats, left_index=True, right_on="match_id", how="left", suffixes=("", "_away"))
-    df.drop(columns=[c for c in df.columns if c.endswith("_away") and c != "is_home"],
-            inplace=True, errors="ignore")
+    df = df.merge(
+        away_stats,
+        left_index=True,
+        right_on="match_id",
+        how="left",
+        suffixes=("", "_away"),
+    )
+    df.drop(
+        columns=[c for c in df.columns if c.endswith("_away") and c != "is_home"],
+        inplace=True,
+        errors="ignore",
+    )
 
     # Clean up auxiliary columns
-    df.drop(columns=[c for c in df.columns if c.endswith("_match_id") or c == "is_home"],
-            inplace=True, errors="ignore")
+    df.drop(
+        columns=[c for c in df.columns if c.endswith("_match_id") or c == "is_home"],
+        inplace=True,
+        errors="ignore",
+    )
 
     return df
 

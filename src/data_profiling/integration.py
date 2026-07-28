@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 # ── Helper: profile a file or DataFrame ────────────────
 
+
 def profile_path(
     data_path: str | Path,
     source_name: str | None = None,
@@ -106,6 +107,7 @@ def profile_path(
             if prev_path.exists():
                 try:
                     from src.data_profiling.cli import _load_report
+
                     prev_report = _load_report(str(prev_path))
                     detector = DataDriftDetector()
                     drift = detector.detect(report, prev_report)
@@ -120,13 +122,16 @@ def profile_path(
 
         # Save as previous for next comparison
         import shutil
+
         current_path = reports_dir / f"{source}.json"
         if current_path.exists():
             shutil.copy2(current_path, reports_dir / f"{source}.previous.json")
 
         logger.info(
             "Profiling complete: %s → %s (HTML/JSON/CSV) in %.2fs",
-            source, reports_dir, report.duration_seconds,
+            source,
+            reports_dir,
+            report.duration_seconds,
         )
         return result
 
@@ -136,6 +141,7 @@ def profile_path(
 
 
 # ── Hook: profile after a collector result ─────────────
+
 
 def auto_profile_collect(
     collect_result: dict[str, Any],
@@ -170,6 +176,7 @@ def auto_profile_collect(
 
 
 # ── Hook: profile after an importer result ────────────
+
 
 def auto_profile_import(
     import_reports: list[Any],
@@ -214,11 +221,13 @@ def auto_profile_import(
 
 # ── Monkey-patching helpers ────────────────────────────
 
+
 def _patch_collect_fn(
     fn: Callable[..., dict[str, Any]],
     source_name: str,
 ) -> Callable[..., dict[str, Any]]:
     """Wrap a collector function to auto-profile after execution."""
+
     @functools.wraps(fn)
     def wrapper(*args: Any, **kwargs: Any) -> dict[str, Any]:
         result = fn(*args, **kwargs)
@@ -227,6 +236,7 @@ def _patch_collect_fn(
         except Exception as exc:
             logger.warning("Auto-profile failed for %s: %s", source_name, exc)
         return result
+
     return wrapper
 
 
@@ -265,6 +275,7 @@ def enable_auto_profiling() -> None:
 
 
 # ── ETL Pipeline profiling step ───────────────────────
+
 
 class ProfilingStep:
     """A pipeline step that profiles data after the ETL Store stage.

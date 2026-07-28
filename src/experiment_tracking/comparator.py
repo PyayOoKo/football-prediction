@@ -186,7 +186,13 @@ class ExperimentComparator:
                 val = data["metrics"].get(metric)
                 if val is None:
                     continue
-                if best_value is None or lower_is_better and val < best_value or not lower_is_better and val > best_value:
+                if (
+                    best_value is None
+                    or lower_is_better
+                    and val < best_value
+                    or not lower_is_better
+                    and val > best_value
+                ):
                     best_value = val
                     best_run_id = run_id
 
@@ -247,22 +253,27 @@ class ExperimentComparator:
 
         # Filter to runs that have the metric
         scored = [
-            r for r in runs
+            r
+            for r in runs
             if r.metrics and metric in r.metrics and r.metrics[metric] is not None
         ]
-        scored.sort(key=lambda r: r.metrics[metric] if r.metrics else 0, reverse=not ascending)
+        scored.sort(
+            key=lambda r: r.metrics[metric] if r.metrics else 0, reverse=not ascending
+        )
 
         results: list[dict[str, Any]] = []
         for i, run in enumerate(scored[:limit], 1):
-            results.append({
-                "rank": i,
-                "run_id": run.id[:8],
-                "experiment_id": run.experiment_id[:8],
-                "run_name": run.run_name,
-                "model_type": run.model_type,
-                "metric_value": run.metrics[metric] if run.metrics else None,
-                "duration_seconds": run.training_duration_seconds,
-            })
+            results.append(
+                {
+                    "rank": i,
+                    "run_id": run.id[:8],
+                    "experiment_id": run.experiment_id[:8],
+                    "run_name": run.run_name,
+                    "model_type": run.model_type,
+                    "metric_value": run.metrics[metric] if run.metrics else None,
+                    "duration_seconds": run.training_duration_seconds,
+                }
+            )
 
         return results
 

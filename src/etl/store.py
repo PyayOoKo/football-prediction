@@ -141,6 +141,7 @@ class FileStore(DataStore):
             return self.output_dir / self.filename
         import datetime
         import hashlib
+
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         h = hashlib.md5(source.encode()).hexdigest()[:8]
         return self.output_dir / f"{source}_{ts}_{h}.{self.format}"
@@ -200,7 +201,7 @@ class DatabaseStore(DataStore):
 
         try:
             with get_session() as session:
-                batches = [data[i:i + bs] for i in range(0, total, bs)]
+                batches = [data[i : i + bs] for i in range(0, total, bs)]
 
                 for batch_idx, batch in enumerate(batches):
                     try:
@@ -249,17 +250,13 @@ class DatabaseStore(DataStore):
         )
         return result
 
-    def _insert_batch(
-        self, session: Session, batch: list[dict[str, Any]]
-    ) -> int:
+    def _insert_batch(self, session: Session, batch: list[dict[str, Any]]) -> int:
         """Insert or do-nothing on conflict using parameterised SQL."""
         table = self.model_class.__table__  # type: ignore[attr-defined]
 
         if self.unique_columns:
             stmt = pg_insert(self.model_class).values(batch)
-            stmt = stmt.on_conflict_do_nothing(
-                index_elements=self.unique_columns
-            )
+            stmt = stmt.on_conflict_do_nothing(index_elements=self.unique_columns)
         else:
             # Parameterised insert via SQLAlchemy core — no string formatting
             stmt = table.insert().values(batch)

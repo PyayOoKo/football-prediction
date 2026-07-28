@@ -161,7 +161,9 @@ class UnderstatClient:
     # ── JSON extraction ────────────────────────────────
 
     async def get_league_data(
-        self, league: str, year: int,
+        self,
+        league: str,
+        year: int,
     ) -> dict[str, Any]:
         """Extract teamsData JSON from a league page.
 
@@ -181,7 +183,9 @@ class UnderstatClient:
         return self._extract_json(html, "teamsData")
 
     async def get_league_data_json(
-        self, league: str, year: int,
+        self,
+        league: str,
+        year: int,
     ) -> dict[str, Any]:
         """Fetch league data from the Understat JSON API endpoint.
 
@@ -238,12 +242,14 @@ class UnderstatClient:
         except Exception as exc:
             logger.warning(
                 "Failed to fetch league data from API %s: %s",
-                api_url, exc,
+                api_url,
+                exc,
             )
             return {}
 
     async def get_match_data(
-        self, match_id: int,
+        self,
+        match_id: int,
     ) -> dict[str, Any]:
         """Extract shotsData JSON from a match page.
 
@@ -261,7 +267,9 @@ class UnderstatClient:
         return self._extract_json(html, "shotsData")
 
     async def get_league_matches_data(
-        self, league: str, year: int,
+        self,
+        league: str,
+        year: int,
     ) -> dict[str, Any]:
         """Extract datesData JSON from a league page (match list).
 
@@ -312,7 +320,8 @@ class UnderstatClient:
         match = pattern.search(html)
         if not match:
             logger.warning(
-                "Could not find variable '%s' in page", var_name,
+                "Could not find variable '%s' in page",
+                var_name,
             )
             return {}
 
@@ -330,7 +339,9 @@ class UnderstatClient:
             return json.loads(decoded)  # type: ignore[no-any-return]
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             logger.error(
-                "Could not parse %s from page: %s", var_name, exc,
+                "Could not parse %s from page: %s",
+                var_name,
+                exc,
             )
             return {}
 

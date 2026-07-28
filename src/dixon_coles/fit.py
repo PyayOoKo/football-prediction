@@ -75,7 +75,9 @@ def fit_dixon_coles_model(
     if reference_date is not None:
         model._reference_date = pd.Timestamp(reference_date)
     else:
-        model._reference_date = pd.to_datetime(df[date_col].max()) + pd.Timedelta(days=1)
+        model._reference_date = pd.to_datetime(df[date_col].max()) + pd.Timedelta(
+            days=1
+        )
 
     # Collect all unique teams
     all_teams = sorted(
@@ -117,7 +119,7 @@ def fit_dixon_coles_model(
 
     def _full_defence(est_params: np.ndarray) -> np.ndarray:
         full = np.zeros(n_teams)
-        full[1:] = est_params[n_est:2 * n_est]
+        full[1:] = est_params[n_est : 2 * n_est]
         return full
 
     if model.regress_prior:
@@ -129,10 +131,7 @@ def fit_dixon_coles_model(
             mu = np.exp(alpha_full[away_idx] + beta_full[home_idx])
             rho = p[-1] if model.rho_fixed is None else model.rho_fixed
 
-            log_p = (
-                poisson.logpmf(home_goals, lam)
-                + poisson.logpmf(away_goals, mu)
-            )
+            log_p = poisson.logpmf(home_goals, lam) + poisson.logpmf(away_goals, mu)
             tau = dixon_coles_tau(home_goals, away_goals, lam, mu, rho)
             _tau_min = float(np.min(tau))
             if _tau_min <= 0:
@@ -144,10 +143,11 @@ def fit_dixon_coles_model(
 
             # L2 prior (shrinkage)
             prior = model.prior_strength * float(
-                np.sum(alpha_full ** 2) + np.sum(beta_full ** 2)
+                np.sum(alpha_full**2) + np.sum(beta_full**2)
             )
             return nll + prior
     else:
+
         def objective(p: np.ndarray) -> float:
             alpha_full = _full_attack(p)
             beta_full = _full_defence(p)
@@ -155,10 +155,7 @@ def fit_dixon_coles_model(
             mu = np.exp(alpha_full[away_idx] + beta_full[home_idx])
             rho = p[-1] if model.rho_fixed is None else model.rho_fixed
 
-            log_p = (
-                poisson.logpmf(home_goals, lam)
-                + poisson.logpmf(away_goals, mu)
-            )
+            log_p = poisson.logpmf(home_goals, lam) + poisson.logpmf(away_goals, mu)
             tau = dixon_coles_tau(home_goals, away_goals, lam, mu, rho)
             _tau_min = float(np.min(tau))
             if _tau_min <= 0:
@@ -178,7 +175,7 @@ def fit_dixon_coles_model(
     # Attack params: start at 0 (reference = 0, all others small random)
     x0[:n_est] = np.random.default_rng(42).normal(0, 0.1, size=n_est)
     # Defence params
-    x0[n_est:2 * n_est] = np.random.default_rng(43).normal(0, 0.1, size=n_est)
+    x0[n_est : 2 * n_est] = np.random.default_rng(43).normal(0, 0.1, size=n_est)
     # Home advantage
     x0[-2] = gamma_init * 0.5  # conservative initialisation
     # Rho
@@ -198,11 +195,14 @@ def fit_dixon_coles_model(
     if verbose:
         logger.info(
             "Fitting Dixon-Coles MLE: %d teams, %d matches, %d parameters",
-            n_teams, n, n_total,
+            n_teams,
+            n,
+            n_total,
         )
         if model.decay_halflife_days > 0:
             logger.info(
-                "  Recency decay halflife: %.0f days", model.decay_halflife_days,
+                "  Recency decay halflife: %.0f days",
+                model.decay_halflife_days,
             )
         logger.info("  Weight range: [%.4f, %.4f]", weights.min(), weights.max())
 
@@ -225,14 +225,15 @@ def fit_dixon_coles_model(
 
     if not result.success:
         logger.warning(
-            "Dixon-Coles MLE did not fully converge: %s", result.message,
+            "Dixon-Coles MLE did not fully converge: %s",
+            result.message,
         )
 
     # ── Extract parameters ────────────────────────────
     full_alpha = np.zeros(n_teams)
     full_alpha[1:] = result.x[:n_est]
     full_beta = np.zeros(n_teams)
-    full_beta[1:] = result.x[n_est:2 * n_est]
+    full_beta[1:] = result.x[n_est : 2 * n_est]
 
     model._alpha = {team: float(full_alpha[i]) for i, team in enumerate(all_teams)}
     model._beta = {team: float(full_beta[i]) for i, team in enumerate(all_teams)}
@@ -244,7 +245,10 @@ def fit_dixon_coles_model(
     if verbose:
         logger.info(
             "Dixon-Coles fitted: γ=%.3f, ρ=%.3f, neg-LL=%.1f, %s",
-            model._gamma, model._rho, result.fun, "converged" if result.success else "partial",
+            model._gamma,
+            model._rho,
+            result.fun,
+            "converged" if result.success else "partial",
         )
 
     return model
@@ -319,8 +323,13 @@ def _fill_dc_row(
         aw_prob[i] = result.away_win_prob
         rho_vals[i] = model._rho
     except Exception as e:
-        logger.warning("DC fill failed for row %d (%s vs %s): %s", i,
-                       df.iloc[i][home_team_col], df.iloc[i][away_team_col], e)
+        logger.warning(
+            "DC fill failed for row %d (%s vs %s): %s",
+            i,
+            df.iloc[i][home_team_col],
+            df.iloc[i][away_team_col],
+            e,
+        )
         exp_home[i] = 1.0
         exp_away[i] = 1.0
         hw_prob[i] = 0.45

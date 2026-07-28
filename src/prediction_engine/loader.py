@@ -69,7 +69,9 @@ class ModelLoader:
                 }
 
                 logger.info(
-                    "Loaded model: %s (type=%s)", candidate.name, mtype,
+                    "Loaded model: %s (type=%s)",
+                    candidate.name,
+                    mtype,
                 )
                 return model, metadata
 

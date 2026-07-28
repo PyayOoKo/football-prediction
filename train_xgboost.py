@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from config import config
+from src.config import config
 from src.feature_engineering import build_features
 
 config.train.model_type = "xgboost"

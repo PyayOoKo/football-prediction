@@ -31,7 +31,7 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
-from config import config as _global_config
+from src.config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -386,13 +386,27 @@ def backfill_league(
     if mapping:
         still_null = df["league"].isna()
         for idx in df.index[still_null]:
-            home_raw = str(df.at[idx, "home_team"]).strip() if pd.notna(df.at[idx, "home_team"]) else ""
-            away_raw = str(df.at[idx, "away_team"]).strip() if pd.notna(df.at[idx, "away_team"]) else ""
+            home_raw = (
+                str(df.at[idx, "home_team"]).strip()
+                if pd.notna(df.at[idx, "home_team"])
+                else ""
+            )
+            away_raw = (
+                str(df.at[idx, "away_team"]).strip()
+                if pd.notna(df.at[idx, "away_team"])
+                else ""
+            )
             # Case-insensitive lookup (mapping keys are lowercased)
             home_league = mapping.get(home_raw.lower())
             away_league = mapping.get(away_raw.lower())
 
-            if home_league and away_league and home_league == away_league or home_league and not away_league:
+            if (
+                home_league
+                and away_league
+                and home_league == away_league
+                or home_league
+                and not away_league
+            ):
                 df.at[idx, "league"] = home_league
             elif away_league and not home_league:
                 df.at[idx, "league"] = away_league
@@ -406,9 +420,8 @@ def backfill_league(
         detail_parts.append(f"{filled_from_div} from 'div' column")
     if filled_from_mapping > 0:
         detail_parts.append(f"{filled_from_mapping} from team→league mapping")
-    detail = (
-        f"Backfilled {before - after_all}/{before} null league values"
-        + (f" ({', '.join(detail_parts)})" if detail_parts else " — no source available")
+    detail = f"Backfilled {before - after_all}/{before} null league values" + (
+        f" ({', '.join(detail_parts)})" if detail_parts else " — no source available"
     )
     return df, detail
 
@@ -453,8 +466,10 @@ def enrich_from_league_all(
         Enriched DataFrame and a detail string describing what was merged.
     """
     _cfg = cfg or _global_config
-    path = Path(league_all_path) if league_all_path else (
-        _cfg.paths.raw / "league_all.csv"
+    path = (
+        Path(league_all_path)
+        if league_all_path
+        else (_cfg.paths.raw / "league_all.csv")
     )
 
     if not path.exists():
@@ -469,8 +484,12 @@ def enrich_from_league_all(
     if "league" in league.columns and league["league"].isna().any():
         league, bf_detail = backfill_league(league, cfg=_cfg)
         nulls_after = league["league"].isna().sum()
-        logger.info("  League backfill for %s: %s (%d nulls remaining)",
-                     path.name, bf_detail, nulls_after)
+        logger.info(
+            "  League backfill for %s: %s (%d nulls remaining)",
+            path.name,
+            bf_detail,
+            nulls_after,
+        )
 
     # Standardize date format in both
     # Both matches.csv and league_all.csv use YYYY-MM-DD (ISO) format,
@@ -495,8 +514,7 @@ def enrich_from_league_all(
     join_keys = {"_date_std", "date", "league", "home_team", "away_team"}
     existing_cols = set(df.columns)
     extra_cols = [
-        c for c in league.columns
-        if c not in existing_cols and c not in join_keys
+        c for c in league.columns if c not in existing_cols and c not in join_keys
     ]
 
     if not extra_cols:
@@ -544,7 +562,9 @@ def enrich_from_league_all(
             league_broad = league_broad[cols]
 
             fallback = unmatched[["_date_std", "home_team", "away_team"]].merge(
-                league_broad.drop_duplicates(subset=["_date_std", "home_team", "away_team"]),
+                league_broad.drop_duplicates(
+                    subset=["_date_std", "home_team", "away_team"]
+                ),
                 on=["_date_std", "home_team", "away_team"],
                 how="left",
                 suffixes=("", "_fb"),
@@ -618,7 +638,9 @@ def run_preprocessing(
     logger.info("=" * 60)
 
     report: dict[str, Any] = {
-        "input_path": str(input_path or cfg.paths.raw / cfg.data_collection.output_file),
+        "input_path": str(
+            input_path or cfg.paths.raw / cfg.data_collection.output_file
+        ),
         "output_path": str(output_path or cfg.paths.processed / "results_clean.csv"),
         "stages": {},
         "transformations": [],
@@ -679,7 +701,9 @@ def run_preprocessing(
     report["total_columns"] = len(df.columns)
 
     logger.info("=" * 60)
-    logger.info("PREPROCESSING COMPLETE — %d rows, %d columns", len(df), len(df.columns))
+    logger.info(
+        "PREPROCESSING COMPLETE — %d rows, %d columns", len(df), len(df.columns)
+    )
     logger.info("=" * 60)
 
     return report
@@ -714,7 +738,9 @@ def _load_data(
         default = _cfg.paths.raw / _cfg.data_collection.output_file
         if matches_csv.exists():
             path = matches_csv
-            logger.info("Using matches.csv as primary data source (14 leagues, xG data)")
+            logger.info(
+                "Using matches.csv as primary data source (14 leagues, xG data)"
+            )
         else:
             path = default
 
@@ -852,12 +878,7 @@ def _normalise_team_names(
         changes_made += changed_mask.sum()
 
         if changed_mask.any():
-            examples = list(
-                df.loc[changed_mask, col]
-                .value_counts()
-                .head(5)
-                .index
-            )
+            examples = list(df.loc[changed_mask, col].value_counts().head(5).index)
             logger.debug(
                 "  %s: %d rows changed — examples: %s",
                 col,
@@ -923,7 +944,9 @@ def _remove_duplicates(
     # Rank rows within each duplicate group by completeness, keep the most complete
     completeness = df.notna().sum(axis=1)
     df["_completeness"] = completeness
-    df = df.sort_values([*dedup_subset, "_completeness"], ascending=[True] * len(dedup_subset) + [False])
+    df = df.sort_values(
+        [*dedup_subset, "_completeness"], ascending=[True] * len(dedup_subset) + [False]
+    )
     df = df.drop_duplicates(subset=dedup_subset, keep="first")
     df = df.drop(columns=["_completeness"])
 
@@ -1065,12 +1088,18 @@ def _add_temporal_features(
         df.loc[valid_mask, "year"] = df.loc[valid_mask, "date"].dt.year.astype("Int64")
     if "month" not in df.columns:
         df["month"] = pd.NA
-        df.loc[valid_mask, "month"] = df.loc[valid_mask, "date"].dt.month.astype("Int64")
+        df.loc[valid_mask, "month"] = df.loc[valid_mask, "date"].dt.month.astype(
+            "Int64"
+        )
 
     df["day_of_week"] = pd.NA
     df["day_of_year"] = pd.NA
-    df.loc[valid_mask, "day_of_week"] = df.loc[valid_mask, "date"].dt.dayofweek.astype("Int64")
-    df.loc[valid_mask, "day_of_year"] = df.loc[valid_mask, "date"].dt.dayofyear.astype("Int64")
+    df.loc[valid_mask, "day_of_week"] = df.loc[valid_mask, "date"].dt.dayofweek.astype(
+        "Int64"
+    )
+    df.loc[valid_mask, "day_of_year"] = df.loc[valid_mask, "date"].dt.dayofyear.astype(
+        "Int64"
+    )
 
     # Week of season: weeks since August 1st of the season's start year
     df["_aug_1st"] = pd.NaT

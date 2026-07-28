@@ -21,7 +21,7 @@ from typing import Any
 import pandas as pd
 import requests
 
-from config import config as _global_config
+from src.config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +33,8 @@ COMPETITION_IDS = {
     "PL": 2021,  # Premier League
     "EL1": 2016,  # Championship
     "BL1": 2002,  # Bundesliga
-    "SA": 2019,   # Serie A
-    "PD": 2014,   # La Liga
+    "SA": 2019,  # Serie A
+    "PD": 2014,  # La Liga
     "FL1": 2015,  # Ligue 1
 }
 
@@ -109,6 +109,4 @@ def fetch_standings(
     NotImplementedError
         Always raised — this is a stub for future implementation.
     """
-    raise NotImplementedError(
-        "football-data.org standings are not yet implemented."
-    )
+    raise NotImplementedError("football-data.org standings are not yet implemented.")

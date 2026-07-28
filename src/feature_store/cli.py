@@ -180,7 +180,9 @@ def cmd_list(args: argparse.Namespace) -> None:
         session.close()
         return
 
-    print(f"{'Name':<35s} {'Version':<8s} {'Type':<20s} {'Category':<20s} {'Status':<12s} {'Entity':<10s}")
+    print(
+        f"{'Name':<35s} {'Version':<8s} {'Type':<20s} {'Category':<20s} {'Status':<12s} {'Entity':<10s}"
+    )
     print("-" * 105)
     for fd in features:
         print(
@@ -218,15 +220,15 @@ def cmd_show(args: argparse.Namespace) -> None:
     print(f"Created:       {d['created_at']}")
     print(f"Updated:       {d['updated_at']}")
 
-    if d['computation_params']:
+    if d["computation_params"]:
         print("\nComputation Params:")
         print(f"  {json.dumps(d['computation_params'], indent=2)}")
 
-    if d['validation_rules']:
+    if d["validation_rules"]:
         print("\nValidation Rules:")
         print(f"  {json.dumps(d['validation_rules'], indent=2)}")
 
-    if d['dependencies']:
+    if d["dependencies"]:
         deps = registry.get_dependencies(fd.id)
         print(f"\nDependencies ({len(deps)}):")
         for dep in deps:
@@ -237,7 +239,9 @@ def cmd_show(args: argparse.Namespace) -> None:
     if history:
         print(f"\nVersion History ({len(history)}):")
         for v in history:
-            print(f"  v{v.version:3d} | {'current' if v.is_current else '':8s} | {v.changelog or ''}")
+            print(
+                f"  v{v.version:3d} | {'current' if v.is_current else '':8s} | {v.changelog or ''}"
+            )
 
     # Show lineage
     try:
@@ -468,8 +472,10 @@ def cmd_compute(args: argparse.Namespace) -> None:
             f"{stats['failed']:>4d} {stats['duration']:>8.2f}s"
         )
     print(f"{'─' * 52}")
-    print(f"{'TOTAL':<30s} {report.computed_count:>4d} {report.skipped_count:>4d} "
-          f"{report.failed_count:>4d} {report.duration_seconds:>8.2f}s")
+    print(
+        f"{'TOTAL':<30s} {report.computed_count:>4d} {report.skipped_count:>4d} "
+        f"{report.failed_count:>4d} {report.duration_seconds:>8.2f}s"
+    )
 
     session.close()
 
@@ -513,17 +519,22 @@ def cmd_compute_all(args: argparse.Namespace) -> None:
 
     # Show NaN summary
     features_with_nan = [
-        (n, s) for n, s in report.per_feature_stats.items()
-        if s.get("nan_pct", 0) > 5
+        (n, s) for n, s in report.per_feature_stats.items() if s.get("nan_pct", 0) > 5
     ]
     if features_with_nan:
         print(f"\n  WARN: Features with >5% NaN ({len(features_with_nan)}):")
-        for name, stats in sorted(features_with_nan, key=lambda x: -x[1].get("nan_pct", 0))[:10]:
+        for name, stats in sorted(
+            features_with_nan, key=lambda x: -x[1].get("nan_pct", 0)
+        )[:10]:
             print(f"    {name:<35s} {stats['nan_pct']:.1f}% NaN")
         if len(features_with_nan) > 10:
             print(f"    ... and {len(features_with_nan) - 10} more")
 
-    errors = [(n, s) for n, s in report.per_feature_stats.items() if "error" in s.get("status", "")]
+    errors = [
+        (n, s)
+        for n, s in report.per_feature_stats.items()
+        if "error" in s.get("status", "")
+    ]
     if errors:
         print(f"\n  ERRORS ({len(errors)}):")
         for name, stats in errors:
@@ -627,9 +638,11 @@ def cmd_lineage_summary(args: argparse.Namespace) -> None:
         )
 
     total = lineage.to_dict()
-    print(f"\nTotal: {total['total_entries']} lineage entries "
-          f"({total['sources']} sources, {total['transforms']} transforms, "
-          f"{total['features']} features, {total['models']} models)")
+    print(
+        f"\nTotal: {total['total_entries']} lineage entries "
+        f"({total['sources']} sources, {total['transforms']} transforms, "
+        f"{total['features']} features, {total['models']} models)"
+    )
 
     session.close()
 
@@ -650,7 +663,9 @@ def cmd_batches(args: argparse.Namespace) -> None:
         session.close()
         return
 
-    print(f"{'Label':<35s} {'ID':<10s} {'Trigger':<12s} {'Status':<8s} {'Entities':<10s} {'Duration':<10s}")
+    print(
+        f"{'Label':<35s} {'ID':<10s} {'Trigger':<12s} {'Status':<8s} {'Entities':<10s} {'Duration':<10s}"
+    )
     print("-" * 85)
     for b in batches:
         status = "✅" if b.success else "❌"
@@ -671,11 +686,17 @@ def cmd_export(args: argparse.Namespace) -> None:
     data: Any
     if args.data == "definitions":
         data = registry.to_dict()
-        output = args.output or f"feature_definitions_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+        output = (
+            args.output
+            or f"feature_definitions_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+        )
     elif args.data == "lineage":
         lineage = FeatureLineage(session)
         data = lineage.to_dict()
-        output = args.output or f"feature_lineage_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+        output = (
+            args.output
+            or f"feature_lineage_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+        )
     else:
         print("Unknown export type. Use 'definitions' or 'lineage'.")
         session.close()
@@ -700,7 +721,9 @@ def cmd_export(args: argparse.Namespace) -> None:
             session.close()
             return
 
-    print(f"✅ Exported {len(data) if isinstance(data, list) else 'data'} to {output_path}")
+    print(
+        f"✅ Exported {len(data) if isinstance(data, list) else 'data'} to {output_path}"
+    )
 
     session.close()
 
@@ -801,23 +824,36 @@ Examples:
   python -m src.feature_store.cli provenance elo_rating --team-id 42
         """,
     )
-    parser.add_argument("--db-url", default="sqlite:///data/feature_store.db",
-                        help="Database URL (default: sqlite:///data/feature_store.db)")
+    parser.add_argument(
+        "--db-url",
+        default="sqlite:///data/feature_store.db",
+        help="Database URL (default: sqlite:///data/feature_store.db)",
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # register
-    p_register = subparsers.add_parser("register", help="Register a new feature definition")
+    p_register = subparsers.add_parser(
+        "register", help="Register a new feature definition"
+    )
     p_register.add_argument("name", help="Feature name")
-    p_register.add_argument("--type", required=True, help="Feature type (e.g. elo, rolling_stat)")
+    p_register.add_argument(
+        "--type", required=True, help="Feature type (e.g. elo, rolling_stat)"
+    )
     p_register.add_argument("--category", required=True, help="Feature category")
-    p_register.add_argument("--entity-type", default="match", help="Entity type (match/team/league/player/global)")
+    p_register.add_argument(
+        "--entity-type",
+        default="match",
+        help="Entity type (match/team/league/player/global)",
+    )
     p_register.add_argument("--description", help="Feature description")
     p_register.add_argument("--params", help="Computation params as JSON")
     p_register.add_argument("--validation", help="Validation rules as JSON")
     p_register.add_argument("--dependencies", help="Comma-separated dependency names")
-    p_register.add_argument("--status", default="draft", help="Initial status (draft/active)")
+    p_register.add_argument(
+        "--status", default="draft", help="Initial status (draft/active)"
+    )
     p_register.add_argument("--changelog", help="Change description")
 
     # list
@@ -826,7 +862,12 @@ Examples:
     p_list.add_argument("--type", help="Filter by feature type")
     p_list.add_argument("--entity-type", help="Filter by entity type")
     p_list.add_argument("--status", help="Filter by status")
-    p_list.add_argument("--active", action="store_true", default=None, help="Filter by active (use --no-active)")
+    p_list.add_argument(
+        "--active",
+        action="store_true",
+        default=None,
+        help="Filter by active (use --no-active)",
+    )
 
     # show
     p_show = subparsers.add_parser("show", help="Show feature definition details")
@@ -834,7 +875,9 @@ Examples:
 
     # activate / deprecate / retire
     for cmd_name in ("activate", "deprecate", "retire"):
-        p = subparsers.add_parser(cmd_name, help=f"{cmd_name.capitalize()} a feature definition")
+        p = subparsers.add_parser(
+            cmd_name, help=f"{cmd_name.capitalize()} a feature definition"
+        )
         p.add_argument("name", help="Feature name")
         if cmd_name in ("deprecate", "retire"):
             p.add_argument("--reason", help="Reason")
@@ -842,7 +885,9 @@ Examples:
             p.add_argument("--version", type=int, help="Specific version to activate")
 
     # new-version
-    p_nv = subparsers.add_parser("new-version", help="Create a new version of a feature")
+    p_nv = subparsers.add_parser(
+        "new-version", help="Create a new version of a feature"
+    )
     p_nv.add_argument("name", help="Feature name")
     p_nv.add_argument("--changelog", required=True, help="What changed")
     p_nv.add_argument("--description", help="New description")
@@ -875,16 +920,29 @@ Examples:
     # compute
     p_comp = subparsers.add_parser("compute", help="Compute features for entities")
     p_comp.add_argument("names", help="Comma-separated feature names")
-    p_comp.add_argument("--entity-ids", required=True, help="Comma-separated entity IDs")
-    p_comp.add_argument("--entity-type", default="match", help="Entity type (match/team)")
+    p_comp.add_argument(
+        "--entity-ids", required=True, help="Comma-separated entity IDs"
+    )
+    p_comp.add_argument(
+        "--entity-type", default="match", help="Entity type (match/team)"
+    )
     p_comp.add_argument("--trigger", default="manual", help="Computation trigger")
-    p_comp.add_argument("--force", action="store_true", help="Force recompute all entities")
+    p_comp.add_argument(
+        "--force", action="store_true", help="Force recompute all entities"
+    )
     p_comp.add_argument("--no-progress", action="store_true", help="Hide progress bars")
 
     # compute-all
-    p_ca = subparsers.add_parser("compute-all", help="Run full pipeline: preprocess → build_features → register → store")
-    p_ca.add_argument("--preprocessed", help="Path to preprocessed CSV (skip preprocessing)")
-    p_ca.add_argument("--max-nan-pct", type=float, default=5.0, help="Max allowed NaN %% per feature")
+    p_ca = subparsers.add_parser(
+        "compute-all",
+        help="Run full pipeline: preprocess → build_features → register → store",
+    )
+    p_ca.add_argument(
+        "--preprocessed", help="Path to preprocessed CSV (skip preprocessing)"
+    )
+    p_ca.add_argument(
+        "--max-nan-pct", type=float, default=5.0, help="Max allowed NaN %% per feature"
+    )
     p_ca.add_argument("--trigger", default="manual", help="Computation trigger label")
     p_ca.add_argument("--label", help="Custom batch label")
     p_ca.add_argument("--no-progress", action="store_true", help="Hide progress bars")
@@ -908,12 +966,18 @@ Examples:
     p_batch = subparsers.add_parser("batches", help="List computation batches")
     p_batch.add_argument("--limit", type=int, default=20, help="Max results")
     p_batch.add_argument("--trigger", help="Filter by trigger type")
-    p_batch.add_argument("--success", action="store_true", default=None, help="Filter by success")
+    p_batch.add_argument(
+        "--success", action="store_true", default=None, help="Filter by success"
+    )
 
     # export
     p_exp = subparsers.add_parser("export", help="Export feature data")
-    p_exp.add_argument("data", choices=["definitions", "lineage"], help="What to export")
-    p_exp.add_argument("--format", choices=["json", "csv"], default="json", help="Output format")
+    p_exp.add_argument(
+        "data", choices=["definitions", "lineage"], help="What to export"
+    )
+    p_exp.add_argument(
+        "--format", choices=["json", "csv"], default="json", help="Output format"
+    )
     p_exp.add_argument("--output", help="Output file path (without extension)")
 
     # cache commands
@@ -987,6 +1051,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {e}")
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         return 1
 

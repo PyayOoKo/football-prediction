@@ -316,14 +316,23 @@ class LeagueStrengthEngine:
             if len(grp) < self.min_matches:
                 logger.debug(
                     "Skipping %s/%s: only %d matches (min=%d)",
-                    season, league, len(grp), self.min_matches,
+                    season,
+                    league,
+                    len(grp),
+                    self.min_matches,
                 )
                 continue
 
             record = self._compute_single(
-                grp, season, league,
-                home_goals_col, away_goals_col, result_col,
-                home_xg_col, away_xg_col, has_xg,
+                grp,
+                season,
+                league,
+                home_goals_col,
+                away_goals_col,
+                result_col,
+                home_xg_col,
+                away_xg_col,
+                has_xg,
             )
             key = f"{season}/{league}"
             results[key] = record
@@ -681,7 +690,9 @@ class LeagueStrengthEngine:
             # Detect promotions/relegations within each group
             for _group_name, group_leagues in league_groups.items():
                 self._detect_within_group(
-                    teams_by_season_league, seasons, group_leagues,
+                    teams_by_season_league,
+                    seasons,
+                    group_leagues,
                 )
         else:
             # Without groups, just detect same-league changes (teams that
@@ -693,13 +704,13 @@ class LeagueStrengthEngine:
                 prev_season = seasons[i - 1]
 
                 # Collect all leagues seen
-                all_leagues = sorted({
-                    k[1] for k in teams_by_season_league
-                })
+                all_leagues = sorted({k[1] for k in teams_by_season_league})
 
                 for league in all_leagues:
                     curr_teams = teams_by_season_league.get((season, league), set())
-                    prev_teams = teams_by_season_league.get((prev_season, league), set())
+                    prev_teams = teams_by_season_league.get(
+                        (prev_season, league), set()
+                    )
 
                     new_teams = curr_teams - prev_teams
                     departed = prev_teams - curr_teams
@@ -762,17 +773,11 @@ class LeagueStrengthEngine:
                 # Teams in current but not in previous (for this league)
                 new_teams = curr_teams - prev_teams
                 # Filter: only flag if team wasn't in the group at all last season
-                truly_new = {
-                    t for t in new_teams
-                    if t not in prev_team_tiers
-                }
+                truly_new = {t for t in new_teams if t not in prev_team_tiers}
 
                 # Teams in previous but not in current (for this league)
                 departed = prev_teams - curr_teams
-                truly_departed = {
-                    t for t in departed
-                    if t not in curr_team_tiers
-                }
+                truly_departed = {t for t in departed if t not in curr_team_tiers}
 
                 if truly_new:
                     # Team wasn't in any group league last season → promoted in
@@ -827,9 +832,7 @@ class LeagueStrengthEngine:
         path : str | Path
             Output file path.
         """
-        data = {
-            f"{k[0]}/{k[1]}": v.to_dict() for k, v in self._history.items()
-        }
+        data = {f"{k[0]}/{k[1]}": v.to_dict() for k, v in self._history.items()}
         meta = {
             "reference_league": self.reference_league,
             "min_matches": self.min_matches,
@@ -954,9 +957,15 @@ class LeagueStrengthEngine:
             no_euro = subset[~euro_mask]
             if len(no_euro) >= self.min_matches:
                 no_euro_record = self._compute_single(
-                    no_euro, season, league,
-                    home_goals_col, away_goals_col, result_col,
-                    home_xg_col, away_xg_col, has_xg,
+                    no_euro,
+                    season,
+                    league,
+                    home_goals_col,
+                    away_goals_col,
+                    result_col,
+                    home_xg_col,
+                    away_xg_col,
+                    has_xg,
                 )
                 without = no_euro_record.to_dict()
                 without["type"] = "without_european"

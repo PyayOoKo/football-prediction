@@ -126,7 +126,9 @@ class EngineFactory:
 
         logger.info(
             "Created BettingEngine — bankroll=%.0f, method=%s, params=%s",
-            initial_bankroll, staking_method, staking_params or {},
+            initial_bankroll,
+            staking_method,
+            staking_params or {},
         )
         return engine
 
@@ -134,6 +136,7 @@ class EngineFactory:
 def DecimalOrFloat(value: Any) -> Any:
     """Convert a value to the appropriate type for BetFilterConfig fields."""
     from decimal import Decimal
+
     if isinstance(value, (int, float)):
         return Decimal(str(value))
     return value

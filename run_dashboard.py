@@ -34,7 +34,7 @@ def main() -> None:
     print("  Open your browser to the URL below.\n")
 
     # Ensure the project root is on sys.path so dashboard pages
-    # can ``from config import config`` and ``from src import …``
+    # can ``from src.config import config`` and ``from src import …``
     existing_pp = os.environ.get("PYTHONPATH", "")
     paths = [str(project_root)] + [p for p in existing_pp.split(os.pathsep) if p]
     env = {**os.environ, "PYTHONPATH": os.pathsep.join(paths)}

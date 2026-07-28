@@ -54,7 +54,8 @@ LEAGUE_COLORS = {
 #  Custom CSS
 # ═══════════════════════════════════════════════════════════
 
-st.markdown("""
+st.markdown(
+    """
 <style>
     .stApp { background: #0e1117; }
     .stApp header { background: #1a1d27; }
@@ -139,12 +140,15 @@ st.markdown("""
     .fixture-item .prob-bar { flex: 2; height: 6px; border-radius: 3px; background: #1a1d27; display: flex; }
     .fixture-item .prob-bar .seg { height: 100%; }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 
 # ═══════════════════════════════════════════════════════════
 #  Data Loading
 # ═══════════════════════════════════════════════════════════
+
 
 @st.cache_data(show_spinner="Loading league data …")
 def load_league_data() -> pd.DataFrame:
@@ -176,8 +180,16 @@ def compute_standings(df: pd.DataFrame, league: str) -> pd.DataFrame:
 
         for team in [home, away]:
             if team not in teams:
-                teams[team] = {"played": 0, "wins": 0, "draws": 0, "losses": 0,
-                               "gf": 0, "ga": 0, "pts": 0, "gd": 0}
+                teams[team] = {
+                    "played": 0,
+                    "wins": 0,
+                    "draws": 0,
+                    "losses": 0,
+                    "gf": 0,
+                    "ga": 0,
+                    "pts": 0,
+                    "gd": 0,
+                }
 
         teams[home]["played"] += 1
         teams[away]["played"] += 1
@@ -208,7 +220,9 @@ def compute_standings(df: pd.DataFrame, league: str) -> pd.DataFrame:
 
     result_df = pd.DataFrame(standings)
     if not result_df.empty:
-        result_df = result_df.sort_values(["pts", "gd", "gf"], ascending=False).reset_index(drop=True)
+        result_df = result_df.sort_values(
+            ["pts", "gd", "gf"], ascending=False
+        ).reset_index(drop=True)
         result_df.index = result_df.index + 1
         result_df.index.name = "pos"
     return result_df
@@ -267,15 +281,30 @@ avg_home_win = (df_completed["result"] == "H").mean() if not df_completed.empty 
 
 cols = st.columns(5)
 with cols[0]:
-    st.markdown(f'<div class="metric-tile"><div class="value">{total_matches:,}</div><div class="label">⚽ Completed Matches</div></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="metric-tile"><div class="value">{total_matches:,}</div><div class="label">⚽ Completed Matches</div></div>',
+        unsafe_allow_html=True,
+    )
 with cols[1]:
-    st.markdown(f'<div class="metric-tile"><div class="value">{total_upcoming:,}</div><div class="label">🔮 Upcoming Fixtures</div></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="metric-tile"><div class="value">{total_upcoming:,}</div><div class="label">🔮 Upcoming Fixtures</div></div>',
+        unsafe_allow_html=True,
+    )
 with cols[2]:
-    st.markdown(f'<div class="metric-tile"><div class="value">{total_teams}</div><div class="label">🏃 Teams</div></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="metric-tile"><div class="value">{total_teams}</div><div class="label">🏃 Teams</div></div>',
+        unsafe_allow_html=True,
+    )
 with cols[3]:
-    st.markdown(f'<div class="metric-tile"><div class="value">{avg_home_win:.0%}</div><div class="label">🏠 Home Win Rate</div></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="metric-tile"><div class="value">{avg_home_win:.0%}</div><div class="label">🏠 Home Win Rate</div></div>',
+        unsafe_allow_html=True,
+    )
 with cols[4]:
-    st.markdown('<div class="metric-tile"><div class="value">5</div><div class="label">🏆 Leagues</div></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="metric-tile"><div class="value">5</div><div class="label">🏆 Leagues</div></div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -289,7 +318,9 @@ st.markdown("## 📋 League Standings")
 selected_league = st.selectbox(
     "Select League",
     options=LEAGUE_ORDER,
-    format_func=lambda x: f"{TOP5_LEAGUES[x]['icon']} {TOP5_LEAGUES[x]['name']} ({TOP5_LEAGUES[x]['country']})",
+    format_func=lambda x: (
+        f"{TOP5_LEAGUES[x]['icon']} {TOP5_LEAGUES[x]['name']} ({TOP5_LEAGUES[x]['country']})"
+    ),
     index=0,
 )
 
@@ -300,7 +331,7 @@ if not standings.empty:
     league_info = TOP5_LEAGUES[selected_league]
     st.markdown(
         f'<div class="league-card">'
-        f'<h3>{league_info["icon"]} {league_info["name"]} — Season {latest_season}</h3>',
+        f"<h3>{league_info['icon']} {league_info['name']} — Season {latest_season}</h3>",
         unsafe_allow_html=True,
     )
 
@@ -322,27 +353,40 @@ if not standings.empty:
             f'<span class="stat">{int(row["losses"])}L</span>'
             f'<span class="stat">{int(row["gf"])}:{int(row["ga"])}</span>'
             f'<span class="pts">{int(row["pts"])}pts</span>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
 
     # Full standings in a dataframe for scrolling
     with st.expander("📄 Full Standings", expanded=False):
         display_df = standings.copy()
-        display_df = display_df.rename(columns={
-            "team": "Team", "played": "P", "wins": "W", "draws": "D",
-            "losses": "L", "gf": "GF", "ga": "GA", "gd": "GD", "pts": "Pts",
-        })
-        st.dataframe(display_df[["Team", "P", "W", "D", "L", "GF", "GA", "GD", "Pts"]],
-                     use_container_width=True, hide_index=False)
+        display_df = display_df.rename(
+            columns={
+                "team": "Team",
+                "played": "P",
+                "wins": "W",
+                "draws": "D",
+                "losses": "L",
+                "gf": "GF",
+                "ga": "GA",
+                "gd": "GD",
+                "pts": "Pts",
+            }
+        )
+        st.dataframe(
+            display_df[["Team", "P", "W", "D", "L", "GF", "GA", "GD", "Pts"]],
+            use_container_width=True,
+            hide_index=False,
+        )
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Points distribution chart ──
     st.markdown("### Points Distribution")
     fig = px.bar(
         standings.head(12),
-        x="team", y="pts",
+        x="team",
+        y="pts",
         color="pts",
         color_continuous_scale="Viridis",
         labels={"team": "Team", "pts": "Points"},
@@ -362,7 +406,9 @@ if not standings.empty:
     st.plotly_chart(fig, use_container_width=True)
 
 else:
-    st.info(f"No completed matches found for {TOP5_LEAGUES[selected_league]['name']} in season {latest_season}.")
+    st.info(
+        f"No completed matches found for {TOP5_LEAGUES[selected_league]['name']} in season {latest_season}."
+    )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -377,7 +423,7 @@ if has_upcoming:
     if not league_upcoming.empty:
         st.markdown(
             f'<div class="league-card">'
-            f'<h3>📅 Next {min(len(league_upcoming), 15)} Fixtures — {TOP5_LEAGUES[selected_league]["name"]}</h3>',
+            f"<h3>📅 Next {min(len(league_upcoming), 15)} Fixtures — {TOP5_LEAGUES[selected_league]['name']}</h3>",
             unsafe_allow_html=True,
         )
 
@@ -391,7 +437,7 @@ if has_upcoming:
 
             # If predictions aren't in the data, use equal defaults
             if "home_win_prob" not in row.index:
-                pred_h = pred_d = pred_a = 1/3
+                pred_h = pred_d = pred_a = 1 / 3
 
             pred_h = float(pred_h) if pd.notna(pred_h) else 0.34
             pred_d = float(pred_d) if pd.notna(pred_d) else 0.33
@@ -403,23 +449,29 @@ if has_upcoming:
                 pred_a /= total
 
             fav = max(pred_h, pred_d, pred_a)
-            fav_label = f"🏠 {home}" if fav == pred_h else f"✈️ {away}" if fav == pred_a else "🤝 Draw"
+            fav_label = (
+                f"🏠 {home}"
+                if fav == pred_h
+                else f"✈️ {away}"
+                if fav == pred_a
+                else "🤝 Draw"
+            )
 
             st.markdown(
                 f'<div class="fixture-item">'
                 f'<span style="color:#555;font-size:0.75rem;width:5rem">{date_str}</span>'
                 f'<span class="teams"><strong>{home}</strong> vs <strong>{away}</strong></span>'
                 f'<div class="prob-bar">'
-                f'<div class="seg" style="width:{pred_h*100:.0f}%;background:#4caf50;border-radius:3px 0 0 3px" title="Home {pred_h:.0%}"></div>'
-                f'<div class="seg" style="width:{pred_d*100:.0f}%;background:#ffc107" title="Draw {pred_d:.0%}"></div>'
-                f'<div class="seg" style="width:{pred_a*100:.0f}%;background:#f44336;border-radius:0 3px 3px 0" title="Away {pred_a:.0%}"></div>'
-                f'</div>'
+                f'<div class="seg" style="width:{pred_h * 100:.0f}%;background:#4caf50;border-radius:3px 0 0 3px" title="Home {pred_h:.0%}"></div>'
+                f'<div class="seg" style="width:{pred_d * 100:.0f}%;background:#ffc107" title="Draw {pred_d:.0%}"></div>'
+                f'<div class="seg" style="width:{pred_a * 100:.0f}%;background:#f44336;border-radius:0 3px 3px 0" title="Away {pred_a:.0%}"></div>'
+                f"</div>"
                 f'<span style="color:#4fc3f7;font-size:0.75rem;width:6rem;text-align:right">{fav_label} ({fav:.0%})</span>'
-                f'</div>',
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.info(f"No upcoming fixtures for {TOP5_LEAGUES[selected_league]['name']}.")
 else:
@@ -453,21 +505,27 @@ for league in LEAGUE_ORDER:
     avg_goals = (ld["home_goals"].astype(float) + ld["away_goals"].astype(float)).mean()
     avg_home_goals = ld["home_goals"].astype(float).mean()
     avg_away_goals = ld["away_goals"].astype(float).mean()
-    btts_pct = ((ld["home_goals"].astype(float) > 0) & (ld["away_goals"].astype(float) > 0)).mean()
-    over25_pct = ((ld["home_goals"].astype(float) + ld["away_goals"].astype(float)) > 2.5).mean()
+    btts_pct = (
+        (ld["home_goals"].astype(float) > 0) & (ld["away_goals"].astype(float) > 0)
+    ).mean()
+    over25_pct = (
+        (ld["home_goals"].astype(float) + ld["away_goals"].astype(float)) > 2.5
+    ).mean()
 
-    league_stats.append({
-        "League": f"{info['icon']} {info['name']}",
-        "Matches": n_matches,
-        "Home Win": f"{home_win_pct:.0%}",
-        "Draw": f"{draw_pct:.0%}",
-        "Away Win": f"{away_win_pct:.0%}",
-        "Avg Goals": round(avg_goals, 2),
-        "Home G": round(avg_home_goals, 2),
-        "Away G": round(avg_away_goals, 2),
-        "BTTS": f"{btts_pct:.0%}",
-        "O2.5": f"{over25_pct:.0%}",
-    })
+    league_stats.append(
+        {
+            "League": f"{info['icon']} {info['name']}",
+            "Matches": n_matches,
+            "Home Win": f"{home_win_pct:.0%}",
+            "Draw": f"{draw_pct:.0%}",
+            "Away Win": f"{away_win_pct:.0%}",
+            "Avg Goals": round(avg_goals, 2),
+            "Home G": round(avg_home_goals, 2),
+            "Away G": round(avg_away_goals, 2),
+            "BTTS": f"{btts_pct:.0%}",
+            "O2.5": f"{over25_pct:.0%}",
+        }
+    )
 
 if league_stats:
     st.markdown('<div class="league-card">', unsafe_allow_html=True)
@@ -476,24 +534,32 @@ if league_stats:
         use_container_width=True,
         hide_index=True,
     )
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Goals comparison chart ──
     st.markdown("### ⚽ Average Goals per Match")
     fig_goals = go.Figure()
     for ls in league_stats:
         league_name = ls["League"]
-        fig_goals.add_trace(go.Bar(
-            name=league_name,
-            x=[league_name],
-            y=[ls["Avg Goals"]],
-            marker={"color": LEAGUE_COLORS.get(
-                LEAGUE_ORDER[[l["League"] for l in league_stats].index(league_name)],
-                "#888"
-            ) if league_name in [l["League"] for l in league_stats] else "#888"},
-            text=[f'{ls["Avg Goals"]}'],
-            textposition="outside",
-        ))
+        fig_goals.add_trace(
+            go.Bar(
+                name=league_name,
+                x=[league_name],
+                y=[ls["Avg Goals"]],
+                marker={
+                    "color": LEAGUE_COLORS.get(
+                        LEAGUE_ORDER[
+                            [l["League"] for l in league_stats].index(league_name)
+                        ],
+                        "#888",
+                    )
+                    if league_name in [l["League"] for l in league_stats]
+                    else "#888"
+                },
+                text=[f"{ls['Avg Goals']}"],
+                textposition="outside",
+            )
+        )
     fig_goals.update_layout(
         height=300,
         margin={"l": 0, "r": 0, "t": 10, "b": 0},
@@ -513,16 +579,24 @@ if league_stats:
         hw_pct = float(ls["Home Win"].strip("%")) / 100
         dr_pct = float(ls["Draw"].strip("%")) / 100
         aw_pct = float(ls["Away Win"].strip("%")) / 100
-        fig_results.add_trace(go.Bar(
-            name=league_name,
-            x=["Home Win", "Draw", "Away Win"],
-            y=[hw_pct, dr_pct, aw_pct],
-            marker={"color": LEAGUE_COLORS.get(
-                LEAGUE_ORDER[[l["League"] for l in league_stats].index(league_name)],
-                "#888"
-            ) if league_name in [l["League"] for l in league_stats] else "#888"},
-            opacity=0.8,
-        ))
+        fig_results.add_trace(
+            go.Bar(
+                name=league_name,
+                x=["Home Win", "Draw", "Away Win"],
+                y=[hw_pct, dr_pct, aw_pct],
+                marker={
+                    "color": LEAGUE_COLORS.get(
+                        LEAGUE_ORDER[
+                            [l["League"] for l in league_stats].index(league_name)
+                        ],
+                        "#888",
+                    )
+                    if league_name in [l["League"] for l in league_stats]
+                    else "#888"
+                },
+                opacity=0.8,
+            )
+        )
     fig_results.update_layout(
         barmode="group",
         height=350,
@@ -531,7 +605,13 @@ if league_stats:
         plot_bgcolor="rgba(0,0,0,0)",
         font={"color": "#8b8fa3"},
         yaxis={"title": "Proportion", "tickformat": ".0%", "gridcolor": "#2a2d3a"},
-        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "center", "x": 0.5},
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "center",
+            "x": 0.5,
+        },
     )
     st.plotly_chart(fig_results, use_container_width=True)
 
@@ -542,16 +622,24 @@ if league_stats:
         league_name = ls["League"]
         btts = float(ls["BTTS"].strip("%")) / 100
         ou25 = float(ls["O2.5"].strip("%")) / 100
-        fig_binary.add_trace(go.Bar(
-            name=league_name,
-            x=["BTTS", "Over 2.5"],
-            y=[btts, ou25],
-            marker={"color": LEAGUE_COLORS.get(
-                LEAGUE_ORDER[[l["League"] for l in league_stats].index(league_name)],
-                "#888"
-            ) if league_name in [l["League"] for l in league_stats] else "#888"},
-            opacity=0.8,
-        ))
+        fig_binary.add_trace(
+            go.Bar(
+                name=league_name,
+                x=["BTTS", "Over 2.5"],
+                y=[btts, ou25],
+                marker={
+                    "color": LEAGUE_COLORS.get(
+                        LEAGUE_ORDER[
+                            [l["League"] for l in league_stats].index(league_name)
+                        ],
+                        "#888",
+                    )
+                    if league_name in [l["League"] for l in league_stats]
+                    else "#888"
+                },
+                opacity=0.8,
+            )
+        )
     fig_binary.update_layout(
         barmode="group",
         height=300,
@@ -560,7 +648,13 @@ if league_stats:
         plot_bgcolor="rgba(0,0,0,0)",
         font={"color": "#8b8fa3"},
         yaxis={"title": "Rate", "tickformat": ".0%", "gridcolor": "#2a2d3a"},
-        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "center", "x": 0.5},
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "center",
+            "x": 0.5,
+        },
     )
     st.plotly_chart(fig_binary, use_container_width=True)
 
@@ -578,7 +672,7 @@ if not league_completed.empty:
 
     st.markdown(
         f'<div class="league-card">'
-        f'<h3>Last {len(recent)} Matches — {TOP5_LEAGUES[selected_league]["name"]}</h3>',
+        f"<h3>Last {len(recent)} Matches — {TOP5_LEAGUES[selected_league]['name']}</h3>",
         unsafe_allow_html=True,
     )
 
@@ -602,11 +696,11 @@ if not league_completed.empty:
             f'<span style="color:#555;font-size:0.75rem;width:5rem">{date_str}</span>'
             f'<span class="teams">{home} vs {away}</span>'
             f'<span style="color:{result_color};font-weight:700;width:3rem;text-align:center">{score_str}</span>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 else:
     st.info(f"No completed matches for {TOP5_LEAGUES[selected_league]['name']}.")
 
@@ -619,9 +713,19 @@ st.markdown("---")
 with st.expander("📄 Full Match Data", expanded=False):
     league_data = df_season[df_season["league"] == selected_league]
     if not league_data.empty:
-        display_cols = [c for c in ["date", "home_team", "away_team", "result",
-                                     "home_goals", "away_goals", "season"]
-                        if c in league_data.columns]
+        display_cols = [
+            c
+            for c in [
+                "date",
+                "home_team",
+                "away_team",
+                "result",
+                "home_goals",
+                "away_goals",
+                "season",
+            ]
+            if c in league_data.columns
+        ]
         st.dataframe(
             league_data[display_cols].sort_values("date", ascending=False),
             use_container_width=True,
@@ -669,4 +773,6 @@ for league in LEAGUE_ORDER:
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Navigation")
-st.sidebar.page_link("dashboard.py", label="← Back to Dashboard", use_container_width=True)
+st.sidebar.page_link(
+    "dashboard.py", label="← Back to Dashboard", use_container_width=True
+)

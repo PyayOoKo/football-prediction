@@ -214,13 +214,22 @@ class MonitoringStore:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                metric.pipeline, metric.duration_seconds,
-                metric.rows_imported, metric.rows_skipped,
-                metric.download_speed_mbps, metric.processing_speed_rows_s,
-                metric.retry_count, metric.duplicate_pct,
-                metric.missing_values_pct, metric.validation_failures,
-                metric.source, metric.league, metric.season,
-                int(metric.success), metric.error_message, ts,
+                metric.pipeline,
+                metric.duration_seconds,
+                metric.rows_imported,
+                metric.rows_skipped,
+                metric.download_speed_mbps,
+                metric.processing_speed_rows_s,
+                metric.retry_count,
+                metric.duplicate_pct,
+                metric.missing_values_pct,
+                metric.validation_failures,
+                metric.source,
+                metric.league,
+                metric.season,
+                int(metric.success),
+                metric.error_message,
+                ts,
             ),
         )
         return conn.execute("SELECT last_insert_rowid()").fetchone()[0]  # type: ignore[return-value, unused-ignore, no-any-return]
@@ -238,10 +247,15 @@ class MonitoringStore:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                metric.cpu_percent, metric.memory_percent,
-                metric.memory_used_mb, metric.disk_usage_pct,
-                metric.db_size_mb, metric.cache_hit_rate,
-                metric.cache_entries, metric.cache_size_mb, ts,
+                metric.cpu_percent,
+                metric.memory_percent,
+                metric.memory_used_mb,
+                metric.disk_usage_pct,
+                metric.db_size_mb,
+                metric.cache_hit_rate,
+                metric.cache_entries,
+                metric.cache_size_mb,
+                ts,
             ),
         )
         return conn.execute("SELECT last_insert_rowid()").fetchone()[0]  # type: ignore[return-value, unused-ignore, no-any-return]
@@ -259,10 +273,15 @@ class MonitoringStore:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                metric.source, metric.n_rows, metric.n_columns,
-                metric.duplicate_pct, metric.null_pct,
-                metric.columns_with_nulls, int(metric.validation_passed),
-                metric.validation_errors, ts,
+                metric.source,
+                metric.n_rows,
+                metric.n_columns,
+                metric.duplicate_pct,
+                metric.null_pct,
+                metric.columns_with_nulls,
+                int(metric.validation_passed),
+                metric.validation_errors,
+                ts,
             ),
         )
         return conn.execute("SELECT last_insert_rowid()").fetchone()[0]  # type: ignore[return-value, unused-ignore, no-any-return]
@@ -277,11 +296,16 @@ class MonitoringStore:
                 (hits, misses, hit_rate, entries, size_bytes, recorded_at)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (metric.hits, metric.misses, metric.hit_rate,
-             metric.entries, metric.size_bytes, ts),
+            (
+                metric.hits,
+                metric.misses,
+                metric.hit_rate,
+                metric.entries,
+                metric.size_bytes,
+                ts,
+            ),
         )
         return conn.execute("SELECT last_insert_rowid()").fetchone()[0]  # type: ignore[return-value, unused-ignore, no-any-return]
-
 
     # ── Read methods ───────────────────────────────────
     def get_etl_history(
@@ -417,41 +441,49 @@ class MonitoringStore:
         # ETL trends
         etl_data = self.get_etl_history(days=days)
         if etl_data:
-            trends.extend([
-                self._compute_trend(etl_data, "duration_seconds"),
-                self._compute_trend(etl_data, "rows_imported"),
-                self._compute_trend(etl_data, "download_speed_mbps"),
-                self._compute_trend(etl_data, "processing_speed_rows_s"),
-                self._compute_trend(etl_data, "retry_count"),
-                self._compute_trend(etl_data, "duplicate_pct"),
-                self._compute_trend(etl_data, "missing_values_pct"),
-            ])
+            trends.extend(
+                [
+                    self._compute_trend(etl_data, "duration_seconds"),
+                    self._compute_trend(etl_data, "rows_imported"),
+                    self._compute_trend(etl_data, "download_speed_mbps"),
+                    self._compute_trend(etl_data, "processing_speed_rows_s"),
+                    self._compute_trend(etl_data, "retry_count"),
+                    self._compute_trend(etl_data, "duplicate_pct"),
+                    self._compute_trend(etl_data, "missing_values_pct"),
+                ]
+            )
 
         # System trends
         sys_data = self.get_system_history(days=days)
         if sys_data:
-            trends.extend([
-                self._compute_trend(sys_data, "cpu_percent"),
-                self._compute_trend(sys_data, "memory_percent"),
-                self._compute_trend(sys_data, "db_size_mb"),
-            ])
+            trends.extend(
+                [
+                    self._compute_trend(sys_data, "cpu_percent"),
+                    self._compute_trend(sys_data, "memory_percent"),
+                    self._compute_trend(sys_data, "db_size_mb"),
+                ]
+            )
 
         # Data quality trends
         dq_data = self.get_data_quality_history(days=days)
         if dq_data:
-            trends.extend([
-                self._compute_trend(dq_data, "n_rows"),
-                self._compute_trend(dq_data, "null_pct"),
-                self._compute_trend(dq_data, "duplicate_pct"),
-            ])
+            trends.extend(
+                [
+                    self._compute_trend(dq_data, "n_rows"),
+                    self._compute_trend(dq_data, "null_pct"),
+                    self._compute_trend(dq_data, "duplicate_pct"),
+                ]
+            )
 
         # Cache trends
         cache_data = self.get_cache_history(days=days)
         if cache_data:
-            trends.extend([
-                self._compute_trend(cache_data, "hit_rate"),
-                self._compute_trend(cache_data, "entries"),
-            ])
+            trends.extend(
+                [
+                    self._compute_trend(cache_data, "hit_rate"),
+                    self._compute_trend(cache_data, "entries"),
+                ]
+            )
 
         return trends
 
@@ -510,8 +542,10 @@ class MonitoringStore:
 
         deleted: dict[str, int] = {}
         for table in [
-            "etl_metrics", "system_metrics",
-            "data_quality_metrics", "cache_metrics",
+            "etl_metrics",
+            "system_metrics",
+            "data_quality_metrics",
+            "cache_metrics",
         ]:
             cursor = conn.execute(
                 f"DELETE FROM {table} WHERE recorded_at <= ?",
@@ -538,8 +572,10 @@ class MonitoringStore:
         }
 
         for table in [
-            "etl_metrics", "system_metrics",
-            "data_quality_metrics", "cache_metrics",
+            "etl_metrics",
+            "system_metrics",
+            "data_quality_metrics",
+            "cache_metrics",
         ]:
             row = conn.execute(
                 f"""

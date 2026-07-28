@@ -211,7 +211,8 @@ class LivePrediction:
         outcomes = []
         for outcome, ev in zip(
             OUTCOME_NAMES,
-            [self.away_ev, self.draw_ev, self.home_ev], strict=False,
+            [self.away_ev, self.draw_ev, self.home_ev],
+            strict=False,
         ):
             if ev > 0:
                 outcomes.append(outcome)
@@ -323,6 +324,7 @@ class LivePredictionEngine:
     def _try_load(self, path: Path) -> Any:
         """Try to load a model file (joblib or pickle)."""
         import joblib
+
         try:
             return joblib.load(path)
         except Exception as exc:
@@ -355,6 +357,7 @@ class LivePredictionEngine:
         """Lazy-init the odds API client."""
         if self._odds_client is None:
             from src.odds_api import OddsAPIClient
+
             self._odds_client = OddsAPIClient()
         return self._odds_client
 
@@ -400,7 +403,9 @@ class LivePredictionEngine:
     # ── Model prediction ──────────────────────────────────
 
     def predict_match(
-        self, home_team: str, away_team: str,
+        self,
+        home_team: str,
+        away_team: str,
     ) -> tuple[float, float, float]:
         """Get model probabilities for a match.
 
@@ -411,13 +416,20 @@ class LivePredictionEngine:
             return (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0)
 
         try:
-            if self._model_type in ("phase3",) and hasattr(self._model, "predict_matches"):
+            if self._model_type in ("phase3",) and hasattr(
+                self._model, "predict_matches"
+            ):
                 # Create a minimal DataFrame for predict_matches
                 import pandas as pd
-                df = pd.DataFrame([{
-                    "home_team": home_team,
-                    "away_team": away_team,
-                }])
+
+                df = pd.DataFrame(
+                    [
+                        {
+                            "home_team": home_team,
+                            "away_team": away_team,
+                        }
+                    ]
+                )
                 preds = self._model.predict_matches(df)
                 if not preds.empty:
                     away = float(preds.iloc[0].get("away_win_prob", 1.0 / 3.0))
@@ -437,31 +449,38 @@ class LivePredictionEngine:
                     ).shape[0]
                     # Try a small feature set first
                     import numpy as np
+
                     dummy = pd.DataFrame(np.zeros((1, n_features)))
                     probs = self._model.predict_proba(dummy)[0]
                     if len(probs) == 3:
                         logger.debug(
                             "Used model priors for %s vs %s",
-                            home_team, away_team,
+                            home_team,
+                            away_team,
                         )
                         return (float(probs[0]), float(probs[1]), float(probs[2]))
                 except Exception as exc:
                     logger.debug(
                         "Model predict_proba failed for %s vs %s: %s — using fallback",
-                        home_team, away_team, exc,
+                        home_team,
+                        away_team,
+                        exc,
                     )
 
         except Exception as exc:
             logger.debug(
                 "Model prediction failed for %s vs %s: %s",
-                home_team, away_team, exc,
+                home_team,
+                away_team,
+                exc,
             )
 
         return self._fallback_prediction(home_team, away_team)
 
     @staticmethod
     def _fallback_prediction(
-        home_team: str, away_team: str,
+        home_team: str,
+        away_team: str,
     ) -> tuple[float, float, float]:
         """Intelligent fallback using team name heuristics.
 
@@ -471,14 +490,54 @@ class LivePredictionEngine:
         for home advantage.
         """
         # Simple strength tiers (based on FIFA ranking / historical performance)
-        elite = {"Brazil", "Argentina", "France", "England", "Germany",
-                 "Spain", "Netherlands", "Italy", "Portugal", "Belgium"}
-        strong = {"Croatia", "Uruguay", "Colombia", "Denmark", "Switzerland",
-                  "Japan", "South Korea", "USA", "Mexico", "Morocco", "Senegal"}
-        mid = {"Poland", "Serbia", "Sweden", "Norway", "Wales", "Scotland",
-               "Austria", "Turkey", "Iran", "Saudi Arabia", "Australia",
-               "Ecuador", "Chile", "Peru", "Nigeria", "Ghana", "Cameroon",
-               "Algeria", "Egypt", "Tunisia", "Ivory Coast"}
+        elite = {
+            "Brazil",
+            "Argentina",
+            "France",
+            "England",
+            "Germany",
+            "Spain",
+            "Netherlands",
+            "Italy",
+            "Portugal",
+            "Belgium",
+        }
+        strong = {
+            "Croatia",
+            "Uruguay",
+            "Colombia",
+            "Denmark",
+            "Switzerland",
+            "Japan",
+            "South Korea",
+            "USA",
+            "Mexico",
+            "Morocco",
+            "Senegal",
+        }
+        mid = {
+            "Poland",
+            "Serbia",
+            "Sweden",
+            "Norway",
+            "Wales",
+            "Scotland",
+            "Austria",
+            "Turkey",
+            "Iran",
+            "Saudi Arabia",
+            "Australia",
+            "Ecuador",
+            "Chile",
+            "Peru",
+            "Nigeria",
+            "Ghana",
+            "Cameroon",
+            "Algeria",
+            "Egypt",
+            "Tunisia",
+            "Ivory Coast",
+        }
 
         def _tier_weight(team: str) -> float:
             if team in elite:
@@ -584,12 +643,15 @@ class LivePredictionEngine:
         for snapshot in snapshots:
             try:
                 away_prob, draw_prob, home_prob = self.predict_match(
-                    snapshot.home_team, snapshot.away_team,
+                    snapshot.home_team,
+                    snapshot.away_team,
                 )
 
                 # CLV from odds movement
                 h_clv, d_clv, a_clv = self._track_clv_for_match(
-                    snapshot.home_team, snapshot.away_team, snapshot,
+                    snapshot.home_team,
+                    snapshot.away_team,
+                    snapshot,
                 )
 
                 # EV
@@ -606,9 +668,7 @@ class LivePredictionEngine:
                 probs = [away_prob, draw_prob, home_prob]
                 confidence = (max(probs) - min(probs)) * 100  # 0-100 scale
 
-                prev = self._prev_odds.get(
-                    (snapshot.home_team, snapshot.away_team)
-                )
+                prev = self._prev_odds.get((snapshot.home_team, snapshot.away_team))
 
                 pred = LivePrediction(
                     home_team=snapshot.home_team,
@@ -642,23 +702,27 @@ class LivePredictionEngine:
             except Exception as exc:
                 logger.warning(
                     "Failed to generate prediction for %s vs %s: %s",
-                    snapshot.home_team, snapshot.away_team, exc,
+                    snapshot.home_team,
+                    snapshot.away_team,
+                    exc,
                 )
 
         # 3. Update CLV history
         for pred in predictions:
-            self._clv_tracker.append({
-                "timestamp": pred.timestamp,
-                "home_team": pred.home_team,
-                "away_team": pred.away_team,
-                "home_ev": round(pred.home_ev, 4),
-                "draw_ev": round(pred.draw_ev, 4),
-                "away_ev": round(pred.away_ev, 4),
-                "home_clv": round(pred.home_clv, 4),
-                "draw_clv": round(pred.draw_clv, 4),
-                "away_clv": round(pred.away_clv, 4),
-                "n_value_bets": pred.n_value_bets,
-            })
+            self._clv_tracker.append(
+                {
+                    "timestamp": pred.timestamp,
+                    "home_team": pred.home_team,
+                    "away_team": pred.away_team,
+                    "home_ev": round(pred.home_ev, 4),
+                    "draw_ev": round(pred.draw_ev, 4),
+                    "away_ev": round(pred.away_ev, 4),
+                    "home_clv": round(pred.home_clv, 4),
+                    "draw_clv": round(pred.draw_clv, 4),
+                    "away_clv": round(pred.away_clv, 4),
+                    "n_value_bets": pred.n_value_bets,
+                }
+            )
         # Keep last 1000 CLV entries
         if len(self._clv_tracker) > 1000:
             self._clv_tracker = self._clv_tracker[-1000:]
@@ -702,7 +766,9 @@ class LivePredictionEngine:
         logger.info(
             "Live Prediction Engine started — polling every %ds "
             "(max_cycles=%s, sport=%s)",
-            interval, max_cycles or "∞", self.sport_key,
+            interval,
+            max_cycles or "∞",
+            self.sport_key,
         )
 
         cycle = 0
@@ -806,7 +872,9 @@ class LivePredictionEngine:
                 json.dump(self._bet_records, f, indent=2)
 
     @staticmethod
-    def _cleanup_old_files(directory: Path, max_files: int, suffix: str = ".json") -> None:
+    def _cleanup_old_files(
+        directory: Path, max_files: int, suffix: str = ".json"
+    ) -> None:
         """Delete oldest files in a directory beyond max_files.
 
         Only removes files matching the given suffix (default: .json) to
@@ -829,6 +897,7 @@ class LivePredictionEngine:
         """Initialize monitoring store connection."""
         try:
             from src.monitoring.store import MonitoringStore
+
             self._monitor = MonitoringStore(
                 db_path="data/monitoring/monitor.db",
             )
@@ -875,38 +944,54 @@ class LivePredictionEngine:
     def _print_cycle_summary(self, predictions: list[LivePrediction]) -> None:
         """Print a console summary of the prediction cycle."""
         if not predictions:
-            logger.info("  [%s] No matches with odds available", datetime.now().strftime('%H:%M:%S'))
+            logger.info(
+                "  [%s] No matches with odds available",
+                datetime.now().strftime("%H:%M:%S"),
+            )
             return
 
         n_value = sum(1 for p in predictions if p.n_value_bets > 0)
         total_evs = [p.best_value_ev for p in predictions]
         avg_ev = float(np.mean(total_evs)) if total_evs else 0.0
 
-        logger.info("  %s", '=' * 70)
+        logger.info("  %s", "=" * 70)
         logger.info("  LIVE PREDICTIONS — Cycle %d", self._cycle_count)
-        logger.info("  %s  |  %d matches  |  %d with value  |  Avg best EV: %+.1f%%",
-              datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-              len(predictions), n_value, avg_ev * 100)
-        logger.info("  %s", '=' * 70)
+        logger.info(
+            "  %s  |  %d matches  |  %d with value  |  Avg best EV: %+.1f%%",
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            len(predictions),
+            n_value,
+            avg_ev * 100,
+        )
+        logger.info("  %s", "=" * 70)
 
         # Sort by best EV descending
         sorted_preds = sorted(predictions, key=lambda p: p.best_value_ev, reverse=True)
 
         for pred in sorted_preds[:10]:  # Top 10
             ev_str = f"{pred.best_value_ev:+.1%}"
-            clv_str = "+" if any(
-                c > 0 for c in [pred.home_clv, pred.draw_clv, pred.away_clv]
-            ) else " "
+            clv_str = (
+                "+"
+                if any(c > 0 for c in [pred.home_clv, pred.draw_clv, pred.away_clv])
+                else " "
+            )
             value_marker = "VALUE" if pred.n_value_bets > 0 else "    "
 
-            logger.info("  %s %-18s vs %-18s  Pred: %-9s  Best EV: %-8s  CLV: %s  Conf: %.0f",
-                  value_marker, pred.home_team, pred.away_team,
-                  pred.predicted_outcome, ev_str, clv_str, pred.confidence_score)
+            logger.info(
+                "  %s %-18s vs %-18s  Pred: %-9s  Best EV: %-8s  CLV: %s  Conf: %.0f",
+                value_marker,
+                pred.home_team,
+                pred.away_team,
+                pred.predicted_outcome,
+                ev_str,
+                clv_str,
+                pred.confidence_score,
+            )
 
         if len(sorted_preds) > 10:
             logger.info("  ... and %d more matches", len(sorted_preds) - 10)
 
-        logger.info("  %s", '=' * 70)
+        logger.info("  %s", "=" * 70)
 
     def get_value_bets_dataframe(self) -> pd.DataFrame:
         """Get current value bets as a DataFrame from the last prediction cycle.
@@ -933,21 +1018,28 @@ class LivePredictionEngine:
                 ("Draw", pred.draw_prob, pred.draw_odds, pred.draw_ev),
                 ("Away", pred.away_prob, pred.away_odds, pred.away_ev),
             ]:
-                rows.append({
-                    "home_team": pred.home_team,
-                    "away_team": pred.away_team,
-                    "match_date": pred.match_date,
-                    "outcome": outcome,
-                    "model_prob": round(prob, 4),
-                    "decimal_odds": odds,
-                    "ev": round(ev, 4),
-                    "positive_ev": ev > 0,
-                    "kelly_pct": round(pred.home_kelly if outcome == "Home"
-                                        else pred.draw_kelly if outcome == "Draw"
-                                        else pred.away_kelly, 4),
-                    "confidence": round(pred.confidence_score, 2),
-                    "timestamp": pred.timestamp,
-                })
+                rows.append(
+                    {
+                        "home_team": pred.home_team,
+                        "away_team": pred.away_team,
+                        "match_date": pred.match_date,
+                        "outcome": outcome,
+                        "model_prob": round(prob, 4),
+                        "decimal_odds": odds,
+                        "ev": round(ev, 4),
+                        "positive_ev": ev > 0,
+                        "kelly_pct": round(
+                            pred.home_kelly
+                            if outcome == "Home"
+                            else pred.draw_kelly
+                            if outcome == "Draw"
+                            else pred.away_kelly,
+                            4,
+                        ),
+                        "confidence": round(pred.confidence_score, 2),
+                        "timestamp": pred.timestamp,
+                    }
+                )
 
         df = pd.DataFrame(rows)
         if not df.empty:
@@ -1073,19 +1165,40 @@ if __name__ == "__main__":
     )
 
     parser = argparse.ArgumentParser(description="Live Prediction System")
-    parser.add_argument("--mode", type=str, default="oneshot",
-                        choices=["oneshot", "continuous", "value-bets"],
-                        help="Execution mode (default: oneshot)")
-    parser.add_argument("--sport", type=str, default=DEFAULT_SPORT_KEY,
-                        help="Sport key for The Odds API")
-    parser.add_argument("--interval", type=int, default=DEFAULT_POLL_INTERVAL,
-                        help="Poll interval in seconds (default: 300)")
-    parser.add_argument("--cycles", type=int, default=None,
-                        help="Max cycles for continuous mode (default: unlimited)")
-    parser.add_argument("--min-ev", type=float, default=0.0,
-                        help="Minimum EV threshold for value-bets mode")
-    parser.add_argument("--bookmaker", type=str, default=None,
-                        help="Specific bookmaker to use")
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="oneshot",
+        choices=["oneshot", "continuous", "value-bets"],
+        help="Execution mode (default: oneshot)",
+    )
+    parser.add_argument(
+        "--sport",
+        type=str,
+        default=DEFAULT_SPORT_KEY,
+        help="Sport key for The Odds API",
+    )
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=DEFAULT_POLL_INTERVAL,
+        help="Poll interval in seconds (default: 300)",
+    )
+    parser.add_argument(
+        "--cycles",
+        type=int,
+        default=None,
+        help="Max cycles for continuous mode (default: unlimited)",
+    )
+    parser.add_argument(
+        "--min-ev",
+        type=float,
+        default=0.0,
+        help="Minimum EV threshold for value-bets mode",
+    )
+    parser.add_argument(
+        "--bookmaker", type=str, default=None, help="Specific bookmaker to use"
+    )
 
     args = parser.parse_args()
 
@@ -1094,9 +1207,11 @@ if __name__ == "__main__":
         if bets:
             print(f"\n  Found {len(bets)} value bets:\n")
             for b in bets:
-                print(f"    {b['home_team']:20} vs {b['away_team']:20}  "
-                      f"→ {b['outcome']:5} at {b['decimal_odds']:.2f}  "
-                      f"(EV: {b['ev']:+.1%})")
+                print(
+                    f"    {b['home_team']:20} vs {b['away_team']:20}  "
+                    f"→ {b['outcome']:5} at {b['decimal_odds']:.2f}  "
+                    f"(EV: {b['ev']:+.1%})"
+                )
         else:
             print("\n  No value bets found.\n")
         sys.exit(0)

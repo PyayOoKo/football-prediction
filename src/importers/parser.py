@@ -92,30 +92,54 @@ _REQUIRED_COLS = [
 # ── Type coercion map ─────────────────────────────────────
 
 _INT_COLS = {
-    "home_goals", "away_goals",
-    "home_goals_ht", "away_goals_ht",
-    "home_shots", "away_shots",
-    "home_shots_target", "away_shots_target",
-    "home_shots_woodwork", "away_shots_woodwork",
-    "home_corners", "away_corners",
-    "home_fouls", "away_fouls",
-    "home_yellow", "away_yellow",
-    "home_red", "away_red",
-    "home_offsides", "away_offsides",
-    "home_booking_points", "away_booking_points",
+    "home_goals",
+    "away_goals",
+    "home_goals_ht",
+    "away_goals_ht",
+    "home_shots",
+    "away_shots",
+    "home_shots_target",
+    "away_shots_target",
+    "home_shots_woodwork",
+    "away_shots_woodwork",
+    "home_corners",
+    "away_corners",
+    "home_fouls",
+    "away_fouls",
+    "home_yellow",
+    "away_yellow",
+    "home_red",
+    "away_red",
+    "home_offsides",
+    "away_offsides",
+    "home_booking_points",
+    "away_booking_points",
     "attendance",
 }
 
 _FLOAT_COLS = {
-    "home_xg", "away_xg",
-    "home_xga", "away_xga",
+    "home_xg",
+    "away_xg",
+    "home_xga",
+    "away_xga",
 }
 
 # ── Odds column prefixes (detected dynamically) ───────────
 
 _ODDS_PREFIXES = [
-    "B365", "BS", "BW", "GB", "IW", "PS", "SB", "SJ", "SY",
-    "VC", "WH", "BbAv", "BbMx",
+    "B365",
+    "BS",
+    "BW",
+    "GB",
+    "IW",
+    "PS",
+    "SB",
+    "SJ",
+    "SY",
+    "VC",
+    "WH",
+    "BbAv",
+    "BbMx",
 ]
 
 _ODDS_SUFFIXES = ["H", "D", "A"]
@@ -301,7 +325,9 @@ class CSVParser:
                         std[col] = float(val)
                     except (ValueError, TypeError):
                         std[col] = None
-                        parsed.warnings.append(f"Could not coerce {col}={val!r} to float")
+                        parsed.warnings.append(
+                            f"Could not coerce {col}={val!r} to float"
+                        )
                 else:
                     std[col] = val
 
@@ -311,9 +337,7 @@ class CSVParser:
                 if parsed_date:
                     std["match_date"] = parsed_date
                 else:
-                    parsed.errors.append(
-                        f"Invalid date: {std['match_date']!r}"
-                    )
+                    parsed.errors.append(f"Invalid date: {std['match_date']!r}")
                     std["match_date"] = None
 
             # Validate team names

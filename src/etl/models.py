@@ -105,7 +105,9 @@ class ETLResult:
             "total_errors": self.total_errors,
             "total_duration_seconds": round(self.total_duration_seconds, 3),
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": self.completed_at.isoformat()
+            if self.completed_at
+            else None,
             "checkpoint_id": self.checkpoint_id,
             "stages": {
                 k.value: {

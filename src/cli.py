@@ -34,11 +34,14 @@ def main(argv: list[str] | None = None) -> int:
         epilog=__doc__,
     )
     parser.add_argument(
-        "--version", action="store_true",
+        "--version",
+        action="store_true",
         help="Show version and exit",
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true",
+        "--verbose",
+        "-v",
+        action="store_true",
         help="Enable verbose logging",
     )
 
@@ -47,38 +50,56 @@ def main(argv: list[str] | None = None) -> int:
     # ── train ────────────────────────────────────────────
     train_parser = subparsers.add_parser("train", help="Train a prediction model")
     train_parser.add_argument(
-        "--model-type", default=None,
-        choices=["xgboost", "lightgbm", "logistic_regression", "random_forest", "neural_network"],
+        "--model-type",
+        default=None,
+        choices=[
+            "xgboost",
+            "lightgbm",
+            "logistic_regression",
+            "random_forest",
+            "neural_network",
+        ],
         help="Model type to train (default: config setting)",
     )
     train_parser.add_argument(
-        "--tune", action="store_true",
+        "--tune",
+        action="store_true",
         help="Run hyper-parameter tuning before training",
     )
     train_parser.add_argument(
-        "--save", action="store_true", default=True,
+        "--save",
+        action="store_true",
+        default=True,
         help="Save the trained model (default: True)",
     )
 
     # ── predict ──────────────────────────────────────────
     pred_parser = subparsers.add_parser("predict", help="Generate match predictions")
     pred_parser.add_argument(
-        "--fixtures", type=str, default=None,
+        "--fixtures",
+        type=str,
+        default=None,
         help="Path to fixtures CSV (default: config setting)",
     )
     pred_parser.add_argument(
-        "--output", type=str, default=None,
+        "--output",
+        type=str,
+        default=None,
         help="Output path for predictions CSV",
     )
     pred_parser.add_argument(
-        "--model", type=str, default=None,
+        "--model",
+        type=str,
+        default=None,
         help="Model file to use (default: latest from config)",
     )
 
     # ── collect ──────────────────────────────────────────
     collect_parser = subparsers.add_parser("collect", help="Download match data")
     collect_parser.add_argument(
-        "--source", type=str, default="all",
+        "--source",
+        type=str,
+        default="all",
         choices=["all", "worldcup", "leagues", "odds", "players"],
         help="Data source to collect",
     )
@@ -86,11 +107,15 @@ def main(argv: list[str] | None = None) -> int:
     # ── backtest ─────────────────────────────────────────
     bt_parser = subparsers.add_parser("backtest", help="Run betting backtest")
     bt_parser.add_argument(
-        "--model", type=str, default=None,
+        "--model",
+        type=str,
+        default=None,
         help="Model to backtest",
     )
     bt_parser.add_argument(
-        "--output", type=str, default="reports/backtest",
+        "--output",
+        type=str,
+        default="reports/backtest",
         help="Output directory for results",
     )
 
@@ -101,11 +126,15 @@ def main(argv: list[str] | None = None) -> int:
     # ── api ──────────────────────────────────────────────
     api_parser = subparsers.add_parser("api", help="Start the REST API server")
     api_parser.add_argument(
-        "--port", type=int, default=8000,
+        "--port",
+        type=int,
+        default=8000,
         help="Port to bind (default: 8000)",
     )
     api_parser.add_argument(
-        "--host", type=str, default="0.0.0.0",
+        "--host",
+        type=str,
+        default="0.0.0.0",
         help="Host to bind (default: 0.0.0.0)",
     )
 
@@ -115,58 +144,78 @@ def main(argv: list[str] | None = None) -> int:
     # ── evaluate ────────────────────────────────────────
     eval_parser = subparsers.add_parser("evaluate", help="Evaluate model performance")
     eval_parser.add_argument(
-        "--model", type=str, default=None,
+        "--model",
+        type=str,
+        default=None,
         help="Path or name of the model to evaluate (default: latest)",
     )
     eval_parser.add_argument(
-        "--test-data", type=str, default=None,
+        "--test-data",
+        type=str,
+        default=None,
         help="Path to test data CSV (default: config setting)",
     )
     eval_parser.add_argument(
-        "--output", type=str, default=None,
+        "--output",
+        type=str,
+        default=None,
         help="Output path for evaluation report",
     )
     eval_parser.add_argument(
-        "--plot", action="store_true", default=True,
+        "--plot",
+        action="store_true",
+        default=True,
         help="Generate performance plots (default: True)",
     )
 
     # ── pipeline ─────────────────────────────────────────
     # ── run-all ──────────────────────────────────────────
-    run_all_parser = subparsers.add_parser("run-all", help="Run the complete pipeline: collect → train → predict → value bets → dashboard")
+    run_all_parser = subparsers.add_parser(
+        "run-all",
+        help="Run the complete pipeline: collect → train → predict → value bets → dashboard",
+    )
     run_all_parser.add_argument(
-        "--skip-collect", action="store_true",
+        "--skip-collect",
+        action="store_true",
         help="Skip data collection",
     )
     run_all_parser.add_argument(
-        "--skip-value-bets", action="store_true",
+        "--skip-value-bets",
+        action="store_true",
         help="Skip value bets",
     )
     run_all_parser.add_argument(
-        "--skip-dashboard", action="store_true",
+        "--skip-dashboard",
+        action="store_true",
         help="Don't open dashboard",
     )
     run_all_parser.add_argument(
-        "--predict-only", action="store_true",
+        "--predict-only",
+        action="store_true",
         help="Quick: predict only",
     )
     run_all_parser.add_argument(
-        "--model", default="lgb", choices=["lgb", "xgb", "lr", "rf"],
+        "--model",
+        default="lgb",
+        choices=["lgb", "xgb", "lr", "rf"],
         help="Model type (default: lgb — LightGBM)",
     )
 
     # ── pipeline ────────────────────────────────────────────
     pipe_parser = subparsers.add_parser("pipeline", help="Run the full pipeline")
     pipe_parser.add_argument(
-        "--skip-download", action="store_true",
+        "--skip-download",
+        action="store_true",
         help="Skip data download",
     )
     pipe_parser.add_argument(
-        "--skip-train", action="store_true",
+        "--skip-train",
+        action="store_true",
         help="Skip model retraining",
     )
     pipe_parser.add_argument(
-        "--lightweight", action="store_true",
+        "--lightweight",
+        action="store_true",
         help="Skip download + train (predict only)",
     )
 
@@ -174,6 +223,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.version:
         from src import __version__
+
         print(f"football-predict v{__version__}")
         return 0
 
@@ -241,11 +291,11 @@ def _handle_train(args: argparse.Namespace) -> int:
 
         print("\n  Training completed successfully!")
         print(f"  Model saved to: {report.get('model_path', 'N/A')}")
-        if 'metrics' in report:
-            metrics = report['metrics']
-            if 'accuracy' in metrics:
+        if "metrics" in report:
+            metrics = report["metrics"]
+            if "accuracy" in metrics:
                 print(f"  Accuracy: {metrics['accuracy']:.4f}")
-            if 'log_loss' in metrics:
+            if "log_loss" in metrics:
                 print(f"  Log loss: {metrics['log_loss']:.4f}")
 
         return 0
@@ -258,7 +308,9 @@ def _handle_train(args: argparse.Namespace) -> int:
     except ImportError as exc:
         logger.error("Training failed: %s", exc)
         print(f"  Error: {exc}")
-        print("  Ensure required packages are installed: pip install xgboost lightgbm torch")
+        print(
+            "  Ensure required packages are installed: pip install xgboost lightgbm torch"
+        )
         return 1
     except Exception as exc:
         logger.error("Training failed: %s", exc)
@@ -286,11 +338,15 @@ def _handle_predict(args: argparse.Namespace) -> int:
             print("\n  Top predictions:")
             for pred in predictions[:5]:
                 print(f"    {pred['home_team']} vs {pred['away_team']}")
-                print(f"      Home: {pred['home_win_prob']:.1%}  "
-                      f"Draw: {pred['draw_prob']:.1%}  "
-                      f"Away: {pred['away_win_prob']:.1%}")
-                print(f"      Prediction: {pred['prediction']} "
-                      f"(confidence: {pred['confidence']:.1%})")
+                print(
+                    f"      Home: {pred['home_win_prob']:.1%}  "
+                    f"Draw: {pred['draw_prob']:.1%}  "
+                    f"Away: {pred['away_win_prob']:.1%}"
+                )
+                print(
+                    f"      Prediction: {pred['prediction']} "
+                    f"(confidence: {pred['confidence']:.1%})"
+                )
 
         if args.output:
             print(f"\n  Results saved to: {args.output}")
@@ -396,6 +452,7 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
         # If no explicit path, use the PredictionEngine's auto-detect
         if model is None:
             from src.prediction_engine import ModelLoader
+
             model, meta = ModelLoader.load()
             model_name = meta.get("name", "auto")
             if model is None:
@@ -416,6 +473,7 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
 
         if df is None:
             from src.data_loader import load_clean_data  # type: ignore[attr-defined]
+
             df = load_clean_data()
             if df is None or df.empty:
                 processed = Path("data/processed/results_clean.csv")
@@ -461,13 +519,20 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
 
                 metrics["accuracy"] = float(accuracy_score(y_test, preds))
                 metrics["log_loss"] = float(log_loss(y_test, probs))
-                metrics["brier_score"] = float(
-                    sum(brier_score_loss(y_test == c, probs[:, i])
-                        for i, c in enumerate(range(probs.shape[1])))
-                ) / probs.shape[1]
+                metrics["brier_score"] = (
+                    float(
+                        sum(
+                            brier_score_loss(y_test == c, probs[:, i])
+                            for i, c in enumerate(range(probs.shape[1]))
+                        )
+                    )
+                    / probs.shape[1]
+                )
 
                 # Classification report
-                report = classification_report(y_test, preds, output_dict=True, zero_division=0)
+                report = classification_report(
+                    y_test, preds, output_dict=True, zero_division=0
+                )
                 metrics["classification_report"] = report
 
                 # Confusion matrix
@@ -476,7 +541,8 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
 
                 logger.info(
                     "Evaluation complete: acc=%.3f, log_loss=%.4f",
-                    metrics["accuracy"], metrics["log_loss"],
+                    metrics["accuracy"],
+                    metrics["log_loss"],
                 )
 
             except Exception as exc:
@@ -485,7 +551,9 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
                 if hasattr(model, "predict_matches"):
                     result = model.predict_matches(df)
                     if result is not None:
-                        metrics["note"] = "Phase 3 model — no feature-based metrics available"
+                        metrics["note"] = (
+                            "Phase 3 model — no feature-based metrics available"
+                        )
                         metrics["predictions_generated"] = len(result)
 
         # Print results
@@ -505,10 +573,12 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
             print("\n  Per-class performance:")
             for cls, cls_metrics in cls_report.items():
                 if isinstance(cls_metrics, dict) and "precision" in cls_metrics:
-                    print(f"    Class {cls}: prec={cls_metrics['precision']:.3f} "
-                          f"rec={cls_metrics['recall']:.3f} "
-                          f"f1={cls_metrics['f1-score']:.3f} "
-                          f"support={int(cls_metrics['support'])}")
+                    print(
+                        f"    Class {cls}: prec={cls_metrics['precision']:.3f} "
+                        f"rec={cls_metrics['recall']:.3f} "
+                        f"f1={cls_metrics['f1-score']:.3f} "
+                        f"support={int(cls_metrics['support'])}"
+                    )
 
         if "confusion_matrix" in metrics:
             cm_data: list[list[int]] = metrics["confusion_matrix"]
@@ -532,8 +602,11 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
             report_data = {
                 "model": model_name,
                 "evaluated_at": datetime.now().isoformat(),
-                "metrics": {k: v for k, v in metrics.items()
-                           if k not in ("confusion_matrix", "classification_report")},
+                "metrics": {
+                    k: v
+                    for k, v in metrics.items()
+                    if k not in ("confusion_matrix", "classification_report")
+                },
             }
             with open(out, "w") as f:
                 json.dump(report_data, f, indent=2, default=str)
@@ -543,13 +616,19 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
         if args.plot and "confusion_matrix" in metrics:
             try:
                 import matplotlib
+
                 matplotlib.use("Agg")
                 import matplotlib.pyplot as plt
                 import seaborn as sns
 
                 fig, ax = plt.subplots(figsize=(8, 6))
-                sns.heatmap(metrics["confusion_matrix"], annot=True, fmt="d",
-                           cmap="Blues", ax=ax)
+                sns.heatmap(
+                    metrics["confusion_matrix"],
+                    annot=True,
+                    fmt="d",
+                    cmap="Blues",
+                    ax=ax,
+                )
                 ax.set_title(f"Confusion Matrix — {model_name}")
                 ax.set_xlabel("Predicted")
                 ax.set_ylabel("Actual")
@@ -557,8 +636,11 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
                 plot_path = Path("reports/figures")
                 plot_path.mkdir(parents=True, exist_ok=True)
                 ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                fig.savefig(plot_path / f"confusion_matrix_{model_name}_{ts}.png",
-                           bbox_inches="tight", dpi=150)
+                fig.savefig(
+                    plot_path / f"confusion_matrix_{model_name}_{ts}.png",
+                    bbox_inches="tight",
+                    dpi=150,
+                )
                 plt.close(fig)
                 logger.info("Confusion matrix plot saved")
             except Exception as exc:
@@ -569,6 +651,7 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
     except Exception as exc:
         logger.error("Evaluation failed: %s", exc)
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -579,11 +662,19 @@ def _handle_dashboard(args: argparse.Namespace) -> int:
     try:
         import subprocess
         import sys
-        subprocess.run([
-            sys.executable, "-m", "streamlit", "run",
-            "src/app/dashboard.py",
-            "--browser.serverAddress", "localhost",
-        ], check=True)
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "streamlit",
+                "run",
+                "src/app/dashboard.py",
+                "--browser.serverAddress",
+                "localhost",
+            ],
+            check=True,
+        )
         return 0
     except Exception as exc:
         logger.error("Dashboard failed to start: %s", exc)
@@ -596,11 +687,19 @@ def _handle_dashboard_monitor(args: argparse.Namespace) -> int:
     try:
         import subprocess
         import sys
-        subprocess.run([
-            sys.executable, "-m", "streamlit", "run",
-            "dashboard/app.py",
-            "--browser.serverAddress", "localhost",
-        ], check=True)
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "streamlit",
+                "run",
+                "dashboard/app.py",
+                "--browser.serverAddress",
+                "localhost",
+            ],
+            check=True,
+        )
         return 0
     except Exception as exc:
         logger.error("Monitoring dashboard failed to start: %s", exc)
@@ -612,6 +711,7 @@ def _handle_api(args: argparse.Namespace) -> int:
     logger.info("Starting API server on %s:%d...", args.host, args.port)
     try:
         import uvicorn
+
         uvicorn.run(
             "api.main:app",
             host=args.host,
@@ -632,12 +732,11 @@ def _handle_desktop(args: argparse.Namespace) -> int:
     logger.info("Launching desktop application...")
     try:
         from app.main import main as desktop_main
+
         desktop_main()
         return 0
     except ImportError:
-        logger.error(
-            "CustomTkinter not installed. Run: pip install customtkinter"
-        )
+        logger.error("CustomTkinter not installed. Run: pip install customtkinter")
         return 1
     except Exception as exc:
         logger.error("Desktop app failed: %s", exc)
@@ -678,7 +777,11 @@ def _handle_run_all(args: argparse.Namespace) -> int:
             print("\n  [Step 4/4] Finding value bets...")
             vb_service = ValueBettingService()
             vb_results = vb_service.find_value_bets(predictions)
-            n_positive = int(vb_results["positive_ev"].sum()) if "positive_ev" in vb_results.columns else 0
+            n_positive = (
+                int(vb_results["positive_ev"].sum())
+                if "positive_ev" in vb_results.columns
+                else 0
+            )
             print(f"    Found {n_positive} value bets")
 
         # Launch dashboard (if not skipped)
@@ -686,12 +789,20 @@ def _handle_run_all(args: argparse.Namespace) -> int:
             print("\n  Launching dashboard...")
             import subprocess
             import sys
-            subprocess.Popen([
-                sys.executable, "-m", "streamlit", "run",
-                "src/app/dashboard.py",
-                "--browser.serverAddress", "localhost",
-                "--server.headless", "true",
-            ])
+
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "streamlit",
+                    "run",
+                    "src/app/dashboard.py",
+                    "--browser.serverAddress",
+                    "localhost",
+                    "--server.headless",
+                    "true",
+                ]
+            )
 
         print("\n  ✓ Pipeline completed successfully!")
         return 0

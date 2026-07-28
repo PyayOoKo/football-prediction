@@ -90,6 +90,7 @@ class BetResult:
     match_label : str
         Human-readable match identifier.
     """
+
     stake: float
     profit: float
     odds: float
@@ -122,12 +123,12 @@ class MetricsResult:
     pushed_bets: int = 0
 
     # ── Financial metrics (user-specified formulas) ─────
-    total_profit: float = 0.0                      # Absolute P&L
-    total_profit_pct: float = 0.0                  # (final-initial)/initial * 100
-    roi: float = 0.0                               # total_profit / total_staked
-    yield_per_bet: float = 0.0                     # total_profit / number_of_bets
-    win_rate: float = 0.0                          # winning_bets / total_bets
-    profit_factor: float = 1.0                     # total_returns / total_staked
+    total_profit: float = 0.0  # Absolute P&L
+    total_profit_pct: float = 0.0  # (final-initial)/initial * 100
+    roi: float = 0.0  # total_profit / total_staked
+    yield_per_bet: float = 0.0  # total_profit / number_of_bets
+    win_rate: float = 0.0  # winning_bets / total_bets
+    profit_factor: float = 1.0  # total_returns / total_staked
 
     # ── Risk metrics ───────────────────────────────────
     max_drawdown_pct: float = 0.0
@@ -141,7 +142,7 @@ class MetricsResult:
 
     # ── Additional goodies ──────────────────────────────
     total_staked: float = 0.0
-    total_returns: float = 0.0                     # Used in profit_factor calc
+    total_returns: float = 0.0  # Used in profit_factor calc
     initial_bankroll: float = 1000.0
     final_bankroll: float = 1000.0
     avg_odds: float = 0.0
@@ -155,9 +156,11 @@ class MetricsResult:
     profit_per_market: dict[str, float] = field(default_factory=dict)
 
     # ── Standard alternatives (for reference) ──────────
-    roi_on_bankroll_pct: float = 0.0               # (final-initial)/initial * 100 (standard)
-    yield_on_staked_pct: float = 0.0               # total_profit / total_staked * 100 (standard yield)
-    profit_factor_standard: float = 1.0             # gross_profit / gross_loss
+    roi_on_bankroll_pct: float = 0.0  # (final-initial)/initial * 100 (standard)
+    yield_on_staked_pct: float = (
+        0.0  # total_profit / total_staked * 100 (standard yield)
+    )
+    profit_factor_standard: float = 1.0  # gross_profit / gross_loss
 
 
 # ═══════════════════════════════════════════════════════════
@@ -171,7 +174,8 @@ def compute_total_profit(bets: list[BetResult]) -> float:
 
 
 def compute_total_profit_pct(
-    total_profit: float, initial_bankroll: float,
+    total_profit: float,
+    initial_bankroll: float,
 ) -> float:
     """Profit as a percentage of initial bankroll."""
     if initial_bankroll <= 0:
@@ -353,8 +357,7 @@ def compute_sortino_ratio(
         return 999.0 if mean_return > 0 else 0.0
 
     downside_std = float(
-        np.std(neg_returns, ddof=1) if len(neg_returns) > 1
-        else np.std(neg_returns)
+        np.std(neg_returns, ddof=1) if len(neg_returns) > 1 else np.std(neg_returns)
     )
 
     if downside_std <= 0:
@@ -497,7 +500,8 @@ def compute_bankroll_history(
 
 
 def compute_roi_on_bankroll(
-    final_bankroll: float, initial_bankroll: float,
+    final_bankroll: float,
+    initial_bankroll: float,
 ) -> float:
     """ROI on initial bankroll (standard definition)."""
     if initial_bankroll <= 0:
@@ -566,7 +570,9 @@ class MetricsCalculator:
         MetricsResult
             All computed metrics.
         """
-        bankroll = initial_bankroll if initial_bankroll is not None else self.initial_bankroll
+        bankroll = (
+            initial_bankroll if initial_bankroll is not None else self.initial_bankroll
+        )
         active = [b for b in bets if not b.pushed]
         n_total = len(active)
         n_pushed = len(bets) - n_total
@@ -579,9 +585,7 @@ class MetricsCalculator:
         final_bankroll = bankroll + total_profit
 
         # Total returns = sum of (stake + profit) for winning bets
-        total_returns = sum(
-            b.stake + b.profit for b in active if b.won
-        )
+        total_returns = sum(b.stake + b.profit for b in active if b.won)
 
         # Bankroll history
         bankroll_history = compute_bankroll_history(bets, bankroll)
@@ -605,7 +609,6 @@ class MetricsCalculator:
             winning_bets=n_wins,
             losing_bets=n_losses,
             pushed_bets=n_pushed,
-
             # Financial (user-specified formulas)
             total_profit=round(total_profit, 2),
             total_profit_pct=round(compute_total_profit_pct(total_profit, bankroll), 4),
@@ -613,39 +616,52 @@ class MetricsCalculator:
             yield_per_bet=round(compute_yield_per_bet(total_profit, n_total), 4),
             win_rate=round(compute_win_rate(n_wins, n_total), 6),
             profit_factor=round(compute_profit_factor(total_returns, total_staked), 4),
-
             # Risk
             max_drawdown_pct=round(max_dd_pct, 4),
             max_drawdown_amount=round(max_dd_amount, 2),
-            sharpe_ratio=round(compute_sharpe_ratio(
-                returns, self.risk_free_rate, self.annualise_sharpe, self.bets_per_year,
-            ), 4),
-            sortino_ratio=round(compute_sortino_ratio(
-                returns, self.risk_free_rate, self.annualise_sharpe, self.bets_per_year,
-            ), 4),
-
+            sharpe_ratio=round(
+                compute_sharpe_ratio(
+                    returns,
+                    self.risk_free_rate,
+                    self.annualise_sharpe,
+                    self.bets_per_year,
+                ),
+                4,
+            ),
+            sortino_ratio=round(
+                compute_sortino_ratio(
+                    returns,
+                    self.risk_free_rate,
+                    self.annualise_sharpe,
+                    self.bets_per_year,
+                ),
+                4,
+            ),
             # CLV
             avg_clv=round(avg_clv, 6),
             positive_clv_pct=round(positive_clv_pct, 2),
-
             # Additional
             total_staked=round(total_staked, 2),
             total_returns=round(total_returns, 2),
             initial_bankroll=bankroll,
             final_bankroll=round(final_bankroll, 2),
-            avg_odds=round(float(np.mean([b.odds for b in active])), 4) if active else 0.0,
+            avg_odds=round(float(np.mean([b.odds for b in active])), 4)
+            if active
+            else 0.0,
             avg_stake=round(total_staked / n_total, 2) if n_total > 0 else 0.0,
             longest_win_streak=lw,
             longest_lose_streak=ll,
             bankroll_history=[round(v, 2) for v in bankroll_history],
-
             # Market breakdown
             bets_per_market=_breakdown_markets(active),
             profit_per_market=_breakdown_profits(active),
-
             # Standard alternatives
-            roi_on_bankroll_pct=round(compute_roi_on_bankroll(final_bankroll, bankroll), 4),
-            yield_on_staked_pct=round(compute_yield_on_staked(total_profit, total_staked), 4),
+            roi_on_bankroll_pct=round(
+                compute_roi_on_bankroll(final_bankroll, bankroll), 4
+            ),
+            yield_on_staked_pct=round(
+                compute_yield_on_staked(total_profit, total_staked), 4
+            ),
             profit_factor_standard=round(compute_profit_factor_standard(bets), 4),
         )
 
@@ -763,15 +779,19 @@ class MetricsCalculator:
             return "\n".join(lines)
 
         # ── Summary ──
-        lines.append(f"  Bets: {m.total_bets}  |  "
-                      f"Wins: {m.winning_bets}  |  "
-                      f"Losses: {m.losing_bets}  |  "
-                      f"Pushed: {m.pushed_bets}")
+        lines.append(
+            f"  Bets: {m.total_bets}  |  "
+            f"Wins: {m.winning_bets}  |  "
+            f"Losses: {m.losing_bets}  |  "
+            f"Pushed: {m.pushed_bets}"
+        )
         lines.append(f"  Win Rate: {m.win_rate:.1%}")
         lines.append(f"  Total Staked: {m.total_staked:.2f}")
 
         # ── P&L ──
-        pnl_str = f"+{m.total_profit:.2f}" if m.total_profit >= 0 else f"{m.total_profit:.2f}"
+        pnl_str = (
+            f"+{m.total_profit:.2f}" if m.total_profit >= 0 else f"{m.total_profit:.2f}"
+        )
         lines.append("")
         lines.append("  P&L")
         lines.append(f"  {'-' * 40}")
@@ -783,7 +803,9 @@ class MetricsCalculator:
         lines.append("")
         lines.append("  Performance Ratios (user-specified)")
         lines.append(f"  {'-' * 40}")
-        lines.append(f"    ROI (profit / staked):     {m.roi:.4f}  ({m.roi*100:+.2f}%)")
+        lines.append(
+            f"    ROI (profit / staked):     {m.roi:.4f}  ({m.roi * 100:+.2f}%)"
+        )
         lines.append(f"    Yield (profit / bet):      {m.yield_per_bet:.4f}")
         lines.append(f"    Profit Factor (returns / staked): {m.profit_factor:.4f}")
 
@@ -791,8 +813,10 @@ class MetricsCalculator:
         lines.append("")
         lines.append("  Risk Metrics")
         lines.append(f"  {'-' * 40}")
-        lines.append(f"    Max Drawdown:           {m.max_drawdown_pct:.2f}%  "
-                      f"({m.max_drawdown_amount:.2f})")
+        lines.append(
+            f"    Max Drawdown:           {m.max_drawdown_pct:.2f}%  "
+            f"({m.max_drawdown_amount:.2f})"
+        )
         if m.sharpe_ratio != 0.0:
             lines.append(f"    Sharpe Ratio:           {m.sharpe_ratio:.4f}")
         if m.sortino_ratio != 0.0:
@@ -832,8 +856,9 @@ class MetricsCalculator:
                 n = m.bets_per_market[market]
                 pnl = m.profit_per_market.get(market, 0.0)
                 pnl_sign = "+" if pnl >= 0 else ""
-                lines.append(f"    {market:<12s}  {n:>4d} bets  "
-                              f"{pnl_sign}{pnl:>+.2f} P&L")
+                lines.append(
+                    f"    {market:<12s}  {n:>4d} bets  {pnl_sign}{pnl:>+.2f} P&L"
+                )
 
         lines.append("=" * 72)
         return "\n".join(lines)
@@ -856,7 +881,9 @@ class MetricsCalculator:
             BetResult(
                 stake=float(b.get("stake", 0)),
                 profit=float(b.get("profit", 0)),
-                odds=float(b.get("odds") or b.get("decimal_odds") or _raise_missing("odds")),
+                odds=float(
+                    b.get("odds") or b.get("decimal_odds") or _raise_missing("odds")
+                ),
                 won=bool(b.get("won", False)),
                 pushed=bool(b.get("pushed", False)),
                 bankroll_before=float(b.get("bankroll_before", 0)),

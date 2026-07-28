@@ -62,27 +62,34 @@ def _capture_hardware() -> dict[str, Any]:
         elif platform.system() == "Darwin":
             result = subprocess.run(
                 ["sysctl", "-n", "machdep.cpu.brand_string"],
-                capture_output=True, text=True, timeout=2,
+                capture_output=True,
+                text=True,
+                timeout=2,
             )
             if result.returncode == 0:
                 info["cpu"] = result.stdout.strip()
         elif platform.system() == "Windows":
             result = subprocess.run(
                 ["wmic", "cpu", "get", "name"],
-                capture_output=True, text=True, timeout=2,
+                capture_output=True,
+                text=True,
+                timeout=2,
             )
             if result.returncode == 0:
                 lines = [l.strip() for l in result.stdout.split("\n") if l.strip()]
                 if len(lines) > 1:
                     info["cpu"] = lines[1]
     except Exception:
-        logger.debug("Failed to get CPU info from /proc/cpuinfo, using platform.processor()")
+        logger.debug(
+            "Failed to get CPU info from /proc/cpuinfo, using platform.processor()"
+        )
         info["cpu"] = platform.processor() or "unknown"
 
     # RAM
     try:
         import psutil
-        info["ram_gb"] = round(psutil.virtual_memory().total / (1024 ** 3), 1)
+
+        info["ram_gb"] = round(psutil.virtual_memory().total / (1024**3), 1)
     except ImportError:
         info["ram_gb"] = 0.0
 
@@ -90,7 +97,9 @@ def _capture_hardware() -> dict[str, Any]:
     try:
         result = subprocess.run(
             ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             gpus = [g.strip() for g in result.stdout.strip().split("\n") if g.strip()]
@@ -113,7 +122,9 @@ def _capture_git_commit() -> str | None:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         return result.stdout.strip() if result.returncode == 0 else None
     except Exception:
@@ -242,13 +253,11 @@ class ExperimentTracker:
             experiments = list(self._session.execute(stmt).scalars().all())
             if tag_value is not None:
                 return [
-                    e for e in experiments
+                    e
+                    for e in experiments
                     if e.tags and e.tags.get(tag_key) == tag_value
                 ]
-            return [
-                e for e in experiments
-                if e.tags and tag_key in e.tags
-            ]
+            return [e for e in experiments if e.tags and tag_key in e.tags]
 
         return list(self._session.execute(stmt).scalars().all())
 
@@ -353,7 +362,9 @@ class ExperimentTracker:
         self._session.flush()
         logger.info(
             "Started run %s: model=%s experiment=%s",
-            run.id[:8], model_type, experiment_id[:8],
+            run.id[:8],
+            model_type,
+            experiment_id[:8],
         )
         return run
 
@@ -401,7 +412,9 @@ class ExperimentTracker:
         self._session.flush()
         logger.info(
             "Finished run %s: metrics=%s duration=%.2fs",
-            run_id[:8], metrics, run.training_duration_seconds or 0,
+            run_id[:8],
+            metrics,
+            run.training_duration_seconds or 0,
         )
         return run
 
@@ -440,7 +453,9 @@ class ExperimentTracker:
         self._session.flush()
         logger.warning(
             "Failed run %s: %s (duration=%.2fs)",
-            run_id[:8], error, run.training_duration_seconds or 0,
+            run_id[:8],
+            error,
+            run.training_duration_seconds or 0,
         )
         return run
 
@@ -502,8 +517,7 @@ class ExperimentTracker:
         run = self._get_run(run_id)
         if run.status == "completed":
             raise ValueError(
-                f"Cannot resume completed run {run_id[:8]}. "
-                f"Create a new run instead."
+                f"Cannot resume completed run {run_id[:8]}. Create a new run instead."
             )
         run.status = "running"
         run.started_at = datetime.now(timezone.utc)
@@ -556,7 +570,9 @@ class ExperimentTracker:
         self._session.flush()
         logger.info(
             "Logged artifact %s for run %s (type=%s)",
-            name, run_id[:8], artifact_type,
+            name,
+            run_id[:8],
+            artifact_type,
         )
         return artifact
 

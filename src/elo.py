@@ -160,9 +160,7 @@ class EloSystem:
         suggest against an equal opponent.
         """
         return 1.0 / (  # type: ignore[return-value, unused-ignore, no-any-return]
-            1.0
-            + 10.0
-            ** ((rating_away - rating_home - self.home_advantage) / 400.0)
+            1.0 + 10.0 ** ((rating_away - rating_home - self.home_advantage) / 400.0)
         )
 
     @staticmethod
@@ -324,9 +322,9 @@ class EloSystem:
         mean_rating = float(np.mean(ratings_arr))
 
         for team in self._ratings:
-            self._ratings[team] = mean_rating + (
-                self._ratings[team] - mean_rating
-            ) * (1.0 - self.regress_factor)
+            self._ratings[team] = mean_rating + (self._ratings[team] - mean_rating) * (
+                1.0 - self.regress_factor
+            )
 
         logger.debug(
             "Regressed %d ratings towards %.1f (factor=%.2f)",
@@ -436,21 +434,34 @@ class EloSystem:
             if result is not None and result in ("H", "D", "A"):
                 home_g = getattr(row, home_goals_col, None)
                 away_g = getattr(row, away_goals_col, None)
-                home_xg = float(getattr(row, str(home_xg_col), 0) or 0) if has_xg else None
-                away_xg = float(getattr(row, str(away_xg_col), 0) or 0) if has_xg else None
+                home_xg = (
+                    float(getattr(row, str(home_xg_col), 0) or 0) if has_xg else None
+                )
+                away_xg = (
+                    float(getattr(row, str(away_xg_col), 0) or 0) if has_xg else None
+                )
 
                 is_host = False
                 if host_nations is not None and has_season and season_col is not None:
                     season_val = getattr(row, season_col, None)
-                    season_int = int(str(season_val).split('/')[0][:4]) if season_val is not None else 0
+                    season_int = (
+                        int(str(season_val).split("/")[0][:4])
+                        if season_val is not None
+                        else 0
+                    )
                     host_team = host_nations.get(season_int)
                     if host_team and home == host_team:
                         is_host = True
 
                 R_home, R_away, _ = _update(
-                    home, away, str(result),
-                    home_goals=home_g, away_goals=away_g,
-                    home_xg=home_xg, away_xg=away_xg, is_host=is_host,
+                    home,
+                    away,
+                    str(result),
+                    home_goals=home_g,
+                    away_goals=away_g,
+                    home_xg=home_xg,
+                    away_xg=away_xg,
+                    is_host=is_host,
                 )
 
             _append_elo(R_home)
@@ -462,7 +473,6 @@ class EloSystem:
         df["Elo_Difference"] = elo_diff_list
 
         return df
-
 
     # ── Probability conversion ───────────────────────────────
 
@@ -630,22 +640,24 @@ class EloSystem:
             # Over 2.5 (rough estimate)
             over_prob = 1.0 - p_h0 * p_a0  # approximation
 
-            records.append({
-                "home_team": home,
-                "away_team": away,
-                "expected_home_goals": round(exp_home_goals, 4),
-                "expected_away_goals": round(exp_away_goals, 4),
-                "home_win_prob": round(p_home, 4),
-                "draw_prob": round(p_draw, 4),
-                "away_win_prob": round(p_away, 4),
-                "Home_Elo": round(R_home, 1),
-                "Away_Elo": round(R_away, 1),
-                "Elo_Difference": round(elo_diff, 1),
-                "over_2_5_prob": round(over_prob, 4),
-                "under_2_5_prob": round(1.0 - over_prob, 4),
-                "btts_prob": round(btts_prob, 4),
-                "btts_no_prob": round(1.0 - btts_prob, 4),
-            })
+            records.append(
+                {
+                    "home_team": home,
+                    "away_team": away,
+                    "expected_home_goals": round(exp_home_goals, 4),
+                    "expected_away_goals": round(exp_away_goals, 4),
+                    "home_win_prob": round(p_home, 4),
+                    "draw_prob": round(p_draw, 4),
+                    "away_win_prob": round(p_away, 4),
+                    "Home_Elo": round(R_home, 1),
+                    "Away_Elo": round(R_away, 1),
+                    "Elo_Difference": round(elo_diff, 1),
+                    "over_2_5_prob": round(over_prob, 4),
+                    "under_2_5_prob": round(1.0 - over_prob, 4),
+                    "btts_prob": round(btts_prob, 4),
+                    "btts_no_prob": round(1.0 - btts_prob, 4),
+                }
+            )
 
         return pd.DataFrame(records)
 
@@ -683,7 +695,9 @@ class EloSystem:
         actual_ag = df_test[away_goals_col].values.astype(float)
         actual_result = df_test["result"].map({"A": 0, "D": 1, "H": 2}).values
 
-        probs = self.predict_proba(df_test, home_team_col=home_team_col, away_team_col=away_team_col)
+        probs = self.predict_proba(
+            df_test, home_team_col=home_team_col, away_team_col=away_team_col
+        )
         pred_labels = np.argmax(probs, axis=1)
 
         # 1X2 accuracy
@@ -700,12 +714,20 @@ class EloSystem:
         brier = float(np.mean(np.sum((probs - y_onehot) ** 2, axis=1)))
 
         # BTTS — use Elo-derived probabilities from predict_matches
-        preds_df = self.predict_matches(df_test, home_team_col=home_team_col, away_team_col=away_team_col)
+        preds_df = self.predict_matches(
+            df_test, home_team_col=home_team_col, away_team_col=away_team_col
+        )
         actual_btts = ((actual_hg > 0) & (actual_ag > 0)).astype(float)
         pred_btts_probs = preds_df["btts_prob"].values
         pred_btts = (pred_btts_probs > 0.5).astype(float)
-        btts_accuracy = float(np.mean(pred_btts == actual_btts)) if len(actual_btts) > 0 else 0.0
-        btts_brier = float(np.mean((pred_btts_probs - actual_btts) ** 2)) if len(actual_btts) > 0 else 0.0
+        btts_accuracy = (
+            float(np.mean(pred_btts == actual_btts)) if len(actual_btts) > 0 else 0.0
+        )
+        btts_brier = (
+            float(np.mean((pred_btts_probs - actual_btts) ** 2))
+            if len(actual_btts) > 0
+            else 0.0
+        )
 
         # Over/Under
         actual_total = actual_hg + actual_ag
@@ -713,8 +735,14 @@ class EloSystem:
         ou_col = f"over_{over_under_threshold:.1f}_prob".replace(".", "_")
         pred_ou_probs = preds_df.get(ou_col, pd.Series([0.5] * len(df_test))).values
         pred_ou = (pred_ou_probs > 0.5).astype(float)
-        ou_accuracy = float(np.mean(pred_ou == actual_ou)) if len(actual_ou) > 0 else 0.0
-        ou_brier = float(np.mean((pred_ou_probs - actual_ou) ** 2)) if len(actual_ou) > 0 else 0.0
+        ou_accuracy = (
+            float(np.mean(pred_ou == actual_ou)) if len(actual_ou) > 0 else 0.0
+        )
+        ou_brier = (
+            float(np.mean((pred_ou_probs - actual_ou) ** 2))
+            if len(actual_ou) > 0
+            else 0.0
+        )
         ou_key = f"over_under_{over_under_threshold:.1f}_accuracy".replace(".", "_")
         ou_brier_key = f"over_under_{over_under_threshold:.1f}_brier".replace(".", "_")
 
@@ -832,9 +860,7 @@ def add_elo_features(
         host_nations=host_nations,
     )
 
-    n_teams = len(
-        set(df[home_col].unique()) | set(df[away_col].unique())
-    )
+    n_teams = len(set(df[home_col].unique()) | set(df[away_col].unique()))
     logger.info(
         "Elo features added: %d teams, K=%d, home_adv=%d, draw_k=%.2f, host_nations=%s",
         n_teams,

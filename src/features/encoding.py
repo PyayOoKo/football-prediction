@@ -14,7 +14,7 @@ from typing import Any
 
 import pandas as pd
 
-from config import config as _global_config
+from src.config import config as _global_config
 
 logger = logging.getLogger(__name__)
 

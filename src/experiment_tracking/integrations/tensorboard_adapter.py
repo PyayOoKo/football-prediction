@@ -77,7 +77,7 @@ def export_to_tensorboard(
         exp_dir = log_path / exp.name.replace(" ", "_")
         exp_dir.mkdir(exist_ok=True)
 
-        for run in (exp.runs or []):
+        for run in exp.runs or []:
             run_dir = exp_dir / (run.run_name or run.model_type)
             writer = SummaryWriter(str(run_dir))
 
@@ -106,7 +106,9 @@ def export_to_tensorboard(
                     for m_key, m_val in fold_metrics.items():
                         if isinstance(m_val, (int, float)):
                             writer.add_scalar(
-                                f"cv/{fold}/{m_key}", m_val, global_step=0,
+                                f"cv/{fold}/{m_key}",
+                                m_val,
+                                global_step=0,
                             )
 
             # Log calibration metrics

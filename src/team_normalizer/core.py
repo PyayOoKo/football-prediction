@@ -236,8 +236,11 @@ class TeamNormalizer:
     # ── Internal ───────────────────────────────────────
 
     def _result(
-        self, original: str, canonical: str,
-        confidence: float, method: str,
+        self,
+        original: str,
+        canonical: str,
+        confidence: float,
+        method: str,
     ) -> NormalizationResult:
         """Create and log a NormalizationResult."""
         result = NormalizationResult(
@@ -250,13 +253,19 @@ class TeamNormalizer:
         if self.log_resolutions and method != "fallback":
             logger.info(
                 "Resolved %r -> %s (conf=%.2f, method=%s)",
-                original, canonical, confidence, method,
+                original,
+                canonical,
+                confidence,
+                method,
             )
 
         if self.log_low_confidence and confidence < 0.7:
             logger.warning(
                 "Low confidence resolution: %r -> %s (conf=%.2f, method=%s)",
-                original, canonical, confidence, method,
+                original,
+                canonical,
+                confidence,
+                method,
             )
 
         return result

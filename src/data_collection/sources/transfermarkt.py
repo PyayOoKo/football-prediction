@@ -63,73 +63,73 @@ CACHE_DIR_NAME = "external"
 TEAM_TO_TM_ID: dict[str, int] = {
     # 2026 World Cup + historical teams
     # IDs verified against Transfermarkt national team pages
-    "Algeria":            3478,
-    "Angola":             3481,
-    "Argentina":          3437,
-    "Australia":          3433,
-    "Austria":            3383,
-    "Belgium":            3382,
+    "Algeria": 3478,
+    "Angola": 3481,
+    "Argentina": 3437,
+    "Australia": 3433,
+    "Austria": 3383,
+    "Belgium": 3382,
     "Bosnia-Herzegovina": 3581,
     "Bosnia & Herzegovina": 3581,
-    "Brazil":             3439,
-    "Cameroon":           3434,
-    "Canada":             3510,
-    "Cape Verde":         3488,
-    "Chile":              3700,
-    "China":              3445,
-    "Colombia":           3816,
-    "Costa Rica":         3447,
-    "Croatia":            3556,
-    "Curaçao":            3583,
-    "Czech Republic":     3586,
-    "Côte d'Ivoire":      3451,
-    "DR Congo":           3584,
-    "Denmark":            3436,
-    "Ecuador":            5750,
-    "Egypt":              3453,
-    "England":            3299,
-    "France":             3377,
-    "Germany":            3262,
-    "Ghana":              3441,
-    "Greece":             3458,
-    "Haiti":              3477,
-    "Honduras":           3472,
-    "Iceland":            3621,
-    "Iran":               3582,
-    "Iraq":               3474,
-    "Ireland":            3509,
-    "Italy":              3376,
-    "Ivory Coast":        3451,  # alias for Côte d'Ivoire
-    "Japan":              3435,
-    "Jordan":             3480,
-    "Mexico":             6303,
-    "Morocco":            3465,
-    "Netherlands":        3379,
-    "New Zealand":        3482,
-    "Nigeria":            3444,
-    "North Korea":        3468,
-    "Norway":             3440,
-    "Portugal":           3300,
-    "Saudi Arabia":       3807,
-    "Scotland":           3380,
-    "Senegal":            3499,
-    "Serbia":             3438,
+    "Brazil": 3439,
+    "Cameroon": 3434,
+    "Canada": 3510,
+    "Cape Verde": 3488,
+    "Chile": 3700,
+    "China": 3445,
+    "Colombia": 3816,
+    "Costa Rica": 3447,
+    "Croatia": 3556,
+    "Curaçao": 3583,
+    "Czech Republic": 3586,
+    "Côte d'Ivoire": 3451,
+    "DR Congo": 3584,
+    "Denmark": 3436,
+    "Ecuador": 5750,
+    "Egypt": 3453,
+    "England": 3299,
+    "France": 3377,
+    "Germany": 3262,
+    "Ghana": 3441,
+    "Greece": 3458,
+    "Haiti": 3477,
+    "Honduras": 3472,
+    "Iceland": 3621,
+    "Iran": 3582,
+    "Iraq": 3474,
+    "Ireland": 3509,
+    "Italy": 3376,
+    "Ivory Coast": 3451,  # alias for Côte d'Ivoire
+    "Japan": 3435,
+    "Jordan": 3480,
+    "Mexico": 6303,
+    "Morocco": 3465,
+    "Netherlands": 3379,
+    "New Zealand": 3482,
+    "Nigeria": 3444,
+    "North Korea": 3468,
+    "Norway": 3440,
+    "Portugal": 3300,
+    "Saudi Arabia": 3807,
+    "Scotland": 3380,
+    "Senegal": 3499,
+    "Serbia": 3438,
     "Serbia and Montenegro": 3585,
-    "Slovakia":           3615,
-    "Slovenia":           3614,
-    "South Africa":       3473,
-    "South Korea":        3589,
-    "Spain":              3375,
-    "Sweden":             3557,
-    "Switzerland":        3384,
-    "Togo":               3492,
+    "Slovakia": 3615,
+    "Slovenia": 3614,
+    "South Africa": 3473,
+    "South Korea": 3589,
+    "Spain": 3375,
+    "Sweden": 3557,
+    "Switzerland": 3384,
+    "Togo": 3492,
     "Trinidad and Tobago": 3491,
-    "Tunisia":            3489,
-    "Turkey":             3381,
-    "USA":                3505,
-    "Ukraine":            3699,
-    "Uruguay":            3449,
-    "Uzbekistan":         3624,
+    "Tunisia": 3489,
+    "Turkey": 3381,
+    "USA": 3505,
+    "Ukraine": 3699,
+    "Uruguay": 3449,
+    "Uzbekistan": 3624,
 }
 
 # Known URL slugs for Transfermarkt team pages (lowercase, dashed).
@@ -178,21 +178,24 @@ def _session() -> requests.Session:
     sess = requests.Session()
     retries = Retry(total=3, backoff_factor=2.0, status_forcelist=[502, 503, 504])
     sess.mount("https://", HTTPAdapter(max_retries=retries))
-    sess.headers.update({
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-GB,en;q=0.9",
-    })
+    sess.headers.update(
+        {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-GB,en;q=0.9",
+        }
+    )
     return sess
 
 
 # ═══════════════════════════════════════════════════════════
 #  Data structures
 # ═══════════════════════════════════════════════════════════
+
 
 @dataclass
 class PlayerRecord:
@@ -295,6 +298,7 @@ def scrape_squads(
 
     if save_path:
         import os
+
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         df.to_csv(save_path, index=False)
         logger.info("Saved %d player records to %s", len(df), save_path)
@@ -491,9 +495,7 @@ def _check_injury_icon(cell: Tag) -> bool:
     if icons:
         return True
     # Also check for injury-related font-awesome icons or span classes
-    spans = cell.find_all(
-        "span", class_=lambda c: c and "verletzt" in str(c).lower()
-    )
+    spans = cell.find_all("span", class_=lambda c: c and "verletzt" in str(c).lower())
     if spans:
         return True
     # Check for medical cross icon (✚ or ⚕)
@@ -510,9 +512,7 @@ def _check_suspension_icon(cell: Tag) -> bool:
     icons = cell.find_all("img", class_=lambda c: c and "card" in str(c).lower())
     if icons:
         return True
-    spans = cell.find_all(
-        "span", class_=lambda c: c and "gesperrt" in str(c).lower()
-    )
+    spans = cell.find_all("span", class_=lambda c: c and "gesperrt" in str(c).lower())
     return bool(spans)
 
 
@@ -558,7 +558,19 @@ def _normalise_position(pos: str) -> str:
         return "GK"
     if pos in ("DEF", "DEFENDER", "CB", "LB", "RB", "LWB", "RWB", "AB", "IV"):
         return "DEF"
-    if pos in ("MID", "MIDFIELDER", "CM", "CDM", "CAM", "LM", "RM", "DM", "MF", "ZM", "OM"):
+    if pos in (
+        "MID",
+        "MIDFIELDER",
+        "CM",
+        "CDM",
+        "CAM",
+        "LM",
+        "RM",
+        "DM",
+        "MF",
+        "ZM",
+        "OM",
+    ):
         return "MID"
     if pos in ("FWD", "FORWARD", "ST", "CF", "LW", "RW", "SS", "LF", "RF", "ANG", "MS"):
         return "FWD"
@@ -586,10 +598,19 @@ def _build_dataframe(players: list[PlayerRecord]) -> pd.DataFrame:
     Ensures all expected columns exist, even if the list is empty.
     """
     if not players:
-        return pd.DataFrame(columns=[
-            "team", "player_name", "position", "age", "market_value",
-            "is_starter", "injured", "suspended", "goals_scored",
-        ])
+        return pd.DataFrame(
+            columns=[
+                "team",
+                "player_name",
+                "position",
+                "age",
+                "market_value",
+                "is_starter",
+                "injured",
+                "suspended",
+                "goals_scored",
+            ]
+        )
 
     records = [p.to_dict() for p in players]
     df = pd.DataFrame(records)
@@ -600,7 +621,9 @@ def _build_dataframe(players: list[PlayerRecord]) -> pd.DataFrame:
     df["is_starter"] = df["is_starter"].astype(bool)
     df["injured"] = df["injured"].astype(bool)
     df["suspended"] = df["suspended"].astype(bool)
-    df["goals_scored"] = pd.to_numeric(df["goals_scored"], errors="coerce").fillna(0).astype(int)
+    df["goals_scored"] = (
+        pd.to_numeric(df["goals_scored"], errors="coerce").fillna(0).astype(int)
+    )
 
     return df
 
@@ -646,12 +669,16 @@ if __name__ == "__main__":
 
     df = scrape_single_team(test_team)
     print(f"\\n  Scraped {len(df)} players for {test_team}:")
-    print(f"  {'Name':<25} {'Pos':<6} {'Age':<5} {'Value (€m)':<12} {'Inj':<5} {'Start':<6}")
+    print(
+        f"  {'Name':<25} {'Pos':<6} {'Age':<5} {'Value (€m)':<12} {'Inj':<5} {'Start':<6}"
+    )
     print(f"  {'-' * 60}")
     for _, r in df.iterrows():
-        print(f"  {r['player_name']:<25} {r['position']:<6} "
-              f"{r['age']:<5.0f} {r['market_value']:<12.1f} "
-              f"{'Y' if r['injured'] else 'N':<5} "
-              f"{'Y' if r['is_starter'] else 'N':<6}")
+        print(
+            f"  {r['player_name']:<25} {r['position']:<6} "
+            f"{r['age']:<5.0f} {r['market_value']:<12.1f} "
+            f"{'Y' if r['injured'] else 'N':<5} "
+            f"{'Y' if r['is_starter'] else 'N':<6}"
+        )
     print(f"\\n  Squad value: €{df['market_value'].sum():.1f}m")
     print(f"  Avg age: {df['age'].mean():.1f} years")

@@ -128,7 +128,10 @@ class UnderstatParser:
             teams.append(team)
 
         logger.info(
-            "Parsed %d teams from %s %s", len(teams), league_code, year,
+            "Parsed %d teams from %s %s",
+            len(teams),
+            league_code,
+            year,
         )
         return teams
 
@@ -183,7 +186,10 @@ class UnderstatParser:
                     continue
 
                 shot = self._parse_single_shot(
-                    raw, match_id, team_name, side,
+                    raw,
+                    match_id,
+                    team_name,
+                    side,
                 )
                 if shot is not None:
                     shot.date = date
@@ -192,7 +198,9 @@ class UnderstatParser:
                     shots.append(shot)
 
         logger.info(
-            "Parsed %d shots for match %d", len(shots), match_id,
+            "Parsed %d shots for match %d",
+            len(shots),
+            match_id,
         )
         return shots
 
@@ -305,21 +313,37 @@ class UnderstatParser:
                 h_team = raw.get("h_team", {})
                 a_team = raw.get("a_team", {})
 
-                home_team_id = str(h_team.get("id", "")) if isinstance(h_team, dict) else ""
-                away_team_id = str(a_team.get("id", "")) if isinstance(a_team, dict) else ""
+                home_team_id = (
+                    str(h_team.get("id", "")) if isinstance(h_team, dict) else ""
+                )
+                away_team_id = (
+                    str(a_team.get("id", "")) if isinstance(a_team, dict) else ""
+                )
 
                 home_team = team_names.get(home_team_id, str(h_team.get("title", "")))
                 away_team = team_names.get(away_team_id, str(a_team.get("title", "")))
 
                 # Extract goals
                 goals = raw.get("goals", {})
-                home_goals = self._safe_int(goals.get("h", 0)) if isinstance(goals, dict) else 0
-                away_goals = self._safe_int(goals.get("a", 0)) if isinstance(goals, dict) else 0
+                home_goals = (
+                    self._safe_int(goals.get("h", 0)) if isinstance(goals, dict) else 0
+                )
+                away_goals = (
+                    self._safe_int(goals.get("a", 0)) if isinstance(goals, dict) else 0
+                )
 
                 # Extract xG
                 xg_data = raw.get("xG", {})
-                home_xg = self._safe_float(xg_data.get("h", 0)) if isinstance(xg_data, dict) else 0
-                away_xg = self._safe_float(xg_data.get("a", 0)) if isinstance(xg_data, dict) else 0
+                home_xg = (
+                    self._safe_float(xg_data.get("h", 0))
+                    if isinstance(xg_data, dict)
+                    else 0
+                )
+                away_xg = (
+                    self._safe_float(xg_data.get("a", 0))
+                    if isinstance(xg_data, dict)
+                    else 0
+                )
 
                 # Extract shots
                 home_shots = raw.get("h_shots", raw.get("shots_h", 0))
@@ -348,18 +372,21 @@ class UnderstatParser:
                 if self.validate:
                     issues = validate_match_xg(match)
                     if issues and self.strict:
-                        raise ValueError(
-                            f"Match {match_id} validation: {issues}"
-                        )
+                        raise ValueError(f"Match {match_id} validation: {issues}")
                     elif issues:
                         logger.debug(
-                            "Match %d issues: %s", match_id, issues,
+                            "Match %d issues: %s",
+                            match_id,
+                            issues,
                         )
 
                 matches.append(match)
 
         logger.info(
-            "Parsed %d matches from %s %s", len(matches), league_code, year,
+            "Parsed %d matches from %s %s",
+            len(matches),
+            league_code,
+            year,
         )
         return matches
 
@@ -396,7 +423,10 @@ class UnderstatParser:
 
         teams = self.parse_league_teams(teams_data, league_code, year)
         matches = self.parse_league_matches(
-            dates_data, teams_data, league_code, year,
+            dates_data,
+            teams_data,
+            league_code,
+            year,
         )
         return teams, matches
 
@@ -456,7 +486,10 @@ class UnderstatParser:
 
         # Parse matches from list format (new API)
         matches = self._parse_matches_from_list(
-            dates_raw, teams_raw, league_code, year,
+            dates_raw,
+            teams_raw,
+            league_code,
+            year,
         )
         return teams, matches
 
@@ -507,13 +540,25 @@ class UnderstatParser:
 
             # Extract goals
             goals = raw.get("goals", {})
-            home_goals = self._safe_int(goals.get("h", 0)) if isinstance(goals, dict) else 0
-            away_goals = self._safe_int(goals.get("a", 0)) if isinstance(goals, dict) else 0
+            home_goals = (
+                self._safe_int(goals.get("h", 0)) if isinstance(goals, dict) else 0
+            )
+            away_goals = (
+                self._safe_int(goals.get("a", 0)) if isinstance(goals, dict) else 0
+            )
 
             # Extract xG
             xg_data = raw.get("xG", {})
-            home_xg = self._safe_float(xg_data.get("h", 0)) if isinstance(xg_data, dict) else 0
-            away_xg = self._safe_float(xg_data.get("a", 0)) if isinstance(xg_data, dict) else 0
+            home_xg = (
+                self._safe_float(xg_data.get("h", 0))
+                if isinstance(xg_data, dict)
+                else 0
+            )
+            away_xg = (
+                self._safe_float(xg_data.get("a", 0))
+                if isinstance(xg_data, dict)
+                else 0
+            )
 
             # Extract datetime (format: "2025-08-16 15:00:00")
             dt_str = raw.get("datetime", "")
@@ -536,19 +581,21 @@ class UnderstatParser:
             if self.validate:
                 issues = validate_match_xg(match)
                 if issues and self.strict:
-                    raise ValueError(
-                        f"Match {match_id} validation: {issues}"
-                    )
+                    raise ValueError(f"Match {match_id} validation: {issues}")
                 elif issues:
                     logger.debug(
-                        "Match %d issues: %s", match_id, issues,
+                        "Match %d issues: %s",
+                        match_id,
+                        issues,
                     )
 
             matches.append(match)
 
         logger.info(
             "Parsed %d matches from %s %s (list format)",
-            len(matches), league_code, year,
+            len(matches),
+            league_code,
+            year,
         )
         return matches
 

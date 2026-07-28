@@ -198,9 +198,7 @@ class JobTracker:
 
     def list_jobs(self) -> list[str]:
         """List all tracked job IDs."""
-        return sorted(
-            [p.stem for p in self.checkpoint_dir.glob("*.json")]
-        )
+        return sorted([p.stem for p in self.checkpoint_dir.glob("*.json")])
 
     def _path(self, job_id: str) -> Path:
         return self.checkpoint_dir / f"{job_id}.json"

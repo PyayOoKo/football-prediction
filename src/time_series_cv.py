@@ -64,13 +64,13 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import TimeSeriesSplit as SklearnTimeSeriesSplit
 
-from config import config as _global_config
+from src.config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
 # ── Default settings ────────────────────────────────────
 _DEFAULT_N_SPLITS = 5
-_DEFAULT_GAP = 0          # No gap between train and test by default
+_DEFAULT_GAP = 0  # No gap between train and test by default
 _DEFAULT_TEST_SIZE = None  # auto: last (1 / (n_splits + 1)) of data
 
 
@@ -214,15 +214,17 @@ class TimeSeriesCrossValidator:
         folds: list[dict[str, Any]] = []
 
         for fold, (train_idx, val_idx) in enumerate(cv.split(X, y), 1):
-            folds.append({
-                "fold": fold,
-                "X_train": X.iloc[train_idx],
-                "y_train": y.iloc[train_idx],
-                "X_val": X.iloc[val_idx],
-                "y_val": y.iloc[val_idx],
-                "train_size": len(train_idx),
-                "val_size": len(val_idx),
-            })
+            folds.append(
+                {
+                    "fold": fold,
+                    "X_train": X.iloc[train_idx],
+                    "y_train": y.iloc[train_idx],
+                    "X_val": X.iloc[val_idx],
+                    "y_val": y.iloc[val_idx],
+                    "train_size": len(train_idx),
+                    "val_size": len(val_idx),
+                }
+            )
 
         return folds
 
@@ -270,15 +272,17 @@ class TimeSeriesCrossValidator:
             val_start = train_end
             val_end = min(val_start + horizon, n)
 
-            folds.append({
-                "fold": fold,
-                "X_train": X.iloc[train_start:train_end],
-                "y_train": y.iloc[train_start:train_end],
-                "X_val": X.iloc[val_start:val_end],
-                "y_val": y.iloc[val_start:val_end],
-                "train_size": train_end - train_start,
-                "val_size": val_end - val_start,
-            })
+            folds.append(
+                {
+                    "fold": fold,
+                    "X_train": X.iloc[train_start:train_end],
+                    "y_train": y.iloc[train_start:train_end],
+                    "X_val": X.iloc[val_start:val_end],
+                    "y_val": y.iloc[val_start:val_end],
+                    "train_size": train_end - train_start,
+                    "val_size": val_end - val_start,
+                }
+            )
 
             start += step
             fold += 1
@@ -323,15 +327,17 @@ class TimeSeriesCrossValidator:
         while train_end + val_size <= n:
             val_end = train_end + val_size
 
-            folds.append({
-                "fold": fold,
-                "X_train": X.iloc[:train_end],
-                "y_train": y.iloc[:train_end],
-                "X_val": X.iloc[train_end:val_end],
-                "y_val": y.iloc[train_end:val_end],
-                "train_size": train_end,
-                "val_size": val_end - train_end,
-            })
+            folds.append(
+                {
+                    "fold": fold,
+                    "X_train": X.iloc[:train_end],
+                    "y_train": y.iloc[:train_end],
+                    "X_val": X.iloc[train_end:val_end],
+                    "y_val": y.iloc[train_end:val_end],
+                    "train_size": train_end,
+                    "val_size": val_end - train_end,
+                }
+            )
 
             train_end = val_end
             fold += 1

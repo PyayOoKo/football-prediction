@@ -93,11 +93,14 @@ class EntityType(str, enum.Enum):
 #  Helper: UUID primary key column
 # ═══════════════════════════════════════════════════════════
 
+
 # Use String(36) for SQLite compatibility; PostgreSQL via sqlalchemy.UUID
 # works transparently if the engine supports it.  We keep PK as text so
 # the same model works in tests (SQLite) and production (PostgreSQL).
 def _uuid_pk() -> Any:
-    return mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    return mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -154,54 +157,79 @@ class FeatureDefinition(Base):
 
     id: Mapped[str] = _uuid_pk()
     name: Mapped[str] = mapped_column(
-        String(255), nullable=False, index=True,
+        String(255),
+        nullable=False,
+        index=True,
     )
     version: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=1,
+        Integer,
+        nullable=False,
+        default=1,
     )
     feature_type: Mapped[str] = mapped_column(
-        String(100), nullable=False, index=True,
+        String(100),
+        nullable=False,
+        index=True,
     )
     category: Mapped[FeatureCategory] = mapped_column(
-        Enum(FeatureCategory, name="feature_category"), nullable=False,
+        Enum(FeatureCategory, name="feature_category"),
+        nullable=False,
     )
     entity_type: Mapped[EntityType] = mapped_column(
-        Enum(EntityType, name="entity_type"), nullable=False,
+        Enum(EntityType, name="entity_type"),
+        nullable=False,
     )
     description: Mapped[str | None] = mapped_column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
     )
     computation_params: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON, nullable=True, default=dict,
+        JSON,
+        nullable=True,
+        default=dict,
     )
     validation_rules: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON, nullable=True, default=dict,
+        JSON,
+        nullable=True,
+        default=dict,
     )
     dependencies: Mapped[list[str] | None] = mapped_column(
-        JSON, nullable=True, default=list,
+        JSON,
+        nullable=True,
+        default=list,
     )
     status: Mapped[FeatureStatus] = mapped_column(
         Enum(FeatureStatus, name="feature_status"),
-        nullable=False, default=FeatureStatus.DRAFT,
+        nullable=False,
+        default=FeatureStatus.DRAFT,
     )
     extra_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        "metadata", JSON, nullable=True, default=dict,
+        "metadata",
+        JSON,
+        nullable=True,
+        default=dict,
     )
     is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True,
+        Boolean,
+        nullable=False,
+        default=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         server_default=func.now(),
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
-        server_default=func.now(), onupdate=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
     # Relationships
     values: Mapped[list[FeatureValue]] = relationship(
-        "FeatureValue", back_populates="definition",
+        "FeatureValue",
+        back_populates="definition",
         cascade="all, delete-orphan",
     )
     dependency_edges: Mapped[list[FeatureDependency]] = relationship(
@@ -273,7 +301,9 @@ class FeatureValue(Base):
     __tablename__ = "feature_values"
     __table_args__ = (
         UniqueConstraint(
-            "feature_definition_id", "match_id", "team_id",
+            "feature_definition_id",
+            "match_id",
+            "team_id",
             name="uq_feature_value_entity",
         ),
     )
@@ -282,49 +312,66 @@ class FeatureValue(Base):
     feature_definition_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("feature_definitions.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     match_id: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, index=True,
+        Integer,
+        nullable=True,
+        index=True,
     )
     team_id: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, index=True,
+        Integer,
+        nullable=True,
+        index=True,
     )
     league_id: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, index=True,
+        Integer,
+        nullable=True,
+        index=True,
     )
     numeric_value: Mapped[float | None] = mapped_column(
-        Float, nullable=True,
+        Float,
+        nullable=True,
     )
     text_value: Mapped[str | None] = mapped_column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
     )
     json_value: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON, nullable=True,
+        JSON,
+        nullable=True,
     )
     computed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
     computed_by: Mapped[str] = mapped_column(
-        String(255), nullable=False, default="",
+        String(255),
+        nullable=False,
+        default="",
     )
     batch_id: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey("feature_computation_batches.id", ondelete="SET NULL"),
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         server_default=func.now(),
     )
 
     # Relationships
     definition: Mapped[FeatureDefinition] = relationship(
-        "FeatureDefinition", back_populates="values",
+        "FeatureDefinition",
+        back_populates="values",
     )
     batch: Mapped[FeatureComputationBatch | None] = relationship(
-        "FeatureComputationBatch", back_populates="values",
+        "FeatureComputationBatch",
+        back_populates="values",
     )
 
     def __repr__(self) -> str:
@@ -360,7 +407,8 @@ class FeatureDependency(Base):
     __tablename__ = "feature_dependencies"
     __table_args__ = (
         UniqueConstraint(
-            "dependent_feature_id", "dependency_feature_id",
+            "dependent_feature_id",
+            "dependency_feature_id",
             name="uq_feature_dep_edge",
         ),
     )
@@ -369,18 +417,23 @@ class FeatureDependency(Base):
     dependent_feature_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("feature_definitions.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     dependency_feature_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("feature_definitions.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     is_hard: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True,
+        Boolean,
+        nullable=False,
+        default=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         server_default=func.now(),
     )
 
@@ -431,7 +484,8 @@ class FeatureVersion(Base):
     __tablename__ = "feature_versions"
     __table_args__ = (
         UniqueConstraint(
-            "feature_definition_id", "version",
+            "feature_definition_id",
+            "version",
             name="uq_feature_version_number",
         ),
     )
@@ -440,22 +494,29 @@ class FeatureVersion(Base):
     feature_definition_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("feature_definitions.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        nullable=False,
+        index=True,
     )
     version: Mapped[int] = mapped_column(
-        Integer, nullable=False,
+        Integer,
+        nullable=False,
     )
     is_current: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True,
+        Boolean,
+        nullable=False,
+        default=True,
     )
     changelog: Mapped[str | None] = mapped_column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
     )
     snapshot: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON, nullable=True,
+        JSON,
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         server_default=func.now(),
     )
 
@@ -506,44 +567,63 @@ class FeatureComputationBatch(Base):
 
     id: Mapped[str] = _uuid_pk()
     batch_label: Mapped[str] = mapped_column(
-        String(255), nullable=False, index=True,
+        String(255),
+        nullable=False,
+        index=True,
     )
     trigger: Mapped[str] = mapped_column(
-        String(50), nullable=False, default="manual",
+        String(50),
+        nullable=False,
+        default="manual",
     )
     features_computed: Mapped[list[str]] = mapped_column(
-        JSON, nullable=False, default=list,
+        JSON,
+        nullable=False,
+        default=list,
     )
     entity_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0,
+        Integer,
+        nullable=False,
+        default=0,
     )
     started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
     completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True,
+        DateTime(timezone=True),
+        nullable=True,
     )
     duration_seconds: Mapped[float | None] = mapped_column(
-        Float, nullable=True,
+        Float,
+        nullable=True,
     )
     success: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True,
+        Boolean,
+        nullable=False,
+        default=True,
     )
     error_message: Mapped[str | None] = mapped_column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
     )
     extra_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        "metadata", JSON, nullable=True, default=dict,
+        "metadata",
+        JSON,
+        nullable=True,
+        default=dict,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         server_default=func.now(),
     )
 
     # Relationships
     values: Mapped[list[FeatureValue]] = relationship(
-        "FeatureValue", back_populates="batch",
+        "FeatureValue",
+        back_populates="batch",
     )
 
     def __repr__(self) -> str:

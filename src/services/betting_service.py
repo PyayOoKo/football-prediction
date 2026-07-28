@@ -42,19 +42,25 @@ class ValueBettingService:
             away = str(pred.get("away_team", ""))
             team_matches.append((home, away))
 
-            probs_list.append([
-                float(pred.get("away_win_prob", 0)),
-                float(pred.get("draw_prob", 0)),
-                float(pred.get("home_win_prob", 0)),
-            ])
+            probs_list.append(
+                [
+                    float(pred.get("away_win_prob", 0)),
+                    float(pred.get("draw_prob", 0)),
+                    float(pred.get("home_win_prob", 0)),
+                ]
+            )
 
             odds_data = collector.get_best_odds(home, away)
-            if odds_data and all(odds_data.get(k, 0) > 0 for k in ["home_odds", "draw_odds", "away_odds"]):
-                odds_list.append([
-                    float(odds_data["away_odds"]),
-                    float(odds_data["draw_odds"]),
-                    float(odds_data["home_odds"]),
-                ])
+            if odds_data and all(
+                odds_data.get(k, 0) > 0 for k in ["home_odds", "draw_odds", "away_odds"]
+            ):
+                odds_list.append(
+                    [
+                        float(odds_data["away_odds"]),
+                        float(odds_data["draw_odds"]),
+                        float(odds_data["home_odds"]),
+                    ]
+                )
             else:
                 odds_list.append([0.0, 0.0, 0.0])
 
@@ -91,7 +97,8 @@ class ValueBettingService:
         n_positive = int(df["positive_ev"].sum()) if "positive_ev" in df.columns else 0
         logger.info(
             "Found %d value bets out of %d outcomes analysed",
-            n_positive, len(df),
+            n_positive,
+            len(df),
         )
 
         return df

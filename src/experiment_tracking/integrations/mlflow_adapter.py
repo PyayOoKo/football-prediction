@@ -88,7 +88,7 @@ def export_to_mlflow(
             mlflow_exp_id = mlflow_exp.experiment_id
 
         # Export each run
-        for run in (exp.runs or []):
+        for run in exp.runs or []:
             with mlflow.start_run(
                 experiment_id=mlflow_exp_id,
                 run_name=run.run_name or run.model_type,
@@ -96,7 +96,9 @@ def export_to_mlflow(
                 # Log parameters
                 params = dict(run.hyperparameters or {})
                 params["model_type"] = run.model_type
-                params["random_seed"] = str(run.random_seed) if run.random_seed else None
+                params["random_seed"] = (
+                    str(run.random_seed) if run.random_seed else None
+                )
                 params["model_version"] = run.model_version or ""
                 params = {k: str(v) for k, v in params.items() if v is not None}
                 mlflow.log_params(params)
@@ -127,11 +129,13 @@ def export_to_mlflow(
                 mlflow.set_tags({k: str(v) for k, v in tags.items() if v})
 
                 # Log artifact references
-                for artifact in (run.artifacts or []):
+                for artifact in run.artifacts or []:
                     try:
                         mlflow.log_artifact(artifact.uri)
                     except Exception:
-                        logger.warning("Could not log artifact %s to MLflow", artifact.uri)
+                        logger.warning(
+                            "Could not log artifact %s to MLflow", artifact.uri
+                        )
 
             exported += 1
 
@@ -167,9 +171,7 @@ def import_from_mlflow(
     try:
         import mlflow
     except ImportError:
-        raise ImportError(
-            "MLflow integration requires the 'mlflow' package."
-        )
+        raise ImportError("MLflow integration requires the 'mlflow' package.")
 
     if tracking_uri:
         mlflow.set_tracking_uri(tracking_uri)
@@ -208,7 +210,11 @@ def import_from_mlflow(
 
         model_type = params.pop("model_type", model_type)
         random_seed_str = params.pop("random_seed", None)
-        random_seed = int(random_seed_str) if random_seed_str and random_seed_str.isdigit() else None
+        random_seed = (
+            int(random_seed_str)
+            if random_seed_str and random_seed_str.isdigit()
+            else None
+        )
 
         # Extract metrics
         metrics = {}
@@ -235,5 +241,7 @@ def import_from_mlflow(
         )
         imported += 1
 
-    logger.info("Imported %d runs from MLflow experiment '%s'", imported, mlflow_experiment_name)
+    logger.info(
+        "Imported %d runs from MLflow experiment '%s'", imported, mlflow_experiment_name
+    )
     return imported

@@ -24,7 +24,7 @@ import sys
 import time
 from pathlib import Path
 
-from config import config
+from src.config import config
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 PYTHON = sys.executable

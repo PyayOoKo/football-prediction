@@ -186,10 +186,13 @@ class Backtester:
 
         self.initial_bankroll = initial_bankroll
         self.stake_strategy = stake_strategy or StakingFactory.create(
-            "fractional_kelly", fraction=0.25,
+            "fractional_kelly",
+            fraction=0.25,
         )
         self.bet_filter = bet_filter or BetFilter(
-            min_ev=0.0, min_confidence=0.3, min_odds=1.5,
+            min_ev=0.0,
+            min_confidence=0.3,
+            min_odds=1.5,
         )
         self.max_bets_per_match = max_bets_per_match
         self.track_equity_curve = track_equity_curve
@@ -252,7 +255,8 @@ class Backtester:
 
         logger.info(
             "Running backtest on %d/%d bets passing filter",
-            len(passed_bets), len(historical_bets),
+            len(passed_bets),
+            len(historical_bets),
         )
 
         # Track bets per match for max_bets_per_match
@@ -286,7 +290,9 @@ class Backtester:
 
             # ── Compute stake ──
             stake_amount = self.stake_strategy.calculate_stake(
-                model_prob, decimal_odds, self._bankroll,
+                model_prob,
+                decimal_odds,
+                self._bankroll,
             )
 
             if stake_amount <= 0:
@@ -363,7 +369,9 @@ class Backtester:
             },
             started_at=self._start_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             finished_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            duration_seconds=(datetime.now(timezone.utc) - self._start_time).total_seconds(),
+            duration_seconds=(
+                datetime.now(timezone.utc) - self._start_time
+            ).total_seconds(),
         )
 
         if m.total_bets == 0:
@@ -378,15 +386,11 @@ class Backtester:
         m.total_profit = sum(b.profit for b in self._bets)
 
         # ROI
-        m.roi_pct = (
-            (m.final_bankroll - m.initial_bankroll)
-            / m.initial_bankroll * 100
-        )
+        m.roi_pct = (m.final_bankroll - m.initial_bankroll) / m.initial_bankroll * 100
 
         # Yield
         m.yield_pct = (
-            (m.total_profit / m.total_staked * 100)
-            if m.total_staked > 0 else 0.0
+            (m.total_profit / m.total_staked * 100) if m.total_staked > 0 else 0.0
         )
 
         # Win rate
@@ -401,8 +405,10 @@ class Backtester:
         gross_profit = sum(b.profit for b in self._bets if b.profit > 0)
         gross_loss = abs(sum(b.profit for b in self._bets if b.profit < 0))
         m.profit_factor = (
-            gross_profit / gross_loss if gross_loss > 0
-            else float("inf") if gross_profit > 0
+            gross_profit / gross_loss
+            if gross_loss > 0
+            else float("inf")
+            if gross_profit > 0
             else 0.0
         )
 
@@ -436,23 +442,29 @@ class Backtester:
         m.equity_curve = self._build_equity_curve()
 
         # Sharpe ratio (using bet-level returns)
-        returns = np.array([b.profit / max(b.bankroll_before, 0.01) for b in self._bets])
+        returns = np.array(
+            [b.profit / max(b.bankroll_before, 0.01) for b in self._bets]
+        )
         if len(returns) > 1 and np.std(returns) > 0:
             mean_return = np.mean(returns)
             std_return = np.std(returns, ddof=1)  # sample std
             # Annualised Sharpe (assuming ~500 bets/year)
             m.sharpe_ratio = float(
-                (mean_return / std_return) * math.sqrt(500)
-                if std_return > 0 else 0.0
+                (mean_return / std_return) * math.sqrt(500) if std_return > 0 else 0.0
             )
 
             # Sortino ratio (downside deviation only)
             neg_returns = returns[returns < 0]
             if len(neg_returns) > 0:
-                downside_std = np.std(neg_returns, ddof=1) if len(neg_returns) > 1 else np.std(neg_returns)
+                downside_std = (
+                    np.std(neg_returns, ddof=1)
+                    if len(neg_returns) > 1
+                    else np.std(neg_returns)
+                )
                 m.sortino_ratio = float(
                     (mean_return / downside_std) * math.sqrt(500)
-                    if downside_std > 0 else 0.0
+                    if downside_std > 0
+                    else 0.0
                 )
 
         # Streaks
@@ -479,43 +491,89 @@ class Backtester:
             logger.info("=" * 80)
             return
 
-        logger.info("  %-30s %15s   %-33s", 'Metric', 'Value', 'Notes')
-        logger.info("  %s", '-' * 78)
+        logger.info("  %-30s %15s   %-33s", "Metric", "Value", "Notes")
+        logger.info("  %s", "-" * 78)
 
         # P&L section
-        logger.info("  %-30s %10d   %20s", 'TOTAL BETS', m.total_bets, 'bets placed')
-        logger.info("  %-30s %8d / %-8d  %20s", 'Winning', m.winning_bets, m.total_bets, '')
-        logger.info("  %-30s %13.1f%%   %20s", 'Win Rate', m.win_rate_pct, '')
+        logger.info("  %-30s %10d   %20s", "TOTAL BETS", m.total_bets, "bets placed")
+        logger.info(
+            "  %-30s %8d / %-8d  %20s", "Winning", m.winning_bets, m.total_bets, ""
+        )
+        logger.info("  %-30s %13.1f%%   %20s", "Win Rate", m.win_rate_pct, "")
 
         profit_color = "+" if m.total_profit >= 0 else ""
-        logger.info("  %-30s %s£%+11.2f   %20s", 'Total P&L', profit_color, m.total_profit, '')
-        logger.info("  %-30s £%11.2f   %20s", 'Total Staked', m.total_staked, '')
+        logger.info(
+            "  %-30s %s£%+11.2f   %20s", "Total P&L", profit_color, m.total_profit, ""
+        )
+        logger.info("  %-30s £%11.2f   %20s", "Total Staked", m.total_staked, "")
 
         roi_color = "+" if m.roi_pct >= 0 else ""
-        logger.info("  %-30s %s%+11.2f%%   %20s", 'ROI', roi_color, m.roi_pct, '')
+        logger.info("  %-30s %s%+11.2f%%   %20s", "ROI", roi_color, m.roi_pct, "")
         yield_color = "+" if m.yield_pct >= 0 else ""
-        logger.info("  %-30s %s%+11.2f%%   %20s", 'Yield', yield_color, m.yield_pct, 'profit per unit staked')
+        logger.info(
+            "  %-30s %s%+11.2f%%   %20s",
+            "Yield",
+            yield_color,
+            m.yield_pct,
+            "profit per unit staked",
+        )
 
         bankroll_change = m.final_bankroll - m.initial_bankroll
         change_sign = "+" if bankroll_change >= 0 else ""
-        logger.info("  %-30s £%11.2f   (%s£%.2f from £%.0f)", 'Final Bankroll', m.final_bankroll, change_sign, bankroll_change, m.initial_bankroll)
+        logger.info(
+            "  %-30s £%11.2f   (%s£%.2f from £%.0f)",
+            "Final Bankroll",
+            m.final_bankroll,
+            change_sign,
+            bankroll_change,
+            m.initial_bankroll,
+        )
 
         # Risk section
-        logger.info("  %-30s %12.2f%%   (£%.2f peak-to-trough)", 'Max Drawdown', m.max_drawdown_pct, m.max_drawdown_amount)
-        logger.info("  %-30s %14.2f   %20s", 'Sharpe Ratio', m.sharpe_ratio, 'risk-adjusted return')
-        logger.info("  %-30s %14.2f   %20s", 'Sortino Ratio', m.sortino_ratio, 'downside risk-adjusted')
+        logger.info(
+            "  %-30s %12.2f%%   (£%.2f peak-to-trough)",
+            "Max Drawdown",
+            m.max_drawdown_pct,
+            m.max_drawdown_amount,
+        )
+        logger.info(
+            "  %-30s %14.2f   %20s",
+            "Sharpe Ratio",
+            m.sharpe_ratio,
+            "risk-adjusted return",
+        )
+        logger.info(
+            "  %-30s %14.2f   %20s",
+            "Sortino Ratio",
+            m.sortino_ratio,
+            "downside risk-adjusted",
+        )
 
         # Quality section
-        logger.info("  %-30s %14.2f   %20s", 'Profit Factor', m.profit_factor, 'gross profit / gross loss')
-        logger.info("  %-30s %14.4f   %20s", 'Avg Odds', m.avg_odds, '')
-        logger.info("  %-30s %+14.2f%%   %20s", 'Avg EV', m.avg_ev * 100, '')
+        logger.info(
+            "  %-30s %14.2f   %20s",
+            "Profit Factor",
+            m.profit_factor,
+            "gross profit / gross loss",
+        )
+        logger.info("  %-30s %14.4f   %20s", "Avg Odds", m.avg_odds, "")
+        logger.info("  %-30s %+14.2f%%   %20s", "Avg EV", m.avg_ev * 100, "")
 
         if m.avg_clv != 0.0:
-            logger.info("  %-30s %+14.4f   %.0f%% positive bets", 'Avg CLV', m.avg_clv, m.positive_clv_pct)
+            logger.info(
+                "  %-30s %+14.4f   %.0f%% positive bets",
+                "Avg CLV",
+                m.avg_clv,
+                m.positive_clv_pct,
+            )
 
         # Streaks
-        logger.info("  %-30s %8d bets   %20s", 'Longest Win Streak', m.longest_win_streak, '')
-        logger.info("  %-30s %8d bets   %20s", 'Longest Lose Streak', m.longest_lose_streak, '')
+        logger.info(
+            "  %-30s %8d bets   %20s", "Longest Win Streak", m.longest_win_streak, ""
+        )
+        logger.info(
+            "  %-30s %8d bets   %20s", "Longest Lose Streak", m.longest_lose_streak, ""
+        )
 
         # Performance assessment
         logger.info("  ASSESSMENT")
@@ -535,11 +593,15 @@ class Backtester:
             lines.append("  🔴 Poor risk-adjusted returns (Sharpe < 0.5)")
 
         if m.max_drawdown_pct < 10:
-            lines.append(f"  ✅ Low drawdown ({m.max_drawdown_pct:.1f}%) — good risk mgmt")
+            lines.append(
+                f"  ✅ Low drawdown ({m.max_drawdown_pct:.1f}%) — good risk mgmt"
+            )
         elif m.max_drawdown_pct < 25:
             lines.append(f"  ⚠ Moderate drawdown ({m.max_drawdown_pct:.1f}%)")
         else:
-            lines.append(f"  🔴 High drawdown ({m.max_drawdown_pct:.1f}%) — risk of ruin")
+            lines.append(
+                f"  🔴 High drawdown ({m.max_drawdown_pct:.1f}%) — risk of ruin"
+            )
 
         if m.profit_factor >= 2.0:
             lines.append("  ✅ Profit factor ≥ 2.0 — strong risk/reward")
@@ -558,7 +620,9 @@ class Backtester:
             lines.append(f"  🔴 Loss-making: {m.roi_pct:+.1f}% ROI")
 
         if m.total_bets < 100:
-            lines.append(f"  ⚠ Small sample ({m.total_bets} bets) — results may not be significant")
+            lines.append(
+                f"  ⚠ Small sample ({m.total_bets} bets) — results may not be significant"
+            )
         elif m.total_bets < 500:
             lines.append(f"  📊 Moderate sample ({m.total_bets} bets)")
         else:
@@ -662,7 +726,8 @@ class Backtester:
         return history
 
     def _build_drawdown_history(
-        self, history: list[float],
+        self,
+        history: list[float],
     ) -> list[float]:
         """Compute drawdown % for each point in bankroll history."""
         if not history:

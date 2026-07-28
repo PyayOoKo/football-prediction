@@ -157,7 +157,10 @@ class FeatureStore:
         float | str | dict | None
         """
         fv = self.get(
-            definition_id, match_id=match_id, team_id=team_id, league_id=league_id,
+            definition_id,
+            match_id=match_id,
+            team_id=team_id,
+            league_id=league_id,
         )
         if fv is None:
             return None
@@ -355,7 +358,9 @@ class FeatureStore:
         self._session.flush()
         logger.info(
             "Started batch %s: %s (%d entities)",
-            batch.id, batch_label, entity_count,
+            batch.id,
+            batch_label,
+            entity_count,
         )
         return batch
 
@@ -384,7 +389,9 @@ class FeatureStore:
         self._session.flush()
         logger.info(
             "Completed batch %s: success=%s duration=%.2fs",
-            batch_id, success, batch.duration_seconds or 0,
+            batch_id,
+            success,
+            batch.duration_seconds or 0,
         )
         return batch
 
@@ -414,9 +421,13 @@ class FeatureStore:
         -------
         list[FeatureComputationBatch]
         """
-        stmt = select(FeatureComputationBatch).order_by(
-            FeatureComputationBatch.created_at.desc(),
-        ).limit(limit)
+        stmt = (
+            select(FeatureComputationBatch)
+            .order_by(
+                FeatureComputationBatch.created_at.desc(),
+            )
+            .limit(limit)
+        )
 
         if trigger is not None:
             stmt = stmt.where(FeatureComputationBatch.trigger == trigger)
@@ -464,8 +475,7 @@ class FeatureStore:
 
         # Load existing values for these entities
         id_col = (
-            FeatureValue.match_id if entity_type == "match"
-            else FeatureValue.team_id
+            FeatureValue.match_id if entity_type == "match" else FeatureValue.team_id
         )
         stmt = select(FeatureValue).where(
             FeatureValue.feature_definition_id == definition_id,
@@ -520,16 +530,18 @@ class FeatureStore:
         stmt = select(FeatureDefinition).where(
             FeatureDefinition.id.in_(definition_ids),
         )
-        definitions = {
-            d.id: d for d in self._session.execute(stmt).scalars().all()
-        }
+        definitions = {d.id: d for d in self._session.execute(stmt).scalars().all()}
 
         # Load values
-        values = self._session.execute(
-            select(FeatureValue)
-            .options(joinedload(FeatureValue.definition))
-            .where(FeatureValue.feature_definition_id.in_(definition_ids))
-        ).scalars().all()
+        values = (
+            self._session.execute(
+                select(FeatureValue)
+                .options(joinedload(FeatureValue.definition))
+                .where(FeatureValue.feature_definition_id.in_(definition_ids))
+            )
+            .scalars()
+            .all()
+        )
 
         for fv in values:
             # Check entity match

@@ -34,7 +34,9 @@ class PredictionService:
         global container's ConfigProvider.
     """
 
-    def __init__(self, model_dir: Path | None = None, config: ConfigProvider | None = None) -> None:
+    def __init__(
+        self, model_dir: Path | None = None, config: ConfigProvider | None = None
+    ) -> None:
         self._config = config or get_container().resolve(ConfigProvider)  # type: ignore[type-abstract]
         self._model_dir = model_dir or self._config.paths.models
         self._model_dir.mkdir(parents=True, exist_ok=True)
@@ -87,8 +89,7 @@ class PredictionService:
         data_path = resolve_data_path(data_path, config=cfg)
         if not data_path.exists():
             raise FileNotFoundError(
-                f"Match data not found at {data_path}. "
-                "Run data collection first."
+                f"Match data not found at {data_path}. Run data collection first."
             )
 
         df = load_and_prepare(data_path, add_temporal=True, config=cfg)
@@ -128,19 +129,29 @@ class PredictionService:
         # from completed to upcoming matches.
         combined = pd.concat([completed, upcoming], ignore_index=True)
         X_all, _ = build_features(
-            combined, is_training=True, config=cfg,
+            combined,
+            is_training=True,
+            config=cfg,
             encoder=self._encoder,
         )
 
         # Select upcoming rows by stable row ID (not positional offset)
         if "_row_id" in X_all.columns:
-            X_upcoming_all = X_all[X_all["_row_id"].str.startswith("upcoming_", na=False)].copy()
+            X_upcoming_all = X_all[
+                X_all["_row_id"].str.startswith("upcoming_", na=False)
+            ].copy()
             # Reorder to original row_id_order (handles any sorting during feature engineering)
-            X_upcoming_all = X_upcoming_all.set_index("_row_id").reindex(row_id_order).reset_index(drop=True)
+            X_upcoming_all = (
+                X_upcoming_all.set_index("_row_id")
+                .reindex(row_id_order)
+                .reset_index(drop=True)
+            )
         else:
             # Legacy fallback (row_id was dropped — use positional)
-            logger.warning("_row_id column missing after feature engineering — using positional fallback")
-            X_upcoming_all = X_all.iloc[len(completed):].copy()
+            logger.warning(
+                "_row_id column missing after feature engineering — using positional fallback"
+            )
+            X_upcoming_all = X_all.iloc[len(completed) :].copy()
 
         # Drop row_id for model input
         X_upcoming = X_upcoming_all.drop(columns=["_row_id"], errors="ignore")
@@ -151,6 +162,7 @@ class PredictionService:
 
         # ── 3b. Align columns if model is a ModelArtifact ──
         from src.models.artifact import ModelArtifact
+
         if isinstance(model, ModelArtifact):
             X_upcoming = model.select_columns(X_upcoming)
 
@@ -174,17 +186,19 @@ class PredictionService:
             home_win_prob = float(probs_i.get(2, probs[i][2]))
             draw_prob = float(probs_i.get(1, probs[i][1]))
             away_win_prob = float(probs_i.get(0, probs[i][0]))
-            results.append({
-                "match_id": int(row.get("match_id", i)),
-                "date": str(row.get("date", ""))[:10],
-                "home_team": str(row.get("home_team", "")),
-                "away_team": str(row.get("away_team", "")),
-                "home_win_prob": home_win_prob,
-                "draw_prob": draw_prob,
-                "away_win_prob": away_win_prob,
-                "prediction": label,
-                "confidence": round(float(confidences[i]), 4),
-            })
+            results.append(
+                {
+                    "match_id": int(row.get("match_id", i)),
+                    "date": str(row.get("date", ""))[:10],
+                    "home_team": str(row.get("home_team", "")),
+                    "away_team": str(row.get("away_team", "")),
+                    "home_win_prob": home_win_prob,
+                    "draw_prob": draw_prob,
+                    "away_win_prob": away_win_prob,
+                    "prediction": label,
+                    "confidence": round(float(confidences[i]), 4),
+                }
+            )
 
         # ── 6. Save if requested ────────────────────────────
         if output_path is not None:
@@ -193,7 +207,9 @@ class PredictionService:
         logger.info("Predicted %d upcoming matches", len(results))
         return results
 
-    def predict_match(self, match_id: int, data_path: str | Path | None = None    ) -> dict[str, Any] | None:
+    def predict_match(
+        self, match_id: int, data_path: str | Path | None = None
+    ) -> dict[str, Any] | None:
         """Generate a prediction for a single match.
 
         Looks up the match by its row index in the raw data, builds
@@ -245,9 +261,12 @@ class PredictionService:
         upcoming = match_row.copy()
 
         from src.feature_engineering import build_features
+
         combined = pd.concat([completed, upcoming], ignore_index=True)
         X_all, _ = build_features(
-            combined, is_training=True, config=cfg,
+            combined,
+            is_training=True,
+            config=cfg,
             encoder=self._encoder,
         )
         X_match = X_all.iloc[[len(completed)]].copy()
@@ -277,8 +296,11 @@ class PredictionService:
 
         logger.info(
             "Match %d: %s vs %s → %s (%.1f%%)",
-            match_id, result["home_team"], result["away_team"],
-            result["prediction"], result["confidence"] * 100,  # type: ignore[operator]
+            match_id,
+            result["home_team"],
+            result["away_team"],
+            result["prediction"],
+            result["confidence"] * 100,  # type: ignore[operator]
         )
         return result
 
@@ -320,7 +342,9 @@ class PredictionService:
         """
         cfg = self._config
         logger.info(
-            "Backfilling predictions from %s to %s", start_date, end_date,
+            "Backfilling predictions from %s to %s",
+            start_date,
+            end_date,
         )
 
         # ── 1. Load model ───────────────────────────────────
@@ -363,14 +387,16 @@ class PredictionService:
             if len(train_df) < 20:
                 logger.debug(
                     "Skipping %s — only %d prior matches",
-                    match_date.date(), len(train_df),
+                    match_date.date(),
+                    len(train_df),
                 )
                 continue
 
             try:
                 # Build features on training data only (no future info)
                 X_train, y_train = build_features(
-                    train_df, is_training=True,
+                    train_df,
+                    is_training=True,
                     encoder=self._encoder,
                 )
                 if len(X_train) < 10:
@@ -380,7 +406,9 @@ class PredictionService:
                 this_match = match_row.to_frame().T
                 combined = pd.concat([train_df, this_match], ignore_index=True)
                 X_all, _ = build_features(
-                    combined, is_training=True, config=cfg,
+                    combined,
+                    is_training=True,
+                    config=cfg,
                     encoder=self._encoder,
                 )
 
@@ -402,24 +430,27 @@ class PredictionService:
                     or (pred_class == 0 and actual_result == "A")
                 )
 
-                results.append({
-                    "match_id": int(idx),
-                    "date": str(match_date.date()),
-                    "home_team": str(match_row.get("home_team", "")),
-                    "away_team": str(match_row.get("away_team", "")),
-                    "home_win_prob": round(float(probs_i.get(2, probs[2])), 4),
-                    "draw_prob": round(float(probs_i.get(1, probs[1])), 4),
-                    "away_win_prob": round(float(probs_i.get(0, probs[0])), 4),
-                    "prediction": label,
-                    "confidence": round(float(probs.max()), 4),
-                    "actual_result": actual_label,
-                    "correct": bool(is_correct),
-                })
+                results.append(
+                    {
+                        "match_id": int(idx),
+                        "date": str(match_date.date()),
+                        "home_team": str(match_row.get("home_team", "")),
+                        "away_team": str(match_row.get("away_team", "")),
+                        "home_win_prob": round(float(probs_i.get(2, probs[2])), 4),
+                        "draw_prob": round(float(probs_i.get(1, probs[1])), 4),
+                        "away_win_prob": round(float(probs_i.get(0, probs[0])), 4),
+                        "prediction": label,
+                        "confidence": round(float(probs.max()), 4),
+                        "actual_result": actual_label,
+                        "correct": bool(is_correct),
+                    }
+                )
 
             except Exception as exc:
                 logger.debug(
                     "Skipping match %s — feature building failed: %s",
-                    match_row.get("date", "?"), exc,
+                    match_row.get("date", "?"),
+                    exc,
                 )
                 continue
 
@@ -427,7 +458,10 @@ class PredictionService:
         total = len(results)
         pct = correct_count / max(total, 1) * 100
         logger.info(
-            "Backfill complete: %d/%d correct (%.1f%%)", correct_count, total, pct,
+            "Backfill complete: %d/%d correct (%.1f%%)",
+            correct_count,
+            total,
+            pct,
         )
         return results
 
@@ -462,13 +496,18 @@ class PredictionService:
             if isinstance(obj, ModelArtifact):
                 logger.info(
                     "Loaded artifact: %s (%d features, %s)",
-                    model_name, obj.n_features, obj.model_type,
+                    model_name,
+                    obj.n_features,
+                    obj.model_type,
                 )
                 if obj.target_encoder_state:
-                    self._encoder = SafeTargetEncoder.from_state(obj.target_encoder_state)
+                    self._encoder = SafeTargetEncoder.from_state(
+                        obj.target_encoder_state
+                    )
                     logger.info(
                         "Target encoder restored from artifact (%d cols, prior=%.4f)",
-                        len(self._encoder.cols), self._encoder.prior,
+                        len(self._encoder.cols),
+                        self._encoder.prior,
                     )
             return obj
 
@@ -489,13 +528,16 @@ class PredictionService:
         if isinstance(obj, ModelArtifact):
             logger.info(
                 "Loaded artifact: %s (%d features, %s)",
-                latest.name, obj.n_features, obj.model_type,
+                latest.name,
+                obj.n_features,
+                obj.model_type,
             )
             if obj.target_encoder_state:
                 self._encoder = SafeTargetEncoder.from_state(obj.target_encoder_state)
                 logger.info(
                     "Target encoder restored from artifact (%d cols, prior=%.4f)",
-                    len(self._encoder.cols), self._encoder.prior,
+                    len(self._encoder.cols),
+                    self._encoder.prior,
                 )
         else:
             logger.info("Loaded legacy model: %s (no target encoder)", latest.name)
@@ -548,6 +590,7 @@ class PredictionService:
 
         # Fetch live odds for each match
         from src.data import OddsCollector
+
         collector = OddsCollector()
 
         enriched = []
@@ -555,17 +598,23 @@ class PredictionService:
             h, a = pred["home_team"], pred["away_team"]
             odds = collector.get_best_odds(h, a)
 
-            if odds and all(odds.get(k, 0) > 0 for k in ["home_odds", "draw_odds", "away_odds"]):
-                model_probs = np.array([
-                    pred["away_win_prob"],
-                    pred["draw_prob"],
-                    pred["home_win_prob"],
-                ])
-                odds_array = np.array([
-                    odds["away_odds"],
-                    odds["draw_odds"],
-                    odds["home_odds"],
-                ])
+            if odds and all(
+                odds.get(k, 0) > 0 for k in ["home_odds", "draw_odds", "away_odds"]
+            ):
+                model_probs = np.array(
+                    [
+                        pred["away_win_prob"],
+                        pred["draw_prob"],
+                        pred["home_win_prob"],
+                    ]
+                )
+                odds_array = np.array(
+                    [
+                        odds["away_odds"],
+                        odds["draw_odds"],
+                        odds["home_odds"],
+                    ]
+                )
 
                 # Compute fair (margin-adjusted) probabilities
                 implied = 1.0 / odds_array
@@ -609,11 +658,15 @@ class PredictionService:
 
         n_with_odds = sum(1 for p in enriched if "odds_analysis" in p)
         logger.info(
-            "Enriched %d/%d predictions with odds", n_with_odds, len(enriched),
+            "Enriched %d/%d predictions with odds",
+            n_with_odds,
+            len(enriched),
         )
         return enriched
 
-    def _save_predictions(self,         results: list[dict[str, Any]], output_path: str | Path) -> None:
+    def _save_predictions(
+        self, results: list[dict[str, Any]], output_path: str | Path
+    ) -> None:
         """Save prediction results to CSV or JSON."""
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)

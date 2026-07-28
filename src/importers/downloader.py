@@ -78,10 +78,7 @@ def _guess_season_range(max_seasons: int) -> list[str]:
     """Generate the N most recent season codes."""
     now = datetime.now()
     end_year = now.year + 1 if now.month >= 8 else now.year
-    return [
-        _season_code(end_year - max_seasons + i)
-        for i in range(max_seasons)
-    ]
+    return [_season_code(end_year - max_seasons + i) for i in range(max_seasons)]
 
 
 class DownloadResult:
@@ -177,10 +174,12 @@ class DownloadManager:
     def session(self) -> requests.Session:
         if self._session is None:
             self._session = requests.Session()
-            self._session.headers.update({
-                "User-Agent": "FootballPrediction/1.0 (data importer)",
-                "Accept": "text/csv,text/html,application/zip,*/*",
-            })
+            self._session.headers.update(
+                {
+                    "User-Agent": "FootballPrediction/1.0 (data importer)",
+                    "Accept": "text/csv,text/html,application/zip,*/*",
+                }
+            )
         return self._session
 
     # ── Public API ─────────────────────────────────────
@@ -212,11 +211,17 @@ class DownloadManager:
 
         try:
             response = self.retry.execute(
-                self.session.get, url, timeout=self.timeout,
+                self.session.get,
+                url,
+                timeout=self.timeout,
             )
 
             raw_content = response.text
-            sha256 = hashlib.sha256(raw_content.encode()).hexdigest() if self.verify_sha256 else ""
+            sha256 = (
+                hashlib.sha256(raw_content.encode()).hexdigest()
+                if self.verify_sha256
+                else ""
+            )
 
             # Save raw file
             with open(raw_path, "w", encoding="utf-8") as f:
@@ -228,7 +233,11 @@ class DownloadManager:
 
             logger.info(
                 "Downloaded %s/%s: %d rows, %s -> %s",
-                league, season, row_count, sha256[:12], raw_path,
+                league,
+                season,
+                row_count,
+                sha256[:12],
+                raw_path,
             )
 
             return DownloadResult(
@@ -272,10 +281,16 @@ class DownloadManager:
 
         try:
             response = self.retry.execute(
-                self.session.get, url, timeout=self.timeout,
+                self.session.get,
+                url,
+                timeout=self.timeout,
             )
             raw_content = response.text
-            sha256 = hashlib.sha256(raw_content.encode()).hexdigest() if self.verify_sha256 else ""
+            sha256 = (
+                hashlib.sha256(raw_content.encode()).hexdigest()
+                if self.verify_sha256
+                else ""
+            )
 
             with open(raw_path, "w", encoding="utf-8") as f:
                 f.write(raw_content)
@@ -285,7 +300,10 @@ class DownloadManager:
 
             logger.info(
                 "Downloaded current %s: %d rows, %s -> %s",
-                league, row_count, sha256[:12], raw_path,
+                league,
+                row_count,
+                sha256[:12],
+                raw_path,
             )
 
             return DownloadResult(
@@ -376,14 +394,14 @@ class DownloadManager:
             return False
 
         if self.verify_sha256 and result.sha256:
-            current_sha = hashlib.sha256(
-                path.read_bytes()
-            ).hexdigest()
+            current_sha = hashlib.sha256(path.read_bytes()).hexdigest()
             if current_sha != result.sha256:
                 logger.error(
                     "Integrity check failed: SHA-256 mismatch for %s "
                     "(expected %s, got %s)",
-                    path, result.sha256[:12], current_sha[:12],
+                    path,
+                    result.sha256[:12],
+                    current_sha[:12],
                 )
                 return False
 
@@ -396,7 +414,9 @@ class DownloadManager:
         logger.info("Integrity check passed: %s (%d bytes)", path, path.stat().st_size)
         return True
 
-    def archive_raw_file(self, result: DownloadResult, archive_dir: str | Path = "data/raw/archive") -> None:
+    def archive_raw_file(
+        self, result: DownloadResult, archive_dir: str | Path = "data/raw/archive"
+    ) -> None:
         """Move a raw file to an archive directory (e.g. after successful import).
 
         Parameters

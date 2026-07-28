@@ -231,7 +231,9 @@ class FootballDataImporter:
         total_rows = sum(r.rows_imported for r in reports)
         logger.info(
             "Historical import complete: %d/%d leagues+seasons, %d total rows imported",
-            success_count, len(reports), total_rows,
+            success_count,
+            len(reports),
+            total_rows,
         )
 
         return reports
@@ -258,7 +260,9 @@ class FootballDataImporter:
 
         return reports
 
-    def import_single_file(self, filepath: str, league: str, season: str) -> ImportReport:
+    def import_single_file(
+        self, filepath: str, league: str, season: str
+    ) -> ImportReport:
         """Import a single CSV file that's already on disk.
 
         Useful for testing or manual imports.
@@ -296,7 +300,8 @@ class FootballDataImporter:
 
             # Resolve entities
             resolved = self.resolver.resolve_rows(
-                parsed_rows, league_map=self.league_map,
+                parsed_rows,
+                league_map=self.league_map,
             )
 
             # Filter by incremental
@@ -307,7 +312,9 @@ class FootballDataImporter:
 
             # Store
             if resolved:
-                store_result = self.db_store.write(resolved, batch_size=self.db_batch_size)
+                store_result = self.db_store.write(
+                    resolved, batch_size=self.db_batch_size
+                )
                 report.rows_imported = store_result.records_out or 0
 
             report.status = "success" if report.rows_imported > 0 else "skipped"
@@ -321,7 +328,11 @@ class FootballDataImporter:
         report.season_name = self._season_name(season)
         logger.info(
             "Import %s/%s: %s (%d rows in %.1fs)",
-            league, season, report.status, report.rows_imported, report.duration_seconds,
+            league,
+            season,
+            report.status,
+            report.rows_imported,
+            report.duration_seconds,
         )
         return report
 
@@ -360,7 +371,9 @@ class FootballDataImporter:
                 return report
 
             raw_text = raw_path.read_text(encoding="utf-8")
-            parsed_rows = self.parser.parse_to_dicts(raw_text, source_file=str(raw_path))
+            parsed_rows = self.parser.parse_to_dicts(
+                raw_text, source_file=str(raw_path)
+            )
             report.rows_parsed = len(parsed_rows)
 
             if not parsed_rows:
@@ -370,7 +383,8 @@ class FootballDataImporter:
 
             # Step 3: Resolve entities
             resolved = self.resolver.resolve_rows(
-                parsed_rows, league_map=self.league_map,
+                parsed_rows,
+                league_map=self.league_map,
             )
 
             # Step 4: Incremental filtering
@@ -381,14 +395,19 @@ class FootballDataImporter:
 
             # Step 5: Store
             if resolved:
-                store_result = self.db_store.write(resolved, batch_size=self.db_batch_size)
+                store_result = self.db_store.write(
+                    resolved, batch_size=self.db_batch_size
+                )
                 report.rows_imported = store_result.records_out or 0
 
             report.status = "success" if report.rows_imported > 0 else "skipped"
 
         except Exception as exc:
             logger.exception(
-                "Import failed for %s/%s: %s", league, season, exc,
+                "Import failed for %s/%s: %s",
+                league,
+                season,
+                exc,
             )
             report.status = "failed"
             report.errors.append(str(exc))
@@ -397,8 +416,11 @@ class FootballDataImporter:
         report.season_name = self._season_name(season)
         logger.info(
             "%s/%s: %s — %d rows imported in %.1fs",
-            league, season, report.status,
-            report.rows_imported, report.duration_seconds,
+            league,
+            season,
+            report.status,
+            report.rows_imported,
+            report.duration_seconds,
         )
         return report
 
@@ -432,7 +454,9 @@ class FootballDataImporter:
                 return report
 
             raw_text = raw_path.read_text(encoding="utf-8")
-            parsed_rows = self.parser.parse_to_dicts(raw_text, source_file=str(raw_path))
+            parsed_rows = self.parser.parse_to_dicts(
+                raw_text, source_file=str(raw_path)
+            )
             report.rows_parsed = len(parsed_rows)
 
             if not parsed_rows:
@@ -441,7 +465,8 @@ class FootballDataImporter:
                 return report
 
             resolved = self.resolver.resolve_rows(
-                parsed_rows, league_map=self.league_map,
+                parsed_rows,
+                league_map=self.league_map,
             )
 
             if self.incremental:
@@ -450,7 +475,9 @@ class FootballDataImporter:
             report.rows_skipped = report.rows_parsed - len(resolved)
 
             if resolved:
-                store_result = self.db_store.write(resolved, batch_size=self.db_batch_size)
+                store_result = self.db_store.write(
+                    resolved, batch_size=self.db_batch_size
+                )
                 report.rows_imported = store_result.records_out or 0
 
             report.status = "success" if report.rows_imported > 0 else "skipped"
@@ -464,7 +491,10 @@ class FootballDataImporter:
         report.season_name = self._season_name(_current_season_code())
         logger.info(
             "Current %s: %s — %d rows imported in %.1fs",
-            league, report.status, report.rows_imported, report.duration_seconds,
+            league,
+            report.status,
+            report.rows_imported,
+            report.duration_seconds,
         )
         return report
 
@@ -511,10 +541,14 @@ class FootballDataImporter:
                     )
                 )
                 for row in result:
-                    fingerprint = f"{row.match_date}:{row.home_team_id}:{row.away_team_id}"
+                    fingerprint = (
+                        f"{row.match_date}:{row.home_team_id}:{row.away_team_id}"
+                    )
                     self._known_match_dates.add(fingerprint)
 
-            logger.info("Loaded %d existing match fingerprints", len(self._known_match_dates))
+            logger.info(
+                "Loaded %d existing match fingerprints", len(self._known_match_dates)
+            )
         except Exception as exc:
             logger.warning("Could not load existing matches: %s", exc)
 

@@ -42,7 +42,9 @@ class CalibratedTemperatureWrapper:
         Fitted temperature calibrator.
     """
 
-    def __init__(self, base_model: Any, calibrator: TemperatureScalingCalibrator) -> None:
+    def __init__(
+        self, base_model: Any, calibrator: TemperatureScalingCalibrator
+    ) -> None:
         self.base_model = base_model
         self._calibrator = calibrator
 
@@ -100,11 +102,13 @@ class CalibratedStatsModel:
 
         preds = self._base_model.predict_matches(df)
 
-        raw_probs = np.column_stack([
-            preds["away_win_prob"].values,
-            preds["draw_prob"].values,
-            preds["home_win_prob"].values,
-        ])
+        raw_probs = np.column_stack(
+            [
+                preds["away_win_prob"].values,
+                preds["draw_prob"].values,
+                preds["home_win_prob"].values,
+            ]
+        )
 
         if isinstance(self._calibrator, TemperatureScalingCalibrator):
             p = np.clip(raw_probs, 1e-7, 1 - 1e-7)
@@ -124,7 +128,9 @@ class CalibratedStatsModel:
         """Forward whitelisted methods to the base model."""
         if name in self._forwarded_methods and hasattr(self, "_base_model"):
             return getattr(self._base_model, name)
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
+        )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -196,7 +202,9 @@ class CalibratedModel:
             val_probs = self.base_model.predict_proba(X_cal)
             val_true = y_cal
 
-        self._calibrators = _fit_calibrators(val_probs, val_true, self.n_classes, self.method)
+        self._calibrators = _fit_calibrators(
+            val_probs, val_true, self.n_classes, self.method
+        )
         self._fitted = True
         logger.info("Calibration fitted — %s, %d classes", self.method, self.n_classes)
         return self
@@ -290,8 +298,12 @@ class CalibratedModel:
         logger.info(
             "Calibration eval — log-loss: %.4f -> %.4f (Δ=%.4f)  |  "
             "Brier: %.4f -> %.4f (Δ=%.4f)",
-            raw_ll, cal_ll, raw_ll - cal_ll,
-            raw_brier, cal_brier, raw_brier - cal_brier,
+            raw_ll,
+            cal_ll,
+            raw_ll - cal_ll,
+            raw_brier,
+            cal_brier,
+            raw_brier - cal_brier,
         )
         return result
 
@@ -330,7 +342,9 @@ def _fit_calibrators(
             cal = IsotonicRegression(out_of_bounds="clip")
             cal.fit(val_probs[:, c], (y_val == c).astype(int))
         else:
-            logger.warning("Unknown calibration method '%s' — falling back to Platt", method)
+            logger.warning(
+                "Unknown calibration method '%s' — falling back to Platt", method
+            )
             cal = LogisticRegression(penalty=None, solver="lbfgs", max_iter=1000)
             p = np.clip(val_probs[:, c], 1e-7, 1 - 1e-7)
             X_c = np.log(p / (1.0 - p)).reshape(-1, 1)

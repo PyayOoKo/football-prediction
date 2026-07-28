@@ -98,57 +98,83 @@ class HTMLReport(ReportGenerator):
         kpi_values: list[tuple[str, str, str, str]] = []
 
         # ── KPI helpers ──────────────────────────────────
-        def kpi(title: str, value: str, subtitle: str, color: str = COLORS["primary"]) -> None:
+        def kpi(
+            title: str, value: str, subtitle: str, color: str = COLORS["primary"]
+        ) -> None:
             kpi_values.append((title, value, subtitle, color))
 
         # Build KPIs from latest data
         if latest.etl:
-            kpi("⏱ Pipeline Duration",
+            kpi(
+                "⏱ Pipeline Duration",
                 f"{latest.etl.duration_seconds:.1f}s",
-                f"Latest: {latest.etl.pipeline}", COLORS["primary"])
-            kpi("📥 Rows Imported",
+                f"Latest: {latest.etl.pipeline}",
+                COLORS["primary"],
+            )
+            kpi(
+                "📥 Rows Imported",
                 f"{latest.etl.rows_imported:,}",
-                f"{latest.etl.duplicate_pct:.1f}% dupes", COLORS["success"])
-            kpi("📤 Processing Speed",
+                f"{latest.etl.duplicate_pct:.1f}% dupes",
+                COLORS["success"],
+            )
+            kpi(
+                "📤 Processing Speed",
                 f"{latest.etl.processing_speed_rows_s:.0f} rows/s",
-                f"{latest.etl.download_speed_mbps:.1f} Mbps", COLORS["purple"])
+                f"{latest.etl.download_speed_mbps:.1f} Mbps",
+                COLORS["purple"],
+            )
         if latest.system:
-            kpi("💻 CPU",
+            kpi(
+                "💻 CPU",
                 f"{latest.system.cpu_percent:.1f}%",
-                f"Mem: {latest.system.memory_percent:.1f}%", COLORS["warning"])
-            kpi("💾 DB Size",
+                f"Mem: {latest.system.memory_percent:.1f}%",
+                COLORS["warning"],
+            )
+            kpi(
+                "💾 DB Size",
                 f"{latest.system.db_size_mb:.1f} MB",
-                f"Disk: {latest.system.disk_usage_pct:.1f}%", COLORS["danger"])
+                f"Disk: {latest.system.disk_usage_pct:.1f}%",
+                COLORS["danger"],
+            )
         if latest.cache:
-            kpi("🎯 Cache Hit Rate",
+            kpi(
+                "🎯 Cache Hit Rate",
                 f"{latest.cache.hit_rate:.1%}",
-                f"{latest.cache.entries:,} entries", COLORS["teal"])
+                f"{latest.cache.entries:,} entries",
+                COLORS["teal"],
+            )
 
         # ── Chart: ETL Duration ──────────────────────────
         if len(etl_data) >= 2:
             etl_sorted = sorted(etl_data, key=lambda r: r["recorded_at"])
             ts = [r["recorded_at"] for r in etl_sorted]
             fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=ts,
-                y=[r["duration_seconds"] for r in etl_sorted],
-                mode="lines+markers",
-                name="Duration (s)",
-                line={"color": COLORS["primary"], "width": 2},
-                marker={"size": 5},
-            ))
-            fig.add_trace(go.Bar(
-                x=ts,
-                y=[r["rows_imported"] for r in etl_sorted],
-                name="Rows Imported",
-                yaxis="y2",
-                marker_color=COLORS["success"],
-                opacity=0.5,
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r["duration_seconds"] for r in etl_sorted],
+                    mode="lines+markers",
+                    name="Duration (s)",
+                    line={"color": COLORS["primary"], "width": 2},
+                    marker={"size": 5},
+                )
+            )
+            fig.add_trace(
+                go.Bar(
+                    x=ts,
+                    y=[r["rows_imported"] for r in etl_sorted],
+                    name="Rows Imported",
+                    yaxis="y2",
+                    marker_color=COLORS["success"],
+                    opacity=0.5,
+                )
+            )
             layout = {**self.CHART_LAYOUT}
             layout["yaxis2"] = {
-                "overlaying": "y", "side": "right",
-                "gridcolor": COLORS["grid"], "zeroline": False,
+                "overlaying": "y",
+                "side": "right",
+                "gridcolor": COLORS["grid"],
+                "zeroline": False,
             }
             layout["title"] = "📊 ETL Pipeline Performance"
             fig.update_layout(**layout)
@@ -159,20 +185,24 @@ class HTMLReport(ReportGenerator):
             etl_sorted = sorted(etl_data, key=lambda r: r["recorded_at"])
             ts = [r["recorded_at"] for r in etl_sorted]
             fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=ts,
-                y=[r["download_speed_mbps"] for r in etl_sorted],
-                mode="lines+markers",
-                name="Download Speed (Mbps)",
-                line={"color": COLORS["purple"], "width": 2},
-            ))
-            fig.add_trace(go.Scatter(
-                x=ts,
-                y=[r["processing_speed_rows_s"] for r in etl_sorted],
-                mode="lines+markers",
-                name="Processing Speed (rows/s)",
-                line={"color": COLORS["teal"], "width": 2},
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r["download_speed_mbps"] for r in etl_sorted],
+                    mode="lines+markers",
+                    name="Download Speed (Mbps)",
+                    line={"color": COLORS["purple"], "width": 2},
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r["processing_speed_rows_s"] for r in etl_sorted],
+                    mode="lines+markers",
+                    name="Processing Speed (rows/s)",
+                    line={"color": COLORS["teal"], "width": 2},
+                )
+            )
             layout = {**self.CHART_LAYOUT}
             layout["title"] = "📈 Throughput Speed"
             fig.update_layout(**layout)
@@ -183,31 +213,49 @@ class HTMLReport(ReportGenerator):
             sys_sorted = sorted(sys_data, key=lambda r: r["recorded_at"])
             ts = [r["recorded_at"] for r in sys_sorted]
             fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r["cpu_percent"] for r in sys_sorted],
-                mode="lines+markers", name="CPU %",
-                line={"color": COLORS["warning"], "width": 2},
-            ))
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r["memory_percent"] for r in sys_sorted],
-                mode="lines+markers", name="Memory %",
-                line={"color": COLORS["danger"], "width": 2},
-            ))
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r["disk_usage_pct"] for r in sys_sorted],
-                mode="lines+markers", name="Disk %",
-                line={"color": COLORS["primary"], "width": 2},
-            ))
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r["db_size_mb"] for r in sys_sorted],
-                mode="lines+markers", name="DB Size (MB)",
-                line={"color": COLORS["purple"], "width": 2},
-                yaxis="y2",
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r["cpu_percent"] for r in sys_sorted],
+                    mode="lines+markers",
+                    name="CPU %",
+                    line={"color": COLORS["warning"], "width": 2},
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r["memory_percent"] for r in sys_sorted],
+                    mode="lines+markers",
+                    name="Memory %",
+                    line={"color": COLORS["danger"], "width": 2},
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r["disk_usage_pct"] for r in sys_sorted],
+                    mode="lines+markers",
+                    name="Disk %",
+                    line={"color": COLORS["primary"], "width": 2},
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r["db_size_mb"] for r in sys_sorted],
+                    mode="lines+markers",
+                    name="DB Size (MB)",
+                    line={"color": COLORS["purple"], "width": 2},
+                    yaxis="y2",
+                )
+            )
             layout = {**self.CHART_LAYOUT}
             layout["yaxis2"] = {
-                "overlaying": "y", "side": "right",
-                "gridcolor": COLORS["grid"], "zeroline": False,
+                "overlaying": "y",
+                "side": "right",
+                "gridcolor": COLORS["grid"],
+                "zeroline": False,
             }
             layout["title"] = "🖥 System Resources"
             fig.update_layout(**layout)
@@ -218,25 +266,40 @@ class HTMLReport(ReportGenerator):
             dq_sorted = sorted(dq_data, key=lambda r: r["recorded_at"])
             ts = [r["recorded_at"] for r in dq_sorted]
             fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r["null_pct"] for r in dq_sorted],
-                mode="lines+markers", name="Null %",
-                line={"color": COLORS["danger"], "width": 2},
-            ))
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r["duplicate_pct"] for r in dq_sorted],
-                mode="lines+markers", name="Duplicate %",
-                line={"color": COLORS["warning"], "width": 2},
-            ))
-            fig.add_trace(go.Bar(
-                x=ts, y=[r["n_rows"] for r in dq_sorted],
-                name="Row Count", yaxis="y2",
-                marker_color=COLORS["primary"], opacity=0.4,
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r["null_pct"] for r in dq_sorted],
+                    mode="lines+markers",
+                    name="Null %",
+                    line={"color": COLORS["danger"], "width": 2},
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r["duplicate_pct"] for r in dq_sorted],
+                    mode="lines+markers",
+                    name="Duplicate %",
+                    line={"color": COLORS["warning"], "width": 2},
+                )
+            )
+            fig.add_trace(
+                go.Bar(
+                    x=ts,
+                    y=[r["n_rows"] for r in dq_sorted],
+                    name="Row Count",
+                    yaxis="y2",
+                    marker_color=COLORS["primary"],
+                    opacity=0.4,
+                )
+            )
             layout = {**self.CHART_LAYOUT}
             layout["yaxis2"] = {
-                "overlaying": "y", "side": "right",
-                "gridcolor": COLORS["grid"], "zeroline": False,
+                "overlaying": "y",
+                "side": "right",
+                "gridcolor": COLORS["grid"],
+                "zeroline": False,
             }
             layout["title"] = "✅ Data Quality"
             fig.update_layout(**layout)
@@ -247,22 +310,32 @@ class HTMLReport(ReportGenerator):
             cache_sorted = sorted(cache_data, key=lambda r: r["recorded_at"])
             ts = [r["recorded_at"] for r in cache_sorted]
             fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r["hit_rate"] for r in cache_sorted],
-                mode="lines+markers", name="Hit Rate",
-                line={"color": COLORS["success"], "width": 2},
-                fill="tozeroy",
-            ))
-            fig.add_trace(go.Scatter(
-                x=ts, y=[r["entries"] for r in cache_sorted],
-                mode="lines+markers", name="Entries",
-                line={"color": COLORS["teal"], "width": 2},
-                yaxis="y2",
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r["hit_rate"] for r in cache_sorted],
+                    mode="lines+markers",
+                    name="Hit Rate",
+                    line={"color": COLORS["success"], "width": 2},
+                    fill="tozeroy",
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=ts,
+                    y=[r["entries"] for r in cache_sorted],
+                    mode="lines+markers",
+                    name="Entries",
+                    line={"color": COLORS["teal"], "width": 2},
+                    yaxis="y2",
+                )
+            )
             layout = {**self.CHART_LAYOUT}
             layout["yaxis2"] = {
-                "overlaying": "y", "side": "right",
-                "gridcolor": COLORS["grid"], "zeroline": False,
+                "overlaying": "y",
+                "side": "right",
+                "gridcolor": COLORS["grid"],
+                "zeroline": False,
             }
             layout["title"] = "🎯 Cache Performance"
             fig.update_layout(**layout)
@@ -272,16 +345,18 @@ class HTMLReport(ReportGenerator):
         trend_html = ""
         for trend in trends:
             icon = {"up": "📈", "down": "📉", "stable": "➡️"}.get(trend.direction, "➡️")
-            color = {"up": "green", "down": "red", "stable": "gray"}.get(trend.direction, "gray")
+            color = {"up": "green", "down": "red", "stable": "gray"}.get(
+                trend.direction, "gray"
+            )
             trend_html += (
                 f'<div class="trend-card">'
                 f'  <span class="trend-icon">{icon}</span>'
                 f'  <div class="trend-info">'
-                f'    <strong>{trend.metric_name}</strong>'
+                f"    <strong>{trend.metric_name}</strong>"
                 f'    <span style="color:{color}">{trend.change_pct:+.1f}%</span>'
-                f'    <small>{trend.values[-1][1]:.2f} → {trend.values[0][1]:.2f}</small>'
-                f'  </div>'
-                f'</div>'
+                f"    <small>{trend.values[-1][1]:.2f} → {trend.values[0][1]:.2f}</small>"
+                f"  </div>"
+                f"</div>"
             )
 
         # ── Build KPI cards ──────────────────────────────
@@ -436,9 +511,21 @@ class CSVReport(ReportGenerator):
         """
         exports: list[tuple[str, str, list[dict[str, Any]]]] = [
             ("etl_metrics", "etl_metrics.csv", self.store.get_etl_history(days=days)),
-            ("system_metrics", "system_metrics.csv", self.store.get_system_history(days=days)),
-            ("data_quality_metrics", "data_quality_metrics.csv", self.store.get_data_quality_history(days=days)),
-            ("cache_metrics", "cache_metrics.csv", self.store.get_cache_history(days=days)),
+            (
+                "system_metrics",
+                "system_metrics.csv",
+                self.store.get_system_history(days=days),
+            ),
+            (
+                "data_quality_metrics",
+                "data_quality_metrics.csv",
+                self.store.get_data_quality_history(days=days),
+            ),
+            (
+                "cache_metrics",
+                "cache_metrics.csv",
+                self.store.get_cache_history(days=days),
+            ),
         ]
 
         paths: list[Path] = []
@@ -507,7 +594,9 @@ class DailySummaryReport(ReportGenerator):
             lines.append(f"  Rows imported:  {etl['rows_imported']:,}")
             lines.append(f"  Rows skipped:   {etl['rows_skipped']:,}")
             lines.append(f"  Download speed: {etl['download_speed_mbps']:.1f} Mbps")
-            lines.append(f"  Processing:     {etl['processing_speed_rows_s']:.0f} rows/s")
+            lines.append(
+                f"  Processing:     {etl['processing_speed_rows_s']:.0f} rows/s"
+            )
             lines.append(f"  Retries:        {etl['retry_count']}")
             lines.append(f"  Dup rate:       {etl['duplicate_pct']:.2f}%")
             lines.append(f"  Missing val %:  {etl['missing_values_pct']:.2f}%")
@@ -523,7 +612,9 @@ class DailySummaryReport(ReportGenerator):
         if sys:
             lines.append("💻 System")
             lines.append(f"  CPU:         {sys['cpu_percent']:.1f}%")
-            lines.append(f"  Memory:      {sys['memory_percent']:.1f}% ({sys['memory_used_mb']:.0f} MB)")
+            lines.append(
+                f"  Memory:      {sys['memory_percent']:.1f}% ({sys['memory_used_mb']:.0f} MB)"
+            )
             lines.append(f"  Disk:        {sys['disk_usage_pct']:.1f}%")
             lines.append(f"  DB Size:     {sys['db_size_mb']:.2f} MB")
             lines.append("")
@@ -536,7 +627,11 @@ class DailySummaryReport(ReportGenerator):
             lines.append(f"  Hits:       {cache['hits']:,}")
             lines.append(f"  Misses:     {cache['misses']:,}")
             lines.append(f"  Entries:    {cache['entries']:,}")
-            lines.append(f"  Size:       {cache.get('size_mb', 0):.2f} MB" if 'size_mb' in cache else "")
+            lines.append(
+                f"  Size:       {cache.get('size_mb', 0):.2f} MB"
+                if "size_mb" in cache
+                else ""
+            )
             lines.append("")
 
         # Data quality section
@@ -557,12 +652,16 @@ class DailySummaryReport(ReportGenerator):
             if trends:
                 lines.append("📈 7-Day Trends")
                 for t in trends:
-                    icon = {"up": "📈", "down": "📉", "stable": "➡️"}.get(t.direction, "➡️")
+                    icon = {"up": "📈", "down": "📉", "stable": "➡️"}.get(
+                        t.direction, "➡️"
+                    )
                     lines.append(f"  {icon} {t.metric_name}: {t.change_pct:+.1f}%")
                 lines.append("")
         except Exception:
             logger.warning("Failed to fetch 7-day trends", exc_info=True)
 
-        lines.append(f"  Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
+        lines.append(
+            f"  Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"
+        )
 
         return "\n".join(lines) + "\n"

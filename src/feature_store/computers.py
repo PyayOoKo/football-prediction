@@ -114,9 +114,7 @@ class FeatureComputer(ABC):
         dict[int, dict[str, Any]]
             Mapping of ``{entity_id: {feature_name: value}}``.
         """
-        return {
-            eid: self.compute_one(eid, **kwargs) for eid in entity_ids
-        }
+        return {eid: self.compute_one(eid, **kwargs) for eid in entity_ids}
 
     def validate(self, result: dict[str, Any]) -> bool:
         """Post-computation validation hook.
@@ -148,9 +146,7 @@ class FeatureComputer(ABC):
         }
 
     def __repr__(self) -> str:
-        return (
-            f"<{self.__class__.__name__} {self.name!r} v{self.version}>"
-        )
+        return f"<{self.__class__.__name__} {self.name!r} v{self.version}>"
 
 
 class ComputerRegistry:
@@ -192,13 +188,16 @@ class ComputerRegistry:
             class EloComputer(FeatureComputer):
                 ...
         """
+
         def _wrapper(cls: type[FeatureComputer]) -> type[FeatureComputer]:
             self._computers[feature_type] = cls
             logger.debug(
                 "Registered computer %s for feature type %r",
-                cls.__name__, feature_type,
+                cls.__name__,
+                feature_type,
             )
             return cls
+
         return _wrapper
 
     def add(self, feature_type: str, computer: FeatureComputer) -> None:
@@ -214,7 +213,8 @@ class ComputerRegistry:
         self._instances[feature_type] = computer
         logger.debug(
             "Registered computer instance %s for feature type %r",
-            computer.name, feature_type,
+            computer.name,
+            feature_type,
         )
 
     def get(self, feature_type: str) -> FeatureComputer | None:

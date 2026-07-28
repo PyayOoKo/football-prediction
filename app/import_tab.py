@@ -15,7 +15,7 @@ from typing import Any
 import customtkinter as ctk
 import pandas as pd
 
-from config import config
+from src.config import config
 
 logger = logging.getLogger(__name__)
 

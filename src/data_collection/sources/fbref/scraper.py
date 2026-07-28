@@ -180,8 +180,11 @@ class FBrefScraper:
         comp_name = self._competition_name(competition_id)
 
         # Build URL: /en/comps/{id}/{category}/{name}-Stats
-        url = f"/en/comps/{competition_id}/{url_path}/{comp_name}-Stats" if url_path \
+        url = (
+            f"/en/comps/{competition_id}/{url_path}/{comp_name}-Stats"
+            if url_path
             else f"/en/comps/{competition_id}/{comp_name}-Stats"
+        )
 
         logger.info("Fetching %s stats for %s (%s)", category, comp_name, season)
         html = await self.client.get(url, force_refresh=force_refresh)
@@ -234,7 +237,9 @@ class FBrefScraper:
                 url = f"/en/squads/{team_id}/{season}/{comp_name}-Stats"
 
             logger.info(
-                "Fetching %s stats for squad %s", category, team_id,
+                "Fetching %s stats for squad %s",
+                category,
+                team_id,
             )
             html = await self.client.get(url, force_refresh=force_refresh)
 
@@ -246,7 +251,10 @@ class FBrefScraper:
 
         # Fall back to competition-level stats
         return await self.get_team_stats(
-            competition_id, season, category, force_refresh,
+            competition_id,
+            season,
+            category,
+            force_refresh,
         )
 
     async def get_all_squad_stats(
@@ -289,13 +297,15 @@ class FBrefScraper:
         for cat in categories:
             if cat == StatCategory.MATCH_STATS:
                 continue
-            tasks.append(self.get_squad_stats(
-                competition_id=competition_id,
-                season=season,
-                category=cat.value,
-                team_id=team_id,
-                force_refresh=force_refresh,
-            ))
+            tasks.append(
+                self.get_squad_stats(
+                    competition_id=competition_id,
+                    season=season,
+                    category=cat.value,
+                    team_id=team_id,
+                    force_refresh=force_refresh,
+                )
+            )
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -303,7 +313,9 @@ class FBrefScraper:
             if isinstance(result, Exception):
                 logger.warning(
                     "Failed to fetch %s for %s: %s",
-                    cat.value, team_id, result,
+                    cat.value,
+                    team_id,
+                    result,
                 )
                 continue
             if result:
@@ -376,6 +388,7 @@ class FBrefScraper:
         already running in the current thread.
         """
         import threading
+
         result: list[Any] = []
         exception: list[Exception] = []
 
@@ -464,13 +477,15 @@ class FBrefScraper:
 
         if categories is None:
             categories = [
-                c.value for c in CATEGORY_URL_MAP
-                if c != StatCategory.MATCH_STATS
+                c.value for c in CATEGORY_URL_MAP if c != StatCategory.MATCH_STATS
             ]
 
-        job_id = job_id or hashlib.md5(
-            f"{competition_id}_{season}_{time.time()}".encode()
-        ).hexdigest()[:12]
+        job_id = (
+            job_id
+            or hashlib.md5(
+                f"{competition_id}_{season}_{time.time()}".encode()
+            ).hexdigest()[:12]
+        )
 
         checkpoint_path = self.checkpoint_dir / f"{job_id}.checkpoint"
         job = ScrapeJob.load(checkpoint_path)
@@ -502,7 +517,9 @@ class FBrefScraper:
 
             try:
                 tables = await self.get_team_stats(
-                    competition_id, season, category,
+                    competition_id,
+                    season,
+                    category,
                 )
 
                 total_rows = sum(len(t.rows) for t in tables)
@@ -519,12 +536,16 @@ class FBrefScraper:
 
                 logger.info(
                     "Category %s: %d tables, %d rows",
-                    category, len(tables), total_rows,
+                    category,
+                    len(tables),
+                    total_rows,
                 )
 
             except Exception as exc:
                 logger.error(
-                    "Failed to scrape category %s: %s", category, exc,
+                    "Failed to scrape category %s: %s",
+                    category,
+                    exc,
                 )
                 results["categories"][category] = {
                     "error": str(exc),

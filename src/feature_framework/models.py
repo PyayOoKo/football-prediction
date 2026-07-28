@@ -41,6 +41,7 @@ class ComputationResult:
     metadata : dict
         Additional context (computer version, params used, etc.).
     """
+
     feature_name: str
     entity_id: int
     entity_type: str = "match"
@@ -93,6 +94,7 @@ class FeatureMetadata:
     source : str
         Source data (e.g. ``football-data.co.uk``, ``understat``).
     """
+
     name: str = ""
     version: int = 1
     description: str = ""
@@ -127,6 +129,7 @@ class TransformContext:
     params : dict, optional
         Pipeline parameters.
     """
+
     entity_type: str = "match"
     entity_ids: list[int] = field(default_factory=list)
     trigger: str = "manual"
@@ -178,6 +181,7 @@ class PipelineReport:
     metadata : dict
         Additional metadata.
     """
+
     success: bool = True
     n_features: int = 0
     n_computed: int = 0
@@ -218,8 +222,10 @@ class PipelineReport:
         print("=" * 70)
         status = "SUCCESS" if self.success else "FAILED"
         print("  Status:           %s" % status)
-        print("  Features:         %d configured, %d computed, %d skipped, %d failed" %
-              (self.n_features, self.n_computed, self.n_skipped, self.n_failed))
+        print(
+            "  Features:         %d configured, %d computed, %d skipped, %d failed"
+            % (self.n_features, self.n_computed, self.n_skipped, self.n_failed)
+        )
         print("  Entities:         %d" % self.n_entities)
         print("  Duration:         %.2fs" % self.total_duration)
         if self.batch_id:
@@ -233,10 +239,17 @@ class PipelineReport:
             print("  Per-Feature Stats:")
             for feat, stats in sorted(self.per_feature_stats.items()):
                 status_icon = "+" if stats.get("status") == "ok" else "!"
-                print("    %s %-35s computed=%d skipped=%d failed=%d (%.2fs)" %
-                      (status_icon, feat, stats.get('computed', 0),
-                       stats.get('skipped', 0), stats.get('failed', 0),
-                       stats.get('duration', 0)))
+                print(
+                    "    %s %-35s computed=%d skipped=%d failed=%d (%.2fs)"
+                    % (
+                        status_icon,
+                        feat,
+                        stats.get("computed", 0),
+                        stats.get("skipped", 0),
+                        stats.get("failed", 0),
+                        stats.get("duration", 0),
+                    )
+                )
         print("=" * 70)
 
 
@@ -247,6 +260,7 @@ class FeatureSet:
     Useful for grouping related features (e.g. ``elo_features``,
     ``rolling_stats``, ``h2h_stats``) for selective computation.
     """
+
     name: str = ""
     description: str = ""
     features: list[str] = field(default_factory=list)

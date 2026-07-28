@@ -284,14 +284,19 @@ class FeatureComputationEngine:
             report.success = False
             report.error = str(exc)
             self._store.complete_batch(
-                batch.id, success=False, error=str(exc),
+                batch.id,
+                success=False,
+                error=str(exc),
             )
             logger.error("Batch computation failed: %s", exc, exc_info=True)
 
         logger.info(
             "Batch %s: computed=%d skipped=%d failed=%d (%.2fs)",
-            batch_label, report.computed_count, report.skipped_count,
-            report.failed_count, report.duration_seconds,
+            batch_label,
+            report.computed_count,
+            report.skipped_count,
+            report.failed_count,
+            report.duration_seconds,
         )
         return report
 
@@ -356,7 +361,9 @@ class FeatureComputationEngine:
             raise ValueError(f"Batch {batch_id} not found.")
 
         if batch.success and not force_recompute:
-            logger.info("Batch %s already completed successfully — nothing to resume.", batch_id)
+            logger.info(
+                "Batch %s already completed successfully — nothing to resume.", batch_id
+            )
             return ComputationReport(
                 batch_id=batch_id,
                 batch_label=batch.batch_label,
@@ -365,14 +372,17 @@ class FeatureComputationEngine:
 
         # Load feature definitions from stored names
         features = []
-        for fname in (batch.features_computed or []):
+        for fname in batch.features_computed or []:
             feat = self._registry.latest(fname)
             if feat is not None:
                 features.append(feat)
 
         logger.info(
             "Resuming batch %s (%s): %d features, %d entities",
-            batch_id, batch.batch_label, len(features), batch.entity_count,
+            batch_id,
+            batch.batch_label,
+            len(features),
+            batch.entity_count,
         )
 
         report = self.compute_features(
@@ -424,7 +434,9 @@ class FeatureComputationEngine:
             )
 
         result = computer.compute_one(entity_id, **(context or {}))
-        self._validate_and_store(definition, entity_id, entity_type, result, computer.name)
+        self._validate_and_store(
+            definition, entity_id, entity_type, result, computer.name
+        )
         return result
 
     # ── Internal ──────────────────────────────────────────
@@ -452,7 +464,7 @@ class FeatureComputationEngine:
                 return
 
             # Load soft dependencies (from definition.dependencies field)
-            for dep_name in (defn.dependencies or []):
+            for dep_name in defn.dependencies or []:
                 dep_def = self._registry.latest(dep_name)
                 if dep_def is not None and dep_def.name not in seen:
                     _load(dep_def.name)
@@ -490,6 +502,7 @@ class FeatureComputationEngine:
         if self.show_progress:
             try:
                 from tqdm import tqdm
+
                 pbar = tqdm(total=total_ops, desc="Computing features", unit="ops")
             except ImportError:
                 pbar = None
@@ -514,7 +527,9 @@ class FeatureComputationEngine:
                 if stale_ids:
                     logger.info(
                         "  %s: %d/%d entities need update",
-                        feature_def.name, len(stale_ids), len(entity_ids),
+                        feature_def.name,
+                        len(stale_ids),
+                        len(entity_ids),
                     )
             else:
                 stale_ids = entity_ids[:]
@@ -531,8 +546,11 @@ class FeatureComputationEngine:
                     pbar.update(len(stale_ids))
                 completed += len(stale_ids)
                 report.per_feature_stats[feature_def.name] = {
-                    "computed": 0, "skipped": 0, "failed": len(stale_ids),
-                    "duration": 0.0, "status": "no_computer",
+                    "computed": 0,
+                    "skipped": 0,
+                    "failed": len(stale_ids),
+                    "duration": 0.0,
+                    "status": "no_computer",
                 }
                 continue
 
@@ -540,14 +558,22 @@ class FeatureComputationEngine:
             for eid in stale_ids:
                 try:
                     {entity_type + "_id": eid}
-                    context: dict[str, Any] = {"match_id": eid} if entity_type == "match" else {"team_id": eid}
+                    context: dict[str, Any] = (
+                        {"match_id": eid}
+                        if entity_type == "match"
+                        else {"team_id": eid}
+                    )
 
                     result = computer.compute_one(eid, **context)
 
                     # Store results
                     self._validate_and_store(
-                        feature_def, eid, entity_type,
-                        result, computer.name, batch_id=batch.id,
+                        feature_def,
+                        eid,
+                        entity_type,
+                        result,
+                        computer.name,
+                        batch_id=batch.id,
                     )
                     feat_computed += 1
 
@@ -555,7 +581,10 @@ class FeatureComputationEngine:
                     feat_failed += 1
                     logger.error(
                         "  Failed computing %s for %s %d: %s",
-                        feature_def.name, entity_type, eid, exc,
+                        feature_def.name,
+                        entity_type,
+                        eid,
+                        exc,
                     )
 
                 completed += 1
@@ -579,8 +608,11 @@ class FeatureComputationEngine:
 
             logger.info(
                 "  %s: computed=%d skipped=%d failed=%d (%.2fs)",
-                feature_def.name, feat_computed, feat_skipped,
-                feat_failed, feat_duration,
+                feature_def.name,
+                feat_computed,
+                feat_skipped,
+                feat_failed,
+                feat_duration,
             )
 
         if pbar:
@@ -603,7 +635,9 @@ class FeatureComputationEngine:
             kwargs: dict[str, Any] = {
                 "numeric_value": value if isinstance(value, (int, float)) else None,
                 "json_value": value if isinstance(value, dict) else None,
-                "text_value": str(value) if not isinstance(value, (int, float, dict)) else None,
+                "text_value": str(value)
+                if not isinstance(value, (int, float, dict))
+                else None,
                 "computed_by": computed_by,
                 "batch_id": batch_id,
             }
@@ -619,7 +653,6 @@ class FeatureComputationEngine:
                 definition_id=definition.id,
                 **kwargs,
             )
-
 
     # ═══════════════════════════════════════════════════════════
     #  Bulk pipeline compute — run feature_engineering then store
@@ -679,9 +712,14 @@ class FeatureComputationEngine:
             data_source = preprocessed_path
         else:
             from src.preprocessing import run_preprocessing
+
             pp_report = run_preprocessing(save=True)
             data_source = pp_report.get("saved_to", "unknown")
-            df = pd.read_csv(data_source, low_memory=False) if Path(str(data_source)).exists() else pd.DataFrame()
+            df = (
+                pd.read_csv(data_source, low_memory=False)
+                if Path(str(data_source)).exists()
+                else pd.DataFrame()
+            )
 
         if df.empty:
             raise ValueError("No data available for feature computation.")
@@ -695,7 +733,9 @@ class FeatureComputationEngine:
         if n_matches == 0 or n_features_total == 0:
             raise ValueError("Feature matrix is empty — check data and config.")
 
-        logger.info("Feature matrix: %d matches × %d features", n_matches, n_features_total)
+        logger.info(
+            "Feature matrix: %d matches × %d features", n_matches, n_features_total
+        )
 
         # ── 3. Generate dataset hash for versioning ────────
         data_hash = hashlib.sha256(
@@ -732,10 +772,14 @@ class FeatureComputationEngine:
         nan_pcts = (nan_counts / max(n_matches, 1)) * 100
 
         X_filled = X.fillna(0)
-        inf_mask = X_filled.select_dtypes(include=["number"]).isin([float("inf"), float("-inf")])
+        inf_mask = X_filled.select_dtypes(include=["number"]).isin(
+            [float("inf"), float("-inf")]
+        )
         if inf_mask.any().any():
             n_inf = inf_mask.sum().sum()
-            logger.warning("Found %d inf values in feature matrix — replacing with 0", n_inf)
+            logger.warning(
+                "Found %d inf values in feature matrix — replacing with 0", n_inf
+            )
             X_filled = X_filled.replace([float("inf"), float("-inf")], 0.0)
 
         # ── 5a. Register each feature, detect category from name ──
@@ -747,23 +791,38 @@ class FeatureComputationEngine:
                 return FeatureCategory.ELO_RATING
             if col_lower.startswith("h2h"):
                 return FeatureCategory.H2H_STAT
-            if col_lower.startswith(("xg_", "xga_", "xgd_", "xpts_")) or "_xg" in col_lower:
+            if (
+                col_lower.startswith(("xg_", "xga_", "xgd_", "xpts_"))
+                or "_xg" in col_lower
+            ):
                 return FeatureCategory.XG_FEATURE
             if col_lower.startswith(("odds_", "clv_", "consensus_")):
                 return FeatureCategory.ODDS_FEATURE
-            if col_lower.startswith(("h_attack_", "a_attack_", "h_defence_", "a_defence_")):
-                return FeatureCategory.ATTACK_STRENGTH if "attack" in col_lower else FeatureCategory.DEFENSE_STRENGTH
+            if col_lower.startswith(
+                ("h_attack_", "a_attack_", "h_defence_", "a_defence_")
+            ):
+                return (
+                    FeatureCategory.ATTACK_STRENGTH
+                    if "attack" in col_lower
+                    else FeatureCategory.DEFENSE_STRENGTH
+                )
             if col_lower.startswith(("h_goal_diff", "a_goal_diff")):
                 return FeatureCategory.TEAM_FORM
             if col_lower.startswith(("h_goals_", "a_goals_")):
                 return FeatureCategory.ROLLING_STAT
-            if col_lower.startswith(("h_points_", "a_points_", "h_win_rate", "a_win_rate")):
+            if col_lower.startswith(
+                ("h_points_", "a_points_", "h_win_rate", "a_win_rate")
+            ):
                 return FeatureCategory.TEAM_FORM
             if col_lower.startswith(("h_days_", "a_days_")):
                 return FeatureCategory.REST_DAYS
-            if col_lower.startswith(("h_matches_", "a_matches_", "h_home_", "a_home_", "h_away_", "a_away_")):
+            if col_lower.startswith(
+                ("h_matches_", "a_matches_", "h_home_", "a_home_", "h_away_", "a_away_")
+            ):
                 return FeatureCategory.ROLLING_STAT
-            if col_lower.startswith(("position_", "league_position", "h_league_", "a_league_")):
+            if col_lower.startswith(
+                ("position_", "league_position", "h_league_", "a_league_")
+            ):
                 return FeatureCategory.TEAM_FORM
             if col_lower.endswith("_importance"):
                 return FeatureCategory.COMPOSITE
@@ -788,7 +847,10 @@ class FeatureComputationEngine:
                 return "xg_feature"
             if cat == FeatureCategory.ODDS_FEATURE:
                 return "odds_feature"
-            if cat in (FeatureCategory.ATTACK_STRENGTH, FeatureCategory.DEFENSE_STRENGTH):
+            if cat in (
+                FeatureCategory.ATTACK_STRENGTH,
+                FeatureCategory.DEFENSE_STRENGTH,
+            ):
                 return "rolling_stat"
             return "rolling_stat"
 
@@ -800,7 +862,10 @@ class FeatureComputationEngine:
         if self.show_progress:
             try:
                 from tqdm import tqdm
-                pbar = tqdm(total=n_features_total, desc="Registering features", unit="feat")
+
+                pbar = tqdm(
+                    total=n_features_total, desc="Registering features", unit="feat"
+                )
             except ImportError:
                 pbar = None
         else:
@@ -809,7 +874,9 @@ class FeatureComputationEngine:
         for col in X.columns:
             col_clean = str(col).replace(" ", "_").replace("-", "_")
             # Ensure name is valid
-            safe_name = "".join(c for c in col_clean if c.isalnum() or c in ("_",)).strip("_")
+            safe_name = "".join(
+                c for c in col_clean if c.isalnum() or c in ("_",)
+            ).strip("_")
 
             try:
                 # Try to register; if exists, get latest
@@ -844,14 +911,20 @@ class FeatureComputationEngine:
                     val = col_data.iloc[match_idx]
                     if pd.isna(val):
                         continue
-                    values_for_def.append({
-                        "definition_id": defn.id,
-                        "match_id": int(match_idx),
-                        "numeric_value": float(val) if not isinstance(val, (str, bytes)) else None,
-                        "text_value": str(val) if isinstance(val, (str, bytes)) else None,
-                        "computed_by": "pipeline",
-                        "batch_id": batch.id,
-                    })
+                    values_for_def.append(
+                        {
+                            "definition_id": defn.id,
+                            "match_id": int(match_idx),
+                            "numeric_value": float(val)
+                            if not isinstance(val, (str, bytes))
+                            else None,
+                            "text_value": str(val)
+                            if isinstance(val, (str, bytes))
+                            else None,
+                            "computed_by": "pipeline",
+                            "batch_id": batch.id,
+                        }
+                    )
 
                 if values_for_def:
                     self._store.set_many(values_for_def)
@@ -893,7 +966,9 @@ class FeatureComputationEngine:
         def _parse_nan_pct(w: str) -> float:
             """Extract NaN percentage from warning string like 'feat: 12.3% NaN'."""
             try:
-                return float(w.split(":")[1].replace("%", "").replace("NaN", "").strip())
+                return float(
+                    w.split(":")[1].replace("%", "").replace("NaN", "").strip()
+                )
             except (ValueError, IndexError):
                 return 0.0
 
@@ -914,35 +989,44 @@ class FeatureComputationEngine:
         report.success = n_failed == 0
 
         extra = dataset_metadata or {}
-        extra.update({
-            "data_source": str(data_source),
-            "data_hash": data_hash,
-            "n_matches": n_matches,
-            "n_features": n_features_total,
-            "n_features_registered": len(feature_name_to_def),
-            "n_features_stored": sum(
-                1 for s in report.per_feature_stats.values()
-                if s.get("computed", 0) > 0
-            ),
-            "total_nan_cells": int(nan_counts.sum()),
-            "total_cells": int(n_matches * n_features_total),
-            "nan_rate_pct": round(float(nan_counts.sum() / max(n_matches * n_features_total, 1) * 100), 2),
-            "features_with_high_nan": len(nan_warnings),
-            "features_with_severe_nan": len(severe_nan),
-        })
+        extra.update(
+            {
+                "data_source": str(data_source),
+                "data_hash": data_hash,
+                "n_matches": n_matches,
+                "n_features": n_features_total,
+                "n_features_registered": len(feature_name_to_def),
+                "n_features_stored": sum(
+                    1
+                    for s in report.per_feature_stats.values()
+                    if s.get("computed", 0) > 0
+                ),
+                "total_nan_cells": int(nan_counts.sum()),
+                "total_cells": int(n_matches * n_features_total),
+                "nan_rate_pct": round(
+                    float(
+                        nan_counts.sum() / max(n_matches * n_features_total, 1) * 100
+                    ),
+                    2,
+                ),
+                "features_with_high_nan": len(nan_warnings),
+                "features_with_severe_nan": len(severe_nan),
+            }
+        )
         batch.extra_metadata = extra
 
         self._store.complete_batch(
             batch.id,
             success=report.success,
-            error=(f"{len(severe_nan)} features with >40% NaN" if severe_nan else None) or (
-                f"{len(moderate_nan)} features with >5% NaN" if moderate_nan else None
-            ),
+            error=(f"{len(severe_nan)} features with >40% NaN" if severe_nan else None)
+            or (f"{len(moderate_nan)} features with >5% NaN" if moderate_nan else None),
         )
 
         logger.info(
             "Pipeline compute complete — %d features, %d matches (%.2fs)",
-            len(feature_name_to_def), n_matches, report.duration_seconds,
+            len(feature_name_to_def),
+            n_matches,
+            report.duration_seconds,
         )
         return report
 

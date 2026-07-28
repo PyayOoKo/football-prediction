@@ -29,7 +29,7 @@ def _bootstrap_global_di_container() -> None:
     Child conftest fixtures (e.g. ``tests/test_services/conftest.py``) run
     after this one and can override with a mock via ``set_container()``.
     """
-    from config import config
+    from src.config import config
 
     container = configure_container(config)
     set_container(container)

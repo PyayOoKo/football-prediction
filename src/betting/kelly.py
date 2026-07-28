@@ -60,9 +60,9 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # ── Constants ────────────────────────────────────────────
-_MIN_ODDS = 1.0          # Minimum valid decimal odds
-_MAX_PROB = 1.0          # Maximum valid probability
-_MIN_PROB = 0.0          # Minimum valid probability
+_MIN_ODDS = 1.0  # Minimum valid decimal odds
+_MAX_PROB = 1.0  # Maximum valid probability
+_MIN_PROB = 0.0  # Minimum valid probability
 _DEFAULT_FRACTION = 0.25  # Default fractional Kelly multiplier
 
 
@@ -129,7 +129,8 @@ def calculate_kelly(
     if odds <= _MIN_ODDS:
         logger.warning(
             "decimal_odds must be > %.1f, got %.4f — returning zero Kelly",
-            _MIN_ODDS, odds,
+            _MIN_ODDS,
+            odds,
         )
         return _zero_kelly(prob, odds, bankroll, error="odds must be > 1.0")
 
@@ -206,7 +207,8 @@ def calculate_fractional_kelly(
     """
     # Get full Kelly first
     full = calculate_kelly(
-        model_prob, decimal_odds,
+        model_prob,
+        decimal_odds,
         bankroll=None,  # don't compute stake yet
         round_to=None,  # keep full precision for now
     )
@@ -235,8 +237,12 @@ def calculate_fractional_kelly(
 
     # Add fractional Kelly metadata
     result["fraction"] = round(fraction, 4) if round_to is not None else fraction
-    result["full_kelly_fraction"] = round(full["kelly_fraction"], round_to) if round_to else full["kelly_fraction"]
-    result["full_kelly_pct"] = round(full["kelly_fraction"] * 100, max(round_to - 2, 2) if round_to else 4)
+    result["full_kelly_fraction"] = (
+        round(full["kelly_fraction"], round_to) if round_to else full["kelly_fraction"]
+    )
+    result["full_kelly_pct"] = round(
+        full["kelly_fraction"] * 100, max(round_to - 2, 2) if round_to else 4
+    )
 
     return result
 
@@ -387,7 +393,8 @@ def kelly_stake_amount(
         return 0.0
 
     result = calculate_fractional_kelly(
-        model_prob, decimal_odds,
+        model_prob,
+        decimal_odds,
         fraction=fraction,
         bankroll=bankroll,
         round_to=2,

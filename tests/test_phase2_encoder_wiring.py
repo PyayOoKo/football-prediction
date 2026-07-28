@@ -299,7 +299,7 @@ class TestPredictionServiceEncoder:
         full.to_csv(csv_path, index=False)
 
         # Configure a minimal config that points to our CSV
-        from config import config
+        from src.config import config
         orig_data_path = config.worldcup.data_path
         try:
             config.worldcup.data_path = str(csv_path)
@@ -343,7 +343,7 @@ class TestFullRoundTrip:
         model_dir = tmp_path / "models"
         model_dir.mkdir(exist_ok=True)
 
-        from config import config
+        from src.config import config
         orig_data_path = config.worldcup.data_path
         try:
             config.worldcup.data_path = str(csv_path)

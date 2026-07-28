@@ -56,34 +56,48 @@ class BettingCLI:
         subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
         # ── evaluate ─────────────────────────────────
-        eval_parser = subparsers.add_parser("evaluate", help="Evaluate a set of matches")
+        eval_parser = subparsers.add_parser(
+            "evaluate", help="Evaluate a set of matches"
+        )
         eval_parser.add_argument(
-            "--matches", type=str, default="[]",
+            "--matches",
+            type=str,
+            default="[]",
             help="JSON string of match dicts",
         )
         eval_parser.add_argument(
-            "--staking", type=str, default="fractional_kelly",
+            "--staking",
+            type=str,
+            default="fractional_kelly",
             choices=["kelly", "fractional_kelly", "flat_stake"],
             help="Staking method",
         )
         eval_parser.add_argument(
-            "--fraction", type=float, default=0.25,
+            "--fraction",
+            type=float,
+            default=0.25,
             help="Fraction for fractional Kelly (default 0.25)",
         )
         eval_parser.add_argument(
-            "--bankroll", type=float, default=1000.0,
+            "--bankroll",
+            type=float,
+            default=1000.0,
             help="Initial bankroll (default 1000)",
         )
         eval_parser.add_argument(
-            "--min-ev", type=float, default=0.0,
+            "--min-ev",
+            type=float,
+            default=0.0,
             help="Minimum EV threshold (default 0.0)",
         )
         eval_parser.add_argument(
-            "--json", action="store_true",
+            "--json",
+            action="store_true",
             help="Output raw JSON",
         )
         eval_parser.add_argument(
-            "--open", action="store_true",
+            "--open",
+            action="store_true",
             help="Open dashboard in browser (wip)",
         )
 
@@ -96,11 +110,15 @@ class BettingCLI:
         # ── run ──────────────────────────────────────
         run_parser = subparsers.add_parser("run", help="Run pipeline from file")
         run_parser.add_argument(
-            "--file", type=str, required=True,
+            "--file",
+            type=str,
+            required=True,
             help="Path to JSON file with match definitions",
         )
         run_parser.add_argument(
-            "--staking", type=str, default="fractional_kelly",
+            "--staking",
+            type=str,
+            default="fractional_kelly",
             choices=["kelly", "fractional_kelly", "flat_stake"],
         )
 

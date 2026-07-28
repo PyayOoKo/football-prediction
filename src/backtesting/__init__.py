@@ -63,19 +63,22 @@ if matplotlib.get_backend() in ("", None):
 logger = logging.getLogger(__name__)
 
 # ── Style configuration (consistent with EDA module) ────
-plt.rcParams.update({
-    "figure.dpi": 150,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "font.family": "sans-serif",
-    "axes.titlesize": 14,
-    "axes.labelsize": 12,
-})
+plt.rcParams.update(
+    {
+        "figure.dpi": 150,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "font.family": "sans-serif",
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+    }
+)
 
 
 # ═══════════════════════════════════════════════════════════
 #  Data structures
 # ═══════════════════════════════════════════════════════════
+
 
 @dataclass
 class BetRecord:
@@ -83,16 +86,16 @@ class BetRecord:
 
     match_index: int
     match_label: str
-    outcome_bet: str          # "Away Win" | "Draw" | "Home Win"
-    outcome_actual: str       # Actual result label
+    outcome_bet: str  # "Away Win" | "Draw" | "Home Win"
+    outcome_actual: str  # Actual result label
     decimal_odds: float
     model_prob: float
     fair_prob: float
     ev: float
-    stake_pct: float          # Fraction of bankroll staked
-    stake_amount: float       # Actual currency amount staked
-    profit: float             # Profit/loss from this bet (negative = loss)
-    won: bool                 # True if bet was a winner
+    stake_pct: float  # Fraction of bankroll staked
+    stake_amount: float  # Actual currency amount staked
+    profit: float  # Profit/loss from this bet (negative = loss)
+    won: bool  # True if bet was a winner
     bankroll_before: float
     bankroll_after: float
 
@@ -174,7 +177,9 @@ class BacktestEngine:
 
         logger.info(
             "BacktestEngine initialised — bankroll=%.0f, kelly=%.0f%%, min_ev=%.2f",
-            initial_bankroll, kelly_fraction * 100, min_ev,
+            initial_bankroll,
+            kelly_fraction * 100,
+            min_ev,
         )
 
     # ── Run simulation ──────────────────────────────────
@@ -224,19 +229,22 @@ class BacktestEngine:
         # Check odds availability
         has_odds = odds_df is not None
         if has_odds:
-            missing_odds = [c for c in odds_cols if c not in (odds_df or pd.DataFrame()).columns]
+            missing_odds = [
+                c for c in odds_cols if c not in (odds_df or pd.DataFrame()).columns
+            ]
             if missing_odds:
                 logger.warning("Odds columns not found in odds_df: %s", missing_odds)
                 has_odds = False
 
         if not has_odds:
-            logger.warning("No odds data available — backtest will use simulated flat odds")
+            logger.warning(
+                "No odds data available — backtest will use simulated flat odds"
+            )
             # Create synthetic odds from model probabilities (no value possible)
             # This allows the engine to run even without real odds
-            synthetic_odds = np.array([
-                [1.0 / p if p > 0.01 else 100.0 for p in row]
-                for row in y_proba
-            ])
+            synthetic_odds = np.array(
+                [[1.0 / p if p > 0.01 else 100.0 for p in row] for row in y_proba]
+            )
 
         for i in range(n_matches):
             match_probs = y_proba[i]  # [away, draw, home]
@@ -251,7 +259,11 @@ class BacktestEngine:
                     home_team = str(odds_df.iloc[i].get(team_cols[0], ""))
                 if team_cols[1] in odds_df.columns:
                     away_team = str(odds_df.iloc[i].get(team_cols[1], ""))
-            match_label = f"{home_team} vs {away_team}" if home_team and away_team else f"Match {i + 1}"
+            match_label = (
+                f"{home_team} vs {away_team}"
+                if home_team and away_team
+                else f"Match {i + 1}"
+            )
 
             # Get odds for this match
             if has_odds and odds_df is not None:
@@ -288,14 +300,12 @@ class BacktestEngine:
 
                 # Positive EV check
                 is_value = bool(
-                    ev >= self.min_ev
-                    and mod_prob > fair_prob
-                    and kelly_pct > 0.0
+                    ev >= self.min_ev and mod_prob > fair_prob and kelly_pct > 0.0
                 )
 
                 if is_value:
                     stake_amount = self._bankroll * kelly_pct
-                    won = (j == int(actual_idx))
+                    won = j == int(actual_idx)
 
                     profit = stake_amount * (dec_odds - 1.0) if won else -stake_amount
 
@@ -328,7 +338,8 @@ class BacktestEngine:
 
         logger.info(
             "Backtest complete — %d bets placed from %d matches",
-            len(self._bets), n_matches,
+            len(self._bets),
+            n_matches,
         )
         self._metrics = self.calculate_metrics()
         return self._metrics
@@ -365,7 +376,9 @@ class BacktestEngine:
         m.roi_pct = ((m.final_bankroll - m.initial_bankroll) / m.initial_bankroll) * 100
 
         # Yield
-        m.yield_pct = (m.total_profit / m.total_staked * 100) if m.total_staked > 0 else 0.0
+        m.yield_pct = (
+            (m.total_profit / m.total_staked * 100) if m.total_staked > 0 else 0.0
+        )
 
         # Win rate
         m.win_rate_pct = (m.winning_bets / m.total_bets) * 100
@@ -428,37 +441,106 @@ class BacktestEngine:
             return
 
         # ── Summary metrics ─────────────────────────────
-        logger.info("  %-30s %15s   %-35s", 'METRIC', 'VALUE', 'NOTES')
-        logger.info("  %s", '-' * 82)
-        logger.info("  %-30s %10d   %-35s", 'Total bets', m.total_bets, 'Bets placed during test period')
-        logger.info("  %-30s %8d / %-8d    %-35s", 'Winning bets', m.winning_bets, m.total_bets, '')
+        logger.info("  %-30s %15s   %-35s", "METRIC", "VALUE", "NOTES")
+        logger.info("  %s", "-" * 82)
+        logger.info(
+            "  %-30s %10d   %-35s",
+            "Total bets",
+            m.total_bets,
+            "Bets placed during test period",
+        )
+        logger.info(
+            "  %-30s %8d / %-8d    %-35s",
+            "Winning bets",
+            m.winning_bets,
+            m.total_bets,
+            "",
+        )
         win_rate_str = f"{m.win_rate_pct:.1f}%"
-        logger.info("  %-30s %15s   %-35s", 'Win rate', win_rate_str, '% of bets that won')
-        logger.info("  %-30s GBP%12.2f   %-35s", 'Total staked', m.total_staked, 'Sum of all stakes')
-        logger.info("  %-30s GBP%+11.2f   %-35s", 'Total profit / loss', m.total_profit, '+ = profit, - = loss')
+        logger.info(
+            "  %-30s %15s   %-35s", "Win rate", win_rate_str, "% of bets that won"
+        )
+        logger.info(
+            "  %-30s GBP%12.2f   %-35s",
+            "Total staked",
+            m.total_staked,
+            "Sum of all stakes",
+        )
+        logger.info(
+            "  %-30s GBP%+11.2f   %-35s",
+            "Total profit / loss",
+            m.total_profit,
+            "+ = profit, - = loss",
+        )
 
         # ROI
         roi_marker = "+" if m.roi_pct > 0 else "-" if m.roi_pct < 0 else "="
-        logger.info("  %-30s %s %+9.2f%%   %-35s", 'ROI (Return on Investment)', roi_marker, m.roi_pct, 'Total return on initial bankroll')
+        logger.info(
+            "  %-30s %s %+9.2f%%   %-35s",
+            "ROI (Return on Investment)",
+            roi_marker,
+            m.roi_pct,
+            "Total return on initial bankroll",
+        )
 
         # Yield
         yield_marker = "+" if m.yield_pct > 0 else "-" if m.yield_pct < 0 else "="
-        logger.info("  %-30s %s %+9.2f%%   %-35s", 'Yield (profit / staked)', yield_marker, m.yield_pct, 'Return per unit staked')
+        logger.info(
+            "  %-30s %s %+9.2f%%   %-35s",
+            "Yield (profit / staked)",
+            yield_marker,
+            m.yield_pct,
+            "Return per unit staked",
+        )
 
         # Final bankroll
         bankroll_change = m.final_bankroll - m.initial_bankroll
-        change_str = f"+GBP{bankroll_change:.2f}" if bankroll_change >= 0 else f"-GBP{abs(bankroll_change):.2f}"
-        logger.info("  %-30s GBP%11.2f   (%s from GBP%.0f)", 'Final bankroll', m.final_bankroll, change_str, m.initial_bankroll)
+        change_str = (
+            f"+GBP{bankroll_change:.2f}"
+            if bankroll_change >= 0
+            else f"-GBP{abs(bankroll_change):.2f}"
+        )
+        logger.info(
+            "  %-30s GBP%11.2f   (%s from GBP%.0f)",
+            "Final bankroll",
+            m.final_bankroll,
+            change_str,
+            m.initial_bankroll,
+        )
 
         # Drawdown
-        logger.info("  %-30s %12.2f%%   (GBP%.2f peak-to-trough)", 'Max drawdown', m.max_drawdown_pct, m.max_drawdown_amount)
+        logger.info(
+            "  %-30s %12.2f%%   (GBP%.2f peak-to-trough)",
+            "Max drawdown",
+            m.max_drawdown_pct,
+            m.max_drawdown_amount,
+        )
 
         # Other metrics
-        logger.info("  %-30s %14.4f   %-35s", 'Average odds', m.avg_odds, 'Weighted by stake')
-        logger.info("  %-30s %+14.2f%%   %-35s", 'Average EV', m.avg_ev * 100, 'Expected value per bet')
-        logger.info("  %-30s %14.2f   %-35s", 'Profit factor', m.profit_factor, 'Gross profit / gross loss')
-        logger.info("  %-30s %8d bets   %-35s", 'Longest win streak', m.longest_win_streak, '')
-        logger.info("  %-30s %8d bets   %-35s", 'Longest losing streak', m.longest_lose_streak, '')
+        logger.info(
+            "  %-30s %14.4f   %-35s", "Average odds", m.avg_odds, "Weighted by stake"
+        )
+        logger.info(
+            "  %-30s %+14.2f%%   %-35s",
+            "Average EV",
+            m.avg_ev * 100,
+            "Expected value per bet",
+        )
+        logger.info(
+            "  %-30s %14.2f   %-35s",
+            "Profit factor",
+            m.profit_factor,
+            "Gross profit / gross loss",
+        )
+        logger.info(
+            "  %-30s %8d bets   %-35s", "Longest win streak", m.longest_win_streak, ""
+        )
+        logger.info(
+            "  %-30s %8d bets   %-35s",
+            "Longest losing streak",
+            m.longest_lose_streak,
+            "",
+        )
 
         # ── Performance assessment ──────────────────────
         logger.info("  PERFORMANCE ASSESSMENT")
@@ -477,11 +559,17 @@ class BacktestEngine:
             parts.append(f"(-) Loss-making strategy with {m.roi_pct:+.1f}% ROI")
 
         if m.max_drawdown_pct < 10:
-            parts.append(f"(/) Low drawdown ({m.max_drawdown_pct:.1f}%) -- good risk management")
+            parts.append(
+                f"(/) Low drawdown ({m.max_drawdown_pct:.1f}%) -- good risk management"
+            )
         elif m.max_drawdown_pct < 25:
-            parts.append(f"(!) Moderate drawdown ({m.max_drawdown_pct:.1f}%) -- acceptable")
+            parts.append(
+                f"(!) Moderate drawdown ({m.max_drawdown_pct:.1f}%) -- acceptable"
+            )
         else:
-            parts.append(f"(!) High drawdown ({m.max_drawdown_pct:.1f}%) -- high risk of ruin")
+            parts.append(
+                f"(!) High drawdown ({m.max_drawdown_pct:.1f}%) -- high risk of ruin"
+            )
 
         if m.profit_factor >= 2.0:
             parts.append("(/) Profit factor >= 2.0 -- strong risk/reward")
@@ -491,9 +579,13 @@ class BacktestEngine:
             parts.append("(!) Profit factor < 1.0 -- losses exceed gains")
 
         if m.longest_lose_streak > 15:
-            parts.append(f"(!) Long losing streak ({m.longest_lose_streak} bets) -- test psychological resilience")
+            parts.append(
+                f"(!) Long losing streak ({m.longest_lose_streak} bets) -- test psychological resilience"
+            )
         elif m.longest_lose_streak > 8:
-            parts.append(f"(~) Losing streak of {m.longest_lose_streak} bets -- within normal variance")
+            parts.append(
+                f"(~) Losing streak of {m.longest_lose_streak} bets -- within normal variance"
+            )
 
         return "  * " + "\n  * ".join(parts)
 
@@ -559,7 +651,9 @@ class BacktestEngine:
         return paths
 
     def _plot_bankroll_curve(
-        self, m: BacktestMetrics, out_dir: Path,
+        self,
+        m: BacktestMetrics,
+        out_dir: Path,
     ) -> str | None:
         """Chart 1: Bankroll growth over time."""
         fig, ax = plt.subplots(figsize=(12, 5))
@@ -570,32 +664,57 @@ class BacktestEngine:
         # Main line
         color = "#2ecc71" if m.roi_pct >= 0 else "#e74c3c"
         ax.plot(x, history, color=color, linewidth=1.5, alpha=0.9)
-        ax.fill_between(x, self.initial_bankroll, history,
-                        where=(np.array(history) >= self.initial_bankroll).astype(bool),  # type: ignore[arg-type]
-                        color="#2ecc71", alpha=0.1, label="Above starting bankroll")
-        ax.fill_between(x, self.initial_bankroll, history,
-                        where=(np.array(history) < self.initial_bankroll).astype(bool),  # type: ignore[arg-type]
-                        color="#e74c3c", alpha=0.1, label="Below starting bankroll")
+        ax.fill_between(
+            x,
+            self.initial_bankroll,
+            history,
+            where=(np.array(history) >= self.initial_bankroll).astype(bool),  # type: ignore[arg-type]
+            color="#2ecc71",
+            alpha=0.1,
+            label="Above starting bankroll",
+        )
+        ax.fill_between(
+            x,
+            self.initial_bankroll,
+            history,
+            where=(np.array(history) < self.initial_bankroll).astype(bool),  # type: ignore[arg-type]
+            color="#e74c3c",
+            alpha=0.1,
+            label="Below starting bankroll",
+        )
 
         # Starting bankroll line
-        ax.axhline(self.initial_bankroll, color="#555555", linestyle="--",
-                   linewidth=0.8, alpha=0.6, label=f"Starting bankroll (GBP{self.initial_bankroll:.0f})")
+        ax.axhline(
+            self.initial_bankroll,
+            color="#555555",
+            linestyle="--",
+            linewidth=0.8,
+            alpha=0.6,
+            label=f"Starting bankroll (GBP{self.initial_bankroll:.0f})",
+        )
 
         ax.set_xlabel("Bet Number (chronological)")
         ax.set_ylabel("Bankroll (GBP)")
-        ax.set_title("Backtest -- Bankroll Growth Curve", fontweight="bold", fontsize=14)
+        ax.set_title(
+            "Backtest -- Bankroll Growth Curve", fontweight="bold", fontsize=14
+        )
         ax.legend(fontsize=9, loc="upper left")
 
         # Annotations
         end_val = history[-1] if history else self.initial_bankroll
-        ax.text(0.98, 0.05,
-                f"Start: GBP{self.initial_bankroll:.2f}\n"
-                f"Final: GBP{end_val:.2f}\n"
-                f"ROI: {m.roi_pct:+.2f}%\n"
-                f"Bets: {m.total_bets}",
-                transform=ax.transAxes, fontsize=9, verticalalignment="bottom",
-                horizontalalignment="right",
-                bbox={"boxstyle": "round,pad=0.5", "facecolor": "white", "alpha": 0.9})
+        ax.text(
+            0.98,
+            0.05,
+            f"Start: GBP{self.initial_bankroll:.2f}\n"
+            f"Final: GBP{end_val:.2f}\n"
+            f"ROI: {m.roi_pct:+.2f}%\n"
+            f"Bets: {m.total_bets}",
+            transform=ax.transAxes,
+            fontsize=9,
+            verticalalignment="bottom",
+            horizontalalignment="right",
+            bbox={"boxstyle": "round,pad=0.5", "facecolor": "white", "alpha": 0.9},
+        )
 
         plt.tight_layout()
         path = str(out_dir / "01_bankroll_curve.png")
@@ -604,11 +723,14 @@ class BacktestEngine:
         return path
 
     def _plot_drawdown(
-        self, m: BacktestMetrics, out_dir: Path,
+        self,
+        m: BacktestMetrics,
+        out_dir: Path,
     ) -> str | None:
         """Chart 2: Drawdown (peak-to-trough decline) over time."""
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 7), sharex=True,
-                                        gridspec_kw={"height_ratios": [2, 1]})
+        fig, (ax1, ax2) = plt.subplots(
+            2, 1, figsize=(12, 7), sharex=True, gridspec_kw={"height_ratios": [2, 1]}
+        )
 
         history = m.bankroll_history
         drawdowns = m.drawdown_history
@@ -616,13 +738,31 @@ class BacktestEngine:
 
         # Upper: Bankroll with peaks marked
         peaks = self._compute_peaks(history)
-        ax1.plot(x, history, color="#2c3e50", linewidth=1.2, alpha=0.8, label="Bankroll")
-        ax1.scatter([p[0] for p in peaks], [p[1] for p in peaks],
-                    color="#2ecc71", s=30, zorder=5, marker="^", label="Peak")
-        ax1.fill_between(x, [self.initial_bankroll] * len(history), history,
-                         color="#3498db", alpha=0.08)
+        ax1.plot(
+            x, history, color="#2c3e50", linewidth=1.2, alpha=0.8, label="Bankroll"
+        )
+        ax1.scatter(
+            [p[0] for p in peaks],
+            [p[1] for p in peaks],
+            color="#2ecc71",
+            s=30,
+            zorder=5,
+            marker="^",
+            label="Peak",
+        )
+        ax1.fill_between(
+            x,
+            [self.initial_bankroll] * len(history),
+            history,
+            color="#3498db",
+            alpha=0.08,
+        )
         ax1.set_ylabel("Bankroll (GBP)")
-        ax1.set_title("Drawdown Analysis -- Peak-to-Trough Decline", fontweight="bold", fontsize=14)
+        ax1.set_title(
+            "Drawdown Analysis -- Peak-to-Trough Decline",
+            fontweight="bold",
+            fontsize=14,
+        )
         ax1.legend(fontsize=9, loc="upper left")
 
         # Lower: Drawdown %
@@ -651,7 +791,9 @@ class BacktestEngine:
         return path
 
     def _plot_cumulative_profit(
-        self, m: BacktestMetrics, out_dir: Path,
+        self,
+        m: BacktestMetrics,
+        out_dir: Path,
     ) -> str | None:
         """Chart 3: Cumulative profit/loss as a step chart."""
         fig, ax = plt.subplots(figsize=(12, 5))
@@ -670,38 +812,66 @@ class BacktestEngine:
         # Color segments by profit/loss
         for i in range(1, len(cumulative)):
             color = "#2ecc71" if cumulative[i] >= cumulative[i - 1] else "#e74c3c"
-            ax.plot([i - 1, i], [cumulative[i - 1], cumulative[i]],
-                    color=color, linewidth=1.5, alpha=0.8)
+            ax.plot(
+                [i - 1, i],
+                [cumulative[i - 1], cumulative[i]],
+                color=color,
+                linewidth=1.5,
+                alpha=0.8,
+            )
 
-        ax.fill_between(x, 0, cumulative,
-                        where=(cumulative >= 0).astype(bool),  # type: ignore[arg-type]
-                        color="#2ecc71", alpha=0.08,
-                        label="Profit")
-        ax.fill_between(x, 0, cumulative,
-                        where=(cumulative < 0).astype(bool),  # type: ignore[arg-type]
-                        color="#e74c3c", alpha=0.08,
-                        label="Loss")
+        ax.fill_between(
+            x,
+            0,
+            cumulative,
+            where=(cumulative >= 0).astype(bool),  # type: ignore[arg-type]
+            color="#2ecc71",
+            alpha=0.08,
+            label="Profit",
+        )
+        ax.fill_between(
+            x,
+            0,
+            cumulative,
+            where=(cumulative < 0).astype(bool),  # type: ignore[arg-type]
+            color="#e74c3c",
+            alpha=0.08,
+            label="Loss",
+        )
         ax.axhline(0, color="#555555", linestyle="-", linewidth=0.6, alpha=0.5)
 
         # Markers for individual bets
-        ax.scatter(x, cumulative, c=["#2ecc71" if b.won else "#e74c3c" for b in self._bets],
-                   s=8, alpha=0.6, zorder=5)
+        ax.scatter(
+            x,
+            cumulative,
+            c=["#2ecc71" if b.won else "#e74c3c" for b in self._bets],
+            s=8,
+            alpha=0.6,
+            zorder=5,
+        )
 
         ax.set_xlabel("Bet Number")
         ax.set_ylabel("Cumulative Profit/Loss (GBP)")
-        ax.set_title("Backtest -- Cumulative Profit / Loss", fontweight="bold", fontsize=14)
+        ax.set_title(
+            "Backtest -- Cumulative Profit / Loss", fontweight="bold", fontsize=14
+        )
         ax.legend(fontsize=9, loc="upper left")
 
         # Stats box
         final_profit = cumulative[-1] if len(cumulative) > 0 else 0
-        ax.text(0.98, 0.05,
-                f"Total profit: GBP{final_profit:+.2f}\n"
-                f"Yield: {m.yield_pct:+.2f}%\n"
-                f"Win rate: {m.win_rate_pct:.1f}%\n"
-                f"Profit factor: {m.profit_factor:.2f}",
-                transform=ax.transAxes, fontsize=9, verticalalignment="bottom",
-                horizontalalignment="right",
-                bbox={"boxstyle": "round,pad=0.5", "facecolor": "white", "alpha": 0.9})
+        ax.text(
+            0.98,
+            0.05,
+            f"Total profit: GBP{final_profit:+.2f}\n"
+            f"Yield: {m.yield_pct:+.2f}%\n"
+            f"Win rate: {m.win_rate_pct:.1f}%\n"
+            f"Profit factor: {m.profit_factor:.2f}",
+            transform=ax.transAxes,
+            fontsize=9,
+            verticalalignment="bottom",
+            horizontalalignment="right",
+            bbox={"boxstyle": "round,pad=0.5", "facecolor": "white", "alpha": 0.9},
+        )
 
         plt.tight_layout()
         path = str(out_dir / "03_cumulative_profit.png")
@@ -710,7 +880,9 @@ class BacktestEngine:
         return path
 
     def _plot_bet_outcomes(
-        self, m: BacktestMetrics, out_dir: Path,
+        self,
+        m: BacktestMetrics,
+        out_dir: Path,
     ) -> str | None:
         """Chart 4: Bet outcomes -- scatter of win/loss with stake size."""
         fig, ax = plt.subplots(figsize=(12, 5))
@@ -735,32 +907,47 @@ class BacktestEngine:
 
         # Scatter plot
         ax.scatter(
-            wins["bet_num"], wins["profit"],
+            wins["bet_num"],
+            wins["profit"],
             s=np.maximum(wins["stake_amount"].values * 2, 10),
-            c="#2ecc71", alpha=0.6, edgecolors="white", linewidth=0.5,
+            c="#2ecc71",
+            alpha=0.6,
+            edgecolors="white",
+            linewidth=0.5,
             label=f"Wins ({len(wins)})",
         )
         ax.scatter(
-            losses["bet_num"], losses["profit"],
+            losses["bet_num"],
+            losses["profit"],
             s=np.maximum(losses["stake_amount"].values * 2, 10),
-            c="#e74c3c", alpha=0.6, edgecolors="white", linewidth=0.5,
+            c="#e74c3c",
+            alpha=0.6,
+            edgecolors="white",
+            linewidth=0.5,
             label=f"Losses ({len(losses)})",
         )
         ax.axhline(0, color="#555555", linestyle="-", linewidth=0.6, alpha=0.5)
 
         ax.set_xlabel("Bet Number")
         ax.set_ylabel("Profit/Loss per Bet (GBP)")
-        ax.set_title("Backtest -- Individual Bet Outcomes", fontweight="bold", fontsize=14)
+        ax.set_title(
+            "Backtest -- Individual Bet Outcomes", fontweight="bold", fontsize=14
+        )
         ax.legend(fontsize=9, loc="upper left")
 
         # Size legend note
-        ax.text(0.98, 0.05,
-                "Marker size prop stake amount\n"
-                f"Bets: {m.total_bets}  |  "
-                f"Avg stake: GBP{m.total_staked / m.total_bets:.1f}",
-                transform=ax.transAxes, fontsize=9, verticalalignment="bottom",
-                horizontalalignment="right",
-                bbox={"boxstyle": "round,pad=0.5", "facecolor": "white", "alpha": 0.9})
+        ax.text(
+            0.98,
+            0.05,
+            "Marker size prop stake amount\n"
+            f"Bets: {m.total_bets}  |  "
+            f"Avg stake: GBP{m.total_staked / m.total_bets:.1f}",
+            transform=ax.transAxes,
+            fontsize=9,
+            verticalalignment="bottom",
+            horizontalalignment="right",
+            bbox={"boxstyle": "round,pad=0.5", "facecolor": "white", "alpha": 0.9},
+        )
 
         # Zero-crossing buffer
         y_margin = max(abs(bets_df["profit"]).max() * 0.15, 5)
@@ -888,8 +1075,9 @@ def run_backtest(
         min_ev=min_ev,
     )
 
-    metrics = engine.run(X_test, y_test, odds_df=odds_df,
-                         odds_cols=odds_cols, team_cols=team_cols)
+    metrics = engine.run(
+        X_test, y_test, odds_df=odds_df, odds_cols=odds_cols, team_cols=team_cols
+    )
 
     chart_paths = engine.plot_results(output_dir=output_dir, show=show_charts)
 

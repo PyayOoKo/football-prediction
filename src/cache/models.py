@@ -61,14 +61,16 @@ class CacheEntry(Generic[T]):
 
     def to_bytes(self) -> bytes:
         """Serialize to bytes for storage."""
-        return pickle.dumps({
-            "key": self.key,
-            "value": self.value,
-            "ttl": self.ttl,
-            "created_at": self.created_at,
-            "size_bytes": self.size_bytes,
-            "tags": self.tags,
-        })
+        return pickle.dumps(
+            {
+                "key": self.key,
+                "value": self.value,
+                "ttl": self.ttl,
+                "created_at": self.created_at,
+                "size_bytes": self.size_bytes,
+                "tags": self.tags,
+            }
+        )
 
     @staticmethod
     def from_bytes(data: bytes) -> CacheEntry[Any]:
@@ -182,14 +184,17 @@ class CacheKey:
     def for_url(url: str) -> CacheKey:
         """Create a cache key from a URL."""
         import hashlib
+
         hash_str = hashlib.sha256(url.encode()).hexdigest()[:16]
         return CacheKey(namespace="url", parts=[hash_str])
 
     @staticmethod
-    def for_func(func_name: str, args: tuple[Any, ...],
-                 kwargs: dict[str, Any]) -> CacheKey:
+    def for_func(
+        func_name: str, args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> CacheKey:
         """Create a cache key from a function call."""
         import hashlib
+
         raw = f"{func_name}:{pickle.dumps((args, sorted(kwargs.items()))).decode('latin1')}"
         hash_str = hashlib.sha256(raw.encode()).hexdigest()[:16]
         return CacheKey(namespace="func", parts=[func_name, hash_str])

@@ -245,7 +245,7 @@ def precompute_predictions(
     if xgb is not None or lgb is not None:
         try:
             from src.feature_engineering import build_features
-            from config import config as cfg
+            from src.config import config as cfg
             _orig_vals = {
                 "weather.enabled": cfg.weather.enabled,
                 "referee.enabled": cfg.referee.enabled,

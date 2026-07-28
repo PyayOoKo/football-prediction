@@ -136,10 +136,7 @@ class RangeRule(ValidationRule):
         max_val = rules.get("max")
 
         if min_val is not None and value.numeric_value < min_val:
-            msg = (
-                f"Value {value.numeric_value} < min {min_val} "
-                f"for {definition.name}"
-            )
+            msg = f"Value {value.numeric_value} < min {min_val} for {definition.name}"
             if self.severity == "error":
                 result.passed = False
                 result.errors.append(msg)
@@ -147,10 +144,7 @@ class RangeRule(ValidationRule):
                 result.warnings.append(msg)
 
         if max_val is not None and value.numeric_value > max_val:
-            msg = (
-                f"Value {value.numeric_value} > max {max_val} "
-                f"for {definition.name}"
-            )
+            msg = f"Value {value.numeric_value} > max {max_val} for {definition.name}"
             if self.severity == "error":
                 result.passed = False
                 result.errors.append(msg)
@@ -199,7 +193,9 @@ class NotNullRule(ValidationRule):
             or value.json_value is not None
         )
         if not has_value:
-            msg = f"Empty value (all fields None) for {definition.name} (nullable=False)"
+            msg = (
+                f"Empty value (all fields None) for {definition.name} (nullable=False)"
+            )
             if self.severity == "error":
                 result.passed = False
                 result.errors.append(msg)
@@ -378,8 +374,7 @@ class FeatureValidator:
 
         if not combined.passed and self.raise_on_error:
             raise ValueError(
-                f"Validation failed for {definition.name}: "
-                f"{'; '.join(combined.errors)}"
+                f"Validation failed for {definition.name}: {'; '.join(combined.errors)}"
             )
 
         return combined
@@ -420,9 +415,7 @@ class FeatureValidator:
         n_failed = n_total - n_passed
         n_errors = sum(len(r.errors) for r in results)
         n_warnings = sum(len(r.warnings) for r in results)
-        failed_features = [
-            r.feature_name for r in results if not r.passed
-        ]
+        failed_features = [r.feature_name for r in results if not r.passed]
 
         return {
             "total": n_total,

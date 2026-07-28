@@ -43,29 +43,60 @@ class ProfilingReport:
     duration_seconds: float = 0.0
 
     # Core metrics
-    missing_values: ProfileSection = field(default_factory=lambda: ProfileSection("Missing Values", {}))
-    duplicate_records: ProfileSection = field(default_factory=lambda: ProfileSection("Duplicate Records", {}))
-    column_summary: ProfileSection = field(default_factory=lambda: ProfileSection("Column Summary", {}))
-    result_distribution: ProfileSection = field(default_factory=lambda: ProfileSection("Result Distribution", {}))
-    goal_distribution: ProfileSection = field(default_factory=lambda: ProfileSection("Goal Distribution", {}))
-    odds_distribution: ProfileSection = field(default_factory=lambda: ProfileSection("Odds Distribution", {}))
-    league_distribution: ProfileSection = field(default_factory=lambda: ProfileSection("League Distribution", {}))
-    season_distribution: ProfileSection = field(default_factory=lambda: ProfileSection("Season Distribution", {}))
-    team_distribution: ProfileSection = field(default_factory=lambda: ProfileSection("Team Distribution", {}))
-    home_advantage: ProfileSection = field(default_factory=lambda: ProfileSection("Home Advantage", {}))
-    outliers: ProfileSection = field(default_factory=lambda: ProfileSection("Outliers", {}))
-    schema_validation: ProfileSection = field(default_factory=lambda: ProfileSection("Schema Validation", {}))
-    type_validation: ProfileSection = field(default_factory=lambda: ProfileSection("Type Validation", {}))
+    missing_values: ProfileSection = field(
+        default_factory=lambda: ProfileSection("Missing Values", {})
+    )
+    duplicate_records: ProfileSection = field(
+        default_factory=lambda: ProfileSection("Duplicate Records", {})
+    )
+    column_summary: ProfileSection = field(
+        default_factory=lambda: ProfileSection("Column Summary", {})
+    )
+    result_distribution: ProfileSection = field(
+        default_factory=lambda: ProfileSection("Result Distribution", {})
+    )
+    goal_distribution: ProfileSection = field(
+        default_factory=lambda: ProfileSection("Goal Distribution", {})
+    )
+    odds_distribution: ProfileSection = field(
+        default_factory=lambda: ProfileSection("Odds Distribution", {})
+    )
+    league_distribution: ProfileSection = field(
+        default_factory=lambda: ProfileSection("League Distribution", {})
+    )
+    season_distribution: ProfileSection = field(
+        default_factory=lambda: ProfileSection("Season Distribution", {})
+    )
+    team_distribution: ProfileSection = field(
+        default_factory=lambda: ProfileSection("Team Distribution", {})
+    )
+    home_advantage: ProfileSection = field(
+        default_factory=lambda: ProfileSection("Home Advantage", {})
+    )
+    outliers: ProfileSection = field(
+        default_factory=lambda: ProfileSection("Outliers", {})
+    )
+    schema_validation: ProfileSection = field(
+        default_factory=lambda: ProfileSection("Schema Validation", {})
+    )
+    type_validation: ProfileSection = field(
+        default_factory=lambda: ProfileSection("Type Validation", {})
+    )
 
     # Optional: trends vs previous report
     data_drift: ProfileSection | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Export the full report as a dict (JSON-serializable)."""
+
         def _section_to_dict(s: ProfileSection) -> dict[str, Any]:
             d = s.data
             if isinstance(d, pd.DataFrame):
-                d = d.to_dict(orient="records") if len(d) < 1000 else {"_truncated": True, "n_rows": len(d)}
+                d = (
+                    d.to_dict(orient="records")
+                    if len(d) < 1000
+                    else {"_truncated": True, "n_rows": len(d)}
+                )
             return {"name": s.name, "data": d, "chart_type": s.chart_type}
 
         result: dict[str, Any] = {
@@ -78,10 +109,19 @@ class ProfilingReport:
         }
 
         for field_name in [
-            "missing_values", "duplicate_records", "column_summary",
-            "result_distribution", "goal_distribution", "odds_distribution",
-            "league_distribution", "season_distribution", "team_distribution",
-            "home_advantage", "outliers", "schema_validation", "type_validation",
+            "missing_values",
+            "duplicate_records",
+            "column_summary",
+            "result_distribution",
+            "goal_distribution",
+            "odds_distribution",
+            "league_distribution",
+            "season_distribution",
+            "team_distribution",
+            "home_advantage",
+            "outliers",
+            "schema_validation",
+            "type_validation",
         ]:
             section = getattr(self, field_name)
             result["sections"][field_name] = _section_to_dict(section)
@@ -94,6 +134,7 @@ class ProfilingReport:
     def to_json(self, filepath: str | None = None) -> str:
         """Export to JSON string or write to file."""
         import json
+
         json_str = json.dumps(self.to_dict(), indent=2, default=str)
         if filepath:
             with open(filepath, "w", encoding="utf-8") as f:
@@ -118,13 +159,23 @@ class ProfilingReport:
                 rows.append({"metric": "null_pct", "column": col, "value": pct})
 
         # Distributions
-        for section_name in ["result_distribution", "league_distribution",
-                              "season_distribution", "team_distribution"]:
+        for section_name in [
+            "result_distribution",
+            "league_distribution",
+            "season_distribution",
+            "team_distribution",
+        ]:
             section = getattr(self, section_name)
             data = section.data
             if isinstance(data, dict):
                 for key, val in data.get("counts", {}).items():
-                    rows.append({"metric": f"{section_name}_count", "key": str(key), "value": val})
+                    rows.append(
+                        {
+                            "metric": f"{section_name}_count",
+                            "key": str(key),
+                            "value": val,
+                        }
+                    )
 
         df_out = pd.DataFrame(rows)
         df_out.to_csv(filepath, index=False)
@@ -132,6 +183,7 @@ class ProfilingReport:
     def to_html(self, filepath: str) -> None:
         """Generate an interactive HTML dashboard with Plotly charts."""
         from src.data_profiling.reports import ReportGenerator
+
         ReportGenerator(self).to_html(filepath)
 
     def summary_text(self) -> str:
@@ -181,15 +233,31 @@ class DataProfiler:
         max_unique_for_distribution: int = 50,
     ) -> None:
         self.odds_column_patterns = odds_column_patterns or [
-            "bbav", "b365", "bwin", "psh", "psd", "psa",
-            "maxh", "maxd", "maxa", "avh", "avd", "ava",
-            "home_odds", "draw_odds", "away_odds",
-            "odds_home", "odds_draw", "odds_away",
+            "bbav",
+            "b365",
+            "bwin",
+            "psh",
+            "psd",
+            "psa",
+            "maxh",
+            "maxd",
+            "maxa",
+            "avh",
+            "avd",
+            "ava",
+            "home_odds",
+            "draw_odds",
+            "away_odds",
+            "odds_home",
+            "odds_draw",
+            "odds_away",
         ]
         self.outlier_std_threshold = outlier_std_threshold
         self.max_unique = max_unique_for_distribution
 
-    def profile(self, df: pd.DataFrame, source_name: str = "unknown") -> ProfilingReport:
+    def profile(
+        self, df: pd.DataFrame, source_name: str = "unknown"
+    ) -> ProfilingReport:
         """Run all profiling analyses on the dataset.
 
         Parameters
@@ -204,7 +272,12 @@ class DataProfiler:
         ProfilingReport
         """
         start = time.perf_counter()
-        logger.info("Profiling dataset: %s (%d rows, %d cols)", source_name, len(df), len(df.columns))
+        logger.info(
+            "Profiling dataset: %s (%d rows, %d cols)",
+            source_name,
+            len(df),
+            len(df.columns),
+        )
 
         report = ProfilingReport(
             source_name=source_name,
@@ -219,8 +292,12 @@ class DataProfiler:
         report.result_distribution = self._profile_result_distribution(df)
         report.goal_distribution = self._profile_goal_distribution(df)
         report.odds_distribution = self._profile_odds_distribution(df)
-        report.league_distribution = self._profile_categorical(df, "league", "League Distribution")
-        report.season_distribution = self._profile_categorical(df, "season", "Season Distribution")
+        report.league_distribution = self._profile_categorical(
+            df, "league", "League Distribution"
+        )
+        report.season_distribution = self._profile_categorical(
+            df, "season", "Season Distribution"
+        )
         report.team_distribution = self._profile_teams(df)
         report.home_advantage = self._profile_home_advantage(df)
         report.outliers = self._profile_outliers(df)
@@ -247,13 +324,19 @@ class DataProfiler:
             "top_missing": nonzero.sort_values(ascending=False).head(20).to_dict(),
         }
 
-        pd.DataFrame({
-            "column": nonzero.index,
-            "null_pct": nonzero.values,
-        }).sort_values("null_pct", ascending=False).head(20)
+        pd.DataFrame(
+            {
+                "column": nonzero.index,
+                "null_pct": nonzero.values,
+            }
+        ).sort_values("null_pct", ascending=False).head(20)
 
-        return ProfileSection("Missing Values", data, chart_type="bar",
-                              description="Columns with null values (count and percentage)")
+        return ProfileSection(
+            "Missing Values",
+            data,
+            chart_type="bar",
+            description="Columns with null values (count and percentage)",
+        )
 
     # ── 2. Duplicates ─────────────────────────────────
 
@@ -264,10 +347,16 @@ class DataProfiler:
             "pct": round(float(dup_count / len(df) * 100) if len(df) > 0 else 0, 2),
         }
         if dup_count > 0:
-            data["sample"] = df[df.duplicated(keep="first")].head(10).to_dict(orient="records")
+            data["sample"] = (
+                df[df.duplicated(keep="first")].head(10).to_dict(orient="records")
+            )
 
-        return ProfileSection("Duplicate Records", data, chart_type="table",
-                              description=f"Duplicate rows found: {dup_count} ({data['pct']:.1f}%)")
+        return ProfileSection(
+            "Duplicate Records",
+            data,
+            chart_type="table",
+            description=f"Duplicate rows found: {dup_count} ({data['pct']:.1f}%)",
+        )
 
     # ── 3. Column Summary ──────────────────────────────
 
@@ -288,20 +377,26 @@ class DataProfiler:
             else:
                 col_min = col_max = col_mean = col_std = None
 
-            rows.append({
-                "column": col,
-                "dtype": dtype,
-                "non_null": non_null,
-                "null_pct": null_pct,
-                "unique": unique,
-                "min": col_min,
-                "max": col_max,
-                "mean": col_mean,
-                "std": col_std,
-            })
+            rows.append(
+                {
+                    "column": col,
+                    "dtype": dtype,
+                    "non_null": non_null,
+                    "null_pct": null_pct,
+                    "unique": unique,
+                    "min": col_min,
+                    "max": col_max,
+                    "mean": col_mean,
+                    "std": col_std,
+                }
+            )
 
-        return ProfileSection("Column Summary", pd.DataFrame(rows), chart_type="table",
-                              description="Per-column statistics: type, nulls, uniqueness, range")
+        return ProfileSection(
+            "Column Summary",
+            pd.DataFrame(rows),
+            chart_type="table",
+            description="Per-column statistics: type, nulls, uniqueness, range",
+        )
 
     # ── 4. Result Distribution ─────────────────────────
 
@@ -313,8 +408,12 @@ class DataProfiler:
                 break
 
         if result_col is None:
-            return ProfileSection("Result Distribution", {"error": "No result column found"}, chart_type="pie",
-                                  description="Match outcome distribution (H/D/A)")
+            return ProfileSection(
+                "Result Distribution",
+                {"error": "No result column found"},
+                chart_type="pie",
+                description="Match outcome distribution (H/D/A)",
+            )
 
         counts = df[result_col].value_counts()
         pcts = (counts / len(df) * 100).round(1)
@@ -327,11 +426,17 @@ class DataProfiler:
         data = {
             "column": result_col,
             "counts": {str(k): int(v) for k, v in counts.items() if str(k) in known},
-            "percentages": {str(k): float(v) for k, v in pcts.items() if str(k) in known},
+            "percentages": {
+                str(k): float(v) for k, v in pcts.items() if str(k) in known
+            },
         }
 
-        return ProfileSection("Result Distribution", data, chart_type="pie",
-                              description="Home win / Draw / Away win distribution")
+        return ProfileSection(
+            "Result Distribution",
+            data,
+            chart_type="pie",
+            description="Home win / Draw / Away win distribution",
+        )
 
     # ── 5. Goal Distribution ──────────────────────────
 
@@ -348,8 +453,12 @@ class DataProfiler:
                 break
 
         if hg is None or ag is None:
-            return ProfileSection("Goal Distribution", {"error": "Goal columns not found"}, chart_type="histogram",
-                                  description="Goal scoring distribution")
+            return ProfileSection(
+                "Goal Distribution",
+                {"error": "Goal columns not found"},
+                chart_type="histogram",
+                description="Goal scoring distribution",
+            )
 
         total_goals = hg.fillna(0) + ag.fillna(0)
 
@@ -365,15 +474,25 @@ class DataProfiler:
             "total_mean": round(float(total_goals.mean()), 3),
             "max_goals": int(total_goals.max()),
             "histogram": {
-                "bins": [f"{int(e)}-{int(bins[i+1])}" for i, e in enumerate(bins[:-1])],
+                "bins": [
+                    f"{int(e)}-{int(bins[i + 1])}" for i, e in enumerate(bins[:-1])
+                ],
                 "counts": hist.tolist(),
             },
-            "home_hist": np.histogram(hg.fillna(0), bins=list(range(0, 10)))[0].tolist(),
-            "away_hist": np.histogram(ag.fillna(0), bins=list(range(0, 10)))[0].tolist(),
+            "home_hist": np.histogram(hg.fillna(0), bins=list(range(0, 10)))[
+                0
+            ].tolist(),
+            "away_hist": np.histogram(ag.fillna(0), bins=list(range(0, 10)))[
+                0
+            ].tolist(),
         }
 
-        return ProfileSection("Goal Distribution", data, chart_type="histogram",
-                              description="Home and away goal distributions")
+        return ProfileSection(
+            "Goal Distribution",
+            data,
+            chart_type="histogram",
+            description="Home and away goal distributions",
+        )
 
     # ── 6. Odds Distribution ─────────────────────────
 
@@ -400,8 +519,12 @@ class DataProfiler:
                     break
 
         if not odds_cols:
-            return ProfileSection("Odds Distribution", {"error": "No odds columns detected"}, chart_type="histogram",
-                                  description="Bookmaker odds distributions")
+            return ProfileSection(
+                "Odds Distribution",
+                {"error": "No odds columns detected"},
+                chart_type="histogram",
+                description="Bookmaker odds distributions",
+            )
 
         stats = {}
         for col in odds_cols[:10]:  # Cap at 10 columns
@@ -419,7 +542,9 @@ class DataProfiler:
 
         # Build histogram for first home odds column
         histogram = None
-        home_odds_col = next((c for c in odds_cols if c.lower().endswith("h")), odds_cols[0])
+        home_odds_col = next(
+            (c for c in odds_cols if c.lower().endswith("h")), odds_cols[0]
+        )
         vals = df[home_odds_col].dropna()
         if len(vals) > 0:
             hist_vals = np.clip(vals, 1.0, 20.0)
@@ -434,19 +559,27 @@ class DataProfiler:
         if histogram:
             data["histogram"] = histogram
 
-        return ProfileSection("Odds Distribution", data, chart_type="histogram",
-                              description=f"Distribution of {len(odds_cols)} odds columns")
+        return ProfileSection(
+            "Odds Distribution",
+            data,
+            chart_type="histogram",
+            description=f"Distribution of {len(odds_cols)} odds columns",
+        )
 
     # ── 7. Categorical Distribution (league, season) ──
 
-    def _profile_categorical(self, df: pd.DataFrame, col: str, name: str) -> ProfileSection:
+    def _profile_categorical(
+        self, df: pd.DataFrame, col: str, name: str
+    ) -> ProfileSection:
         if col not in df.columns:
-            return ProfileSection(name, {"error": f"Column '{col}' not found"}, chart_type="pie")
+            return ProfileSection(
+                name, {"error": f"Column '{col}' not found"}, chart_type="pie"
+            )
 
         counts = df[col].value_counts()
         if len(counts) > self.max_unique:
             # Top-N for readability
-            other_count = int(counts.iloc[self.max_unique:].sum())
+            other_count = int(counts.iloc[self.max_unique :].sum())
             counts = counts.head(self.max_unique)
             if other_count > 0:
                 counts["OTHER"] = other_count
@@ -455,11 +588,17 @@ class DataProfiler:
             "column": col,
             "n_unique": int(df[col].nunique()),
             "counts": {str(k): int(v) for k, v in counts.items()},
-            "percentages": {str(k): round(float(v / len(df) * 100), 1) for k, v in counts.items()},
+            "percentages": {
+                str(k): round(float(v / len(df) * 100), 1) for k, v in counts.items()
+            },
         }
 
-        return ProfileSection(name, data, chart_type="pie",
-                              description=f"Distribution of {df[col].nunique()} unique values")
+        return ProfileSection(
+            name,
+            data,
+            chart_type="pie",
+            description=f"Distribution of {df[col].nunique()} unique values",
+        )
 
     # ── 8. Team Distribution ──────────────────────────
 
@@ -468,17 +607,23 @@ class DataProfiler:
         away_ok = "away_team" in df.columns
 
         if not home_ok and not away_ok:
-            return ProfileSection("Team Distribution", {"error": "Team columns not found"}, chart_type="table")
+            return ProfileSection(
+                "Team Distribution",
+                {"error": "Team columns not found"},
+                chart_type="table",
+            )
 
-        all_teams = pd.concat([
-            df["home_team"] if home_ok else pd.Series(dtype="object"),
-            df["away_team"] if away_ok else pd.Series(dtype="object"),
-        ]).dropna()
+        all_teams = pd.concat(
+            [
+                df["home_team"] if home_ok else pd.Series(dtype="object"),
+                df["away_team"] if away_ok else pd.Series(dtype="object"),
+            ]
+        ).dropna()
 
         counts = all_teams.value_counts()
         if len(counts) > self.max_unique:
             top = counts.head(self.max_unique)
-            other = int(counts.iloc[self.max_unique:].sum())
+            other = int(counts.iloc[self.max_unique :].sum())
             counts = top
         else:
             other = 0
@@ -491,8 +636,12 @@ class DataProfiler:
         if other > 0:
             data["counts"]["OTHER"] = other  # type: ignore[index]
 
-        return ProfileSection("Team Distribution", data, chart_type="bar",
-                              description=f"{all_teams.nunique()} unique teams")
+        return ProfileSection(
+            "Team Distribution",
+            data,
+            chart_type="bar",
+            description=f"{all_teams.nunique()} unique teams",
+        )
 
     # ── 9. Home Advantage ─────────────────────────────
 
@@ -504,7 +653,9 @@ class DataProfiler:
                 break
 
         if result_col is None:
-            return ProfileSection("Home Advantage", {"error": "No result column"}, chart_type="bar")
+            return ProfileSection(
+                "Home Advantage", {"error": "No result column"}, chart_type="bar"
+            )
 
         n = len(df)
         home_wins = float((df[result_col] == "H").sum() / n * 100) if n > 0 else 0
@@ -519,8 +670,12 @@ class DataProfiler:
             "n_matches": n,
         }
 
-        return ProfileSection("Home Advantage", data, chart_type="bar",
-                              description=f"Home win rate: {home_wins:.1f}% vs Away: {away_wins:.1f}%")
+        return ProfileSection(
+            "Home Advantage",
+            data,
+            chart_type="bar",
+            description=f"Home win rate: {home_wins:.1f}% vs Away: {away_wins:.1f}%",
+        )
 
     # ── 10. Outliers ──────────────────────────────────
 
@@ -544,8 +699,12 @@ class DataProfiler:
                     "mean": round(float(mean), 3),
                     "std": round(float(std), 3),
                     "threshold": round(float(self.outlier_std_threshold * std), 3),
-                    "min_outlier": round(float(vals[z_scores > self.outlier_std_threshold].min()), 3),
-                    "max_outlier": round(float(vals[z_scores > self.outlier_std_threshold].max()), 3),
+                    "min_outlier": round(
+                        float(vals[z_scores > self.outlier_std_threshold].min()), 3
+                    ),
+                    "max_outlier": round(
+                        float(vals[z_scores > self.outlier_std_threshold].max()), 3
+                    ),
                 }
 
         data = {
@@ -554,15 +713,25 @@ class DataProfiler:
             "columns": outlier_info,
         }
 
-        return ProfileSection("Outliers", data, chart_type="table",
-                              description=f"Z-score outliers above {self.outlier_std_threshold}σ")
+        return ProfileSection(
+            "Outliers",
+            data,
+            chart_type="table",
+            description=f"Z-score outliers above {self.outlier_std_threshold}σ",
+        )
 
     # ── 11. Schema Validation ─────────────────────────
 
     def _profile_schema(self, df: pd.DataFrame) -> ProfileSection:
         expected_columns = [
-            "date", "home_team", "away_team", "result",
-            "home_goals", "away_goals", "league", "season",
+            "date",
+            "home_team",
+            "away_team",
+            "result",
+            "home_goals",
+            "away_goals",
+            "league",
+            "season",
         ]
         present = [c for c in expected_columns if c in df.columns]
         missing = [c for c in expected_columns if c not in df.columns]
@@ -572,12 +741,21 @@ class DataProfiler:
             "n_columns_missing": len(missing),
             "present_columns": present,
             "missing_columns": missing,
-            "unexpected_columns": [c for c in df.columns if c not in expected_columns and c not in ["home_goals_ht", "away_goals_ht", "match_id"]][:30],
+            "unexpected_columns": [
+                c
+                for c in df.columns
+                if c not in expected_columns
+                and c not in ["home_goals_ht", "away_goals_ht", "match_id"]
+            ][:30],
             "n_unexpected": len(df.columns) - len(present),
         }
 
-        return ProfileSection("Schema Validation", data, chart_type="table",
-                              description=f"{len(present)}/{len(expected_columns)} expected columns present")
+        return ProfileSection(
+            "Schema Validation",
+            data,
+            chart_type="table",
+            description=f"{len(present)}/{len(expected_columns)} expected columns present",
+        )
 
     # ── 12. Type Validation ──────────────────────────
 
@@ -607,7 +785,12 @@ class DataProfiler:
 
         issues_found = sum(1 for v in type_info.values() if v["issues"])
 
-        return ProfileSection("Type Validation", {
-            "columns": type_info,
-            "n_columns_with_issues": issues_found,
-        }, chart_type="table", description=f"{issues_found} columns with type issues")
+        return ProfileSection(
+            "Type Validation",
+            {
+                "columns": type_info,
+                "n_columns_with_issues": issues_found,
+            },
+            chart_type="table",
+            description=f"{issues_found} columns with type issues",
+        )

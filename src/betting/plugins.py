@@ -78,10 +78,12 @@ class PluginRegistry:
         count = 0
         try:
             import src.betting.plugins as pkg
+
             if not hasattr(pkg, "__path__"):
                 return 0
             for _importer, modname, _is_pkg in pkgutil.iter_modules(
-                pkg.__path__, prefix="src.betting.plugins.",
+                pkg.__path__,
+                prefix="src.betting.plugins.",
             ):
                 try:
                     mod = importlib.import_module(modname)

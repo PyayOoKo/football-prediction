@@ -10,7 +10,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from config import config as _global_config
+from src.config import config as _global_config
 
 # Must be the first Streamlit command
 st.set_page_config(
@@ -29,7 +29,8 @@ from src.app.utils import (
 )
 
 # ── Custom CSS ──────────────────────────────────────────
-st.markdown("""
+st.markdown(
+    """
 <style>
     /* ── Base theme overrides ── */
     .stApp { background: #0e1117; }
@@ -96,7 +97,9 @@ st.markdown("""
     .badge-red { background: #b71c1c; color: #ef9a9a; }
     .badge-blue { background: #0d47a1; color: #90caf9; }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 
 # ── Session state initialisation ────────────────────────
@@ -113,12 +116,13 @@ if "data" not in st.session_state:
 # ═══════════════════════════════════════════════════════════
 
 st.markdown('<div class="hero">', unsafe_allow_html=True)
-st.markdown('<h1>⚽ Football Match Predictor</h1>', unsafe_allow_html=True)
-st.markdown("<p>AI-powered match outcome prediction, value betting analysis, "
+st.markdown("<h1>⚽ Football Match Predictor</h1>", unsafe_allow_html=True)
+st.markdown(
+    "<p>AI-powered match outcome prediction, value betting analysis, "
     "and backtested performance tracking.</p>",
     unsafe_allow_html=True,
 )
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -263,34 +267,34 @@ st.markdown(
     f'<div class="final-prediction-box">'
     f'<div class="pick">🇪🇸 Spain to Win</div>'
     f'<div class="detail">Predicted Outcome</div>'
-    f'</div>'
+    f"</div>"
     f'<div class="final-odds-box">'
     f'<div class="odds-value">@ {odds_val:.2f}</div>'
     f'<div class="detail">Live Odds (Matchbook)</div>'
-    f'</div>'
+    f"</div>"
     f'<div class="final-ev-box">'
     f'<div class="ev-value">+{ev_val:.1%} EV</div>'
     f'<div class="detail">Expected Value</div>'
-    f'</div>'
-    f'</div>'
+    f"</div>"
+    f"</div>"
     f'<div class="final-prob-bar">'
-    f'<div class="home-seg" style="width:{home_prob*100:.1f}%"></div>'
-    f'<div class="draw-seg" style="width:{draw_prob*100:.1f}%"></div>'
-    f'<div class="away-seg" style="width:{away_prob*100:.1f}%"></div>'
-    f'</div>'
+    f'<div class="home-seg" style="width:{home_prob * 100:.1f}%"></div>'
+    f'<div class="draw-seg" style="width:{draw_prob * 100:.1f}%"></div>'
+    f'<div class="away-seg" style="width:{away_prob * 100:.1f}%"></div>'
+    f"</div>"
     f'<div class="final-prob-labels">'
-    f'<span>🇪🇸 Spain <strong>{home_prob:.0%}</strong></span>'
+    f"<span>🇪🇸 Spain <strong>{home_prob:.0%}</strong></span>"
     f'<span class="center">🤝 Draw <strong>{draw_prob:.0%}</strong></span>'
     f'<span class="right">🇦🇷 Argentina <strong>{away_prob:.0%}</strong></span>'
-    f'</div>'
+    f"</div>"
     f'<div style="margin-top:0.8rem;font-size:0.8rem;color:#8b8fa3">'
     f'⚡ <strong style="color:#4caf50">BEST BET:</strong> Spain @ 2.38 · '
-    f'Kelly Stake: <strong>$41.10</strong> (4.1% of bankroll) · '
+    f"Kelly Stake: <strong>$41.10</strong> (4.1% of bankroll) · "
     f'<a href="pages/4_Top5Leagues.py" target="_self" style="color:#4fc3f7">Top 5 Leagues Analysis →</a>'
-    f'</div>'
-    f'</div>'
-    f'</div>'
-    f'</div>',
+    f"</div>"
+    f"</div>"
+    f"</div>"
+    f"</div>",
     unsafe_allow_html=True,
 )
 
@@ -310,7 +314,7 @@ with col1:
         f'<div class="metric-card">'
         f'<div class="metric-value">{n_matches:,}</div>'
         f'<div class="metric-label">Historical Matches</div>'
-        f'</div>',
+        f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -320,7 +324,7 @@ with col2:
         f'<div class="metric-card">'
         f'<div class="metric-value">{n_teams}</div>'
         f'<div class="metric-label">Teams</div>'
-        f'</div>',
+        f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -331,7 +335,7 @@ with col3:
             f'<div class="metric-card">'
             f'<div class="metric-value">{model_type}</div>'
             f'<div class="metric-label">Active Model</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
     else:
@@ -339,7 +343,7 @@ with col3:
             '<div class="metric-card">'
             '<div class="metric-value" style="color:#e74c3c;">⚠</div>'
             '<div class="metric-label">No Model Loaded</div>'
-            '</div>',
+            "</div>",
             unsafe_allow_html=True,
         )
 
@@ -352,7 +356,7 @@ with col4:
                 f'<div class="metric-card">'
                 f'<div class="metric-value">{latest.strftime("%b %Y")}</div>'
                 f'<div class="metric-label">Latest Match</div>'
-                f'</div>',
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
@@ -372,20 +376,31 @@ with left_col:
             display = latest.copy()
             # Format date
             if "date" in display.columns:
-                display["date"] = pd.to_datetime(display["date"]).dt.strftime("%d %b %Y")
+                display["date"] = pd.to_datetime(display["date"]).dt.strftime(
+                    "%d %b %Y"
+                )
 
             # Create readable result column
-            if all(c in display.columns for c in ["home_goals", "away_goals", "home_team", "away_team"]):
+            if all(
+                c in display.columns
+                for c in ["home_goals", "away_goals", "home_team", "away_team"]
+            ):
                 display["score"] = display.apply(
-                    lambda r: f"{int(r['home_goals'])}–{int(r['away_goals'])}"
-                    if pd.notna(r["home_goals"]) and pd.notna(r["away_goals"])
-                    else "—",
+                    lambda r: (
+                        f"{int(r['home_goals'])}–{int(r['away_goals'])}"
+                        if pd.notna(r["home_goals"]) and pd.notna(r["away_goals"])
+                        else "—"
+                    ),
                     axis=1,
                 )
                 display["match"] = display.apply(
                     lambda r: f"{r['home_team']} vs {r['away_team']}", axis=1
                 )
-                show_cols = [c for c in ["date", "match", "score", "result"] if c in display.columns]
+                show_cols = [
+                    c
+                    for c in ["date", "match", "score", "result"]
+                    if c in display.columns
+                ]
                 st.dataframe(
                     display[show_cols],
                     use_container_width=True,
@@ -411,10 +426,22 @@ with right_col:
 
     if model_ok and data_ok:
         st.success("✅ Model loaded and ready")
-        st.page_link("pages/1_Predict.py", label="🔮 Predict a Match", use_container_width=True)
-        st.page_link("pages/2_Value_Bets.py", label="💰 Find Value Bets", use_container_width=True)
-        st.page_link("pages/3_Backtest.py", label="📊 View Backtest", use_container_width=True)
-        st.page_link("pages/4_Top5Leagues.py", label="🏆 Top 5 European Leagues", use_container_width=True)
+        st.page_link(
+            "pages/1_Predict.py", label="🔮 Predict a Match", use_container_width=True
+        )
+        st.page_link(
+            "pages/2_Value_Bets.py",
+            label="💰 Find Value Bets",
+            use_container_width=True,
+        )
+        st.page_link(
+            "pages/3_Backtest.py", label="📊 View Backtest", use_container_width=True
+        )
+        st.page_link(
+            "pages/4_Top5Leagues.py",
+            label="🏆 Top 5 European Leagues",
+            use_container_width=True,
+        )
     else:
         if not model_ok:
             st.error("⚠ No trained model found.")
@@ -425,8 +452,8 @@ with right_col:
         if not data_ok:
             st.error("⚠ No preprocessed data found.")
             st.info(
-                "Run `python -c \"from src.preprocessing import "
-                "run_preprocessing; run_preprocessing()\"` to prepare data."
+                'Run `python -c "from src.preprocessing import '
+                'run_preprocessing; run_preprocessing()"` to prepare data.'
             )
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -466,7 +493,7 @@ if model is not None and data is not None:
                 f'<div class="metric-card">'
                 f'<div class="metric-value">{diag["accuracy"]:.1%}</div>'
                 f'<div class="metric-label">Test Accuracy</div>'
-                f'</div>',
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
@@ -478,7 +505,7 @@ if model is not None and data is not None:
                 f'<div class="metric-card">'
                 f'<div class="metric-value" style="color:{imp_color}">{imp:+.1%}</div>'
                 f'<div class="metric-label">vs Baseline ({best_base:.0%})</div>'
-                f'</div>',
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
@@ -489,7 +516,7 @@ if model is not None and data is not None:
                 f'<div class="metric-card">'
                 f'<div class="metric-value" style="color:{ll_color}">{ll:.4f}</div>'
                 f'<div class="metric-label">Log-Loss</div>'
-                f'</div>',
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
@@ -498,7 +525,7 @@ if model is not None and data is not None:
                 f'<div class="metric-card">'
                 f'<div class="metric-value">{diag["n_test"]:,}</div>'
                 f'<div class="metric-label">Test Matches</div>'
-                f'</div>',
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
@@ -514,22 +541,26 @@ if model is not None and data is not None:
             predicted = diag["prediction_dist"][cls]
             diff = predicted - actual
             diff_str = f"+{diff}" if diff > 0 else str(diff)
-            diff_color = "#4caf50" if diff == 0 else "#f44336" if abs(diff) > 5 else "#ffc107"
+            diff_color = (
+                "#4caf50" if diff == 0 else "#f44336" if abs(diff) > 5 else "#ffc107"
+            )
 
-            class_data.append({
-                "Class": cls,
-                "Precision": p,
-                "Recall": r,
-                "F1-Score": f,
-                "Actual": actual,
-                "Predicted": predicted,
-                "Δ": f'<span style="color:{diff_color}">{diff_str}</span>',
-            })
+            class_data.append(
+                {
+                    "Class": cls,
+                    "Precision": p,
+                    "Recall": r,
+                    "F1-Score": f,
+                    "Actual": actual,
+                    "Predicted": predicted,
+                    "Δ": f'<span style="color:{diff_color}">{diff_str}</span>',
+                }
+            )
 
         st.markdown(
             "<div style='color:#8b8fa3;font-size:0.85rem;margin-bottom:0.5rem'>"
             "A well-balanced model has similar Precision, Recall, and F1 across all three classes. "
-            "Large disparities (especially \"Draw\" being much lower) indicate class imbalance issues."
+            'Large disparities (especially "Draw" being much lower) indicate class imbalance issues.'
             "</div>",
             unsafe_allow_html=True,
         )
@@ -555,17 +586,25 @@ if model is not None and data is not None:
 
         issues = []
         if draw_f1 < 0.2:
-            issues.append("🔴 **Draw blindness** — model rarely predicts draws (F1 < 0.20). This is the #1 balance issue.")
+            issues.append(
+                "🔴 **Draw blindness** — model rarely predicts draws (F1 < 0.20). This is the #1 balance issue."
+            )
         elif draw_f1 < 0.35:
-            issues.append("⚠️ **Draw prediction is weak** (F1 < 0.35). The model struggles with the minority class.")
+            issues.append(
+                "⚠️ **Draw prediction is weak** (F1 < 0.35). The model struggles with the minority class."
+            )
 
         if home_f1 > away_f1 + 0.15:
-            issues.append("⚖️ **Home win bias** — model significantly favors home teams over away teams.")
+            issues.append(
+                "⚖️ **Home win bias** — model significantly favors home teams over away teams."
+            )
 
         pred_draw = diag["prediction_dist"]["Draw"]
         actual_draw = diag["actual_dist"]["Draw"]
         if actual_draw > 0 and pred_draw < actual_draw * 0.5:
-            issues.append(f"📉 **Under-predicts draws** — predicted {pred_draw} vs actual {actual_draw} draws.")
+            issues.append(
+                f"📉 **Under-predicts draws** — predicted {pred_draw} vs actual {actual_draw} draws."
+            )
 
         if not issues:
             st.success("✅ Model appears well-balanced across all three outcomes.")
@@ -587,7 +626,9 @@ if model is not None and data is not None:
                     row_data[pred_label] = cm[i][j]
                 row_data["Correct"] = cm[i][i]
                 row_data["Total"] = sum(cm[i])
-                row_data["Recall"] = f"{cm[i][i]/sum(cm[i]):.0%}" if sum(cm[i]) > 0 else "—"
+                row_data["Recall"] = (
+                    f"{cm[i][i] / sum(cm[i]):.0%}" if sum(cm[i]) > 0 else "—"
+                )
                 cm_data.append(row_data)
 
             st.dataframe(
@@ -613,7 +654,9 @@ if model is not None and data is not None:
                 diag = run_model_diagnostic(model, data)
                 st.session_state.diagnostic = diag
                 if diag is None:
-                    st.error("Diagnostic failed. Check that a model is trained and data is available.")
+                    st.error(
+                        "Diagnostic failed. Check that a model is trained and data is available."
+                    )
                 else:
                     st.rerun()
 

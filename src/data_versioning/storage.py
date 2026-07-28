@@ -160,7 +160,9 @@ class VersionStorage:
         self.chunk_size = chunk_size
         self.compression = compression
         self.fingerprint_columns = fingerprint_columns or [
-            "date", "home_team", "away_team",
+            "date",
+            "home_team",
+            "away_team",
         ]
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
@@ -239,7 +241,10 @@ class VersionStorage:
         n_cols = len(df.columns)
         logger.info(
             "Saving version %s (%d rows x %d cols) → %s",
-            version_id, n_rows, n_cols, version_dir,
+            version_id,
+            n_rows,
+            n_cols,
+            version_dir,
         )
 
         # Write Parquet snapshot (chunked for large datasets)
@@ -259,7 +264,9 @@ class VersionStorage:
         delta_path: str | None = None
         if prev_version is not None:
             delta_path, added, deleted, modified = self._compute_and_save_delta(
-                df, version_id, prev_version,
+                df,
+                version_id,
+                prev_version,
             )
 
         # Build metadata
@@ -296,8 +303,13 @@ class VersionStorage:
         elapsed = (datetime.now(timezone.utc) - start).total_seconds()
         logger.info(
             "Version %s saved: %d rows, hash=%s... added=%d deleted=%d modified=%d (%.2fs)",
-            version_id, n_rows, content_hash[:12],
-            added, deleted, modified, elapsed,
+            version_id,
+            n_rows,
+            content_hash[:12],
+            added,
+            deleted,
+            modified,
+            elapsed,
         )
 
         return info
@@ -378,11 +390,13 @@ class VersionStorage:
             n_partitions = df[partition_col].nunique()
             logger.info(
                 "  Partitioned by '%s' → %d partitions",
-                partition_col, n_partitions,
+                partition_col,
+                n_partitions,
             )
         except Exception as exc:
             logger.warning(
-                "Partitioned write failed, falling back to chunked: %s", exc,
+                "Partitioned write failed, falling back to chunked: %s",
+                exc,
             )
             self._write_parquet_chunked(df, path)
 
@@ -405,7 +419,8 @@ class VersionStorage:
         old_df = self.load_snapshot(prev_version.version_id)
 
         delta_df = compute_delta(
-            old_df, new_df,
+            old_df,
+            new_df,
             key_columns=self.fingerprint_columns,
         )
 
@@ -427,14 +442,19 @@ class VersionStorage:
             )
             logger.info(
                 "Delta saved: %s → %s: +%d -%d ~%d",
-                prev_version.version_id, version_id,
-                added, deleted, modified,
+                prev_version.version_id,
+                version_id,
+                added,
+                deleted,
+                modified,
             )
         else:
             # Write empty delta with schema
             cols = list(new_df.columns) + ["_change_type", "_fingerprint"]
             pd.DataFrame(columns=cols).to_parquet(
-                delta_path, compression=self.compression, index=False,
+                delta_path,
+                compression=self.compression,
+                index=False,
             )
 
         return str(delta_path), added, deleted, modified
@@ -610,6 +630,7 @@ class VersionStorage:
             return False
 
         import shutil
+
         shutil.rmtree(version_dir)
         logger.info("Deleted version %s", version_id)
         return True
@@ -663,7 +684,8 @@ class VersionStorage:
                     notes=f"Auto-backup before rollback to {target_version_id}",
                 )
                 logger.info(
-                    "Created backup version %s before rollback", backup_id,
+                    "Created backup version %s before rollback",
+                    backup_id,
                 )
 
         # Switch current link to target
@@ -671,7 +693,8 @@ class VersionStorage:
 
         logger.info(
             "Rolled back from %s → %s",
-            current_id or "(none)", target_version_id,
+            current_id or "(none)",
+            target_version_id,
         )
 
         return target_info
@@ -700,9 +723,10 @@ class VersionStorage:
             matches = actual_hash == info.hash
             if not matches:
                 logger.error(
-                    "Integrity check FAILED for %s: "
-                    "expected %s, got %s",
-                    version_id, info.hash[:16], actual_hash[:16],
+                    "Integrity check FAILED for %s: expected %s, got %s",
+                    version_id,
+                    info.hash[:16],
+                    actual_hash[:16],
                 )
             return matches
         except Exception as exc:

@@ -13,12 +13,13 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from config import config as _global_config
+from src.config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
 
 # ── Cached model loading ────────────────────────────────
+
 
 @st.cache_resource(show_spinner="Loading trained model ...")
 def load_model(file_name: str | None = None) -> Any | None:
@@ -55,6 +56,7 @@ def _load_from_file(file_name: str) -> Any | None:
     # Try as regular sklearn/xgboost model first
     try:
         from src.train import load_model as load_xgb
+
         return load_xgb(file_name)
     except Exception:
         logger.exception("Failed to load model from file via src.train.load_model")
@@ -62,6 +64,7 @@ def _load_from_file(file_name: str) -> Any | None:
     # Try as ensemble model
     try:
         from src.ensemble import EnsembleModel
+
         model_path = _global_config.paths.models / file_name
         if model_path.exists():
             return EnsembleModel.load(str(model_path))
@@ -75,6 +78,7 @@ def _try_load_ensemble(name: str) -> Any | None:
     """Try loading an EnsembleModel from file."""
     try:
         from src.ensemble import EnsembleModel
+
         model_path = _global_config.paths.models / name
         if model_path.exists():
             return EnsembleModel.load(str(model_path))
@@ -87,6 +91,7 @@ def _try_load_xgb(name: str) -> Any | None:
     """Try loading a sklearn/XGBoost model from file."""
     try:
         from src.train import load_model as load_xgb
+
         return load_xgb(name)
     except Exception:
         logger.exception("Failed to load XGBoost/sklearn model from %s", name)
@@ -120,7 +125,9 @@ def build_feature_matrix(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series] | N
 
 @st.cache_data(show_spinner="Running backtest ...")
 def run_backtest_cached(
-    _model: Any, X_test: pd.DataFrame, y_test: pd.Series,
+    _model: Any,
+    X_test: pd.DataFrame,
+    y_test: pd.Series,
     odds_df: pd.DataFrame | None = None,
     odds_cols: tuple[str, str, str] = ("BbAvA", "BbAvD", "BbAvH"),
 ) -> dict[str, Any]:
@@ -132,19 +139,24 @@ def run_backtest_cached(
     from src.backtesting import run_backtest
 
     result = run_backtest(
-        model=_model, X_test=X_test, y_test=y_test,
-        odds_df=odds_df, odds_cols=odds_cols,
+        model=_model,
+        X_test=X_test,
+        y_test=y_test,
+        odds_df=odds_df,
+        odds_cols=odds_cols,
         team_cols=("home_team", "away_team"),
         initial_bankroll=_global_config.value_betting.bankroll,
         kelly_fraction=_global_config.value_betting.kelly_fraction,
         min_ev=_global_config.value_betting.min_ev,
         output_dir=_global_config.paths.data.parent / "reports" / "backtest",
-        print_report=False, show_charts=False,
+        print_report=False,
+        show_charts=False,
     )
     return result
 
 
 # ── Helpers ─────────────────────────────────────────────
+
 
 def get_available_teams(df: pd.DataFrame) -> list[str]:
     """Return sorted list of all team names from the dataset."""
@@ -177,13 +189,24 @@ def get_latest_matches(df: pd.DataFrame, n: int = 20) -> pd.DataFrame:
     """Return the N most recent matches with team names and result."""
     if "date" not in df.columns:
         return df.head(n)
-    cols = [c for c in ["date", "home_team", "away_team", "result",
-                         "home_goals", "away_goals"] if c in df.columns]
+    cols = [
+        c
+        for c in [
+            "date",
+            "home_team",
+            "away_team",
+            "result",
+            "home_goals",
+            "away_goals",
+        ]
+        if c in df.columns
+    ]
     subset = df[cols].dropna(subset=["date"]).sort_values("date", ascending=False)
     return subset.head(n)
 
 
 # ── Model diagnostic ───────────────────────────────────
+
 
 @st.cache_data(show_spinner="Running model diagnostic ...")
 def run_model_diagnostic(
@@ -232,7 +255,9 @@ def run_model_diagnostic(
                         X_test[col] = 0.0
                 X_test = X_test[model_features]
             except Exception:
-                logger.exception("Failed to align test features to model's expected feature set")
+                logger.exception(
+                    "Failed to align test features to model's expected feature set"
+                )
 
         y_pred = model.predict(X_test)
         y_proba = model.predict_proba(X_test)
@@ -274,7 +299,11 @@ def run_model_diagnostic(
             "baseline_draw": baseline_draw,
             "best_baseline": max(baseline_home, baseline_away, baseline_draw),
             "improvement": acc - max(baseline_home, baseline_away, baseline_draw),
-            "precision": {"Away Win": precision[0], "Draw": precision[1], "Home Win": precision[2]},
+            "precision": {
+                "Away Win": precision[0],
+                "Draw": precision[1],
+                "Home Win": precision[2],
+            },
             "recall": {"Away Win": recall[0], "Draw": recall[1], "Home Win": recall[2]},
             "f1": {"Away Win": f1[0], "Draw": f1[1], "Home Win": f1[2]},
             "confusion_matrix": cm,
@@ -288,6 +317,7 @@ def run_model_diagnostic(
 
 
 # ── Value bets cache loading ──────────────────────────
+
 
 @st.cache_data(ttl=300, show_spinner="Loading latest value bets...")
 def load_latest_value_bets() -> pd.DataFrame | None:
@@ -305,7 +335,9 @@ def load_latest_value_bets() -> pd.DataFrame | None:
 @st.cache_data(ttl=300)
 def load_value_bets_meta() -> pd.DataFrame | None:
     """Load prediction metadata from latest value bets run."""
-    path = _global_config.paths.data.parent / "reports" / "value_bets" / "latest_meta.csv"
+    path = (
+        _global_config.paths.data.parent / "reports" / "value_bets" / "latest_meta.csv"
+    )
     if not path.exists():
         return None
     try:
@@ -316,7 +348,9 @@ def load_value_bets_meta() -> pd.DataFrame | None:
 
 
 def get_matchup_stats(
-    df: pd.DataFrame, home_team: str, away_team: str,
+    df: pd.DataFrame,
+    home_team: str,
+    away_team: str,
 ) -> dict[str, Any]:
     """Return historical stats for a specific team matchup."""
     stats: dict[str, Any] = {"matches": 0, "home_wins": 0, "away_wins": 0, "draws": 0}

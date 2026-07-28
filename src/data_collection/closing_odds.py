@@ -96,8 +96,12 @@ def _normalise_team(name: str) -> str:
     """Normalise a team name for matching across sources."""
     name = name.strip().lower()
     # Remove common suffixes/prefixes
-    name = re.sub(r"\s+(fc|cf|afc|utd|united|city|town|rangers|athletic|"
-                  r"ac|acm|as|ssc|ss|fk|bk|if|il|jk)$", "", name)
+    name = re.sub(
+        r"\s+(fc|cf|afc|utd|united|city|town|rangers|athletic|"
+        r"ac|acm|as|ssc|ss|fk|bk|if|il|jk)$",
+        "",
+        name,
+    )
     name = re.sub(r"^(fc|cf|afc|ac|as|ssc|ss|fk|bk|if|il|jk)\s+", "", name)
     name = re.sub(r"[^a-z0-9]", "", name)
     return name
@@ -149,18 +153,12 @@ def match_to_database(
             continue
 
         # Build date range
-        start = pd.Timestamp(rec.match_date) - pd.Timedelta(
-            days=date_tolerance_days
-        )
-        end = pd.Timestamp(rec.match_date) + pd.Timedelta(
-            days=date_tolerance_days
-        )
+        start = pd.Timestamp(rec.match_date) - pd.Timedelta(days=date_tolerance_days)
+        end = pd.Timestamp(rec.match_date) + pd.Timedelta(days=date_tolerance_days)
 
         # Query database for potential matches in date range
         matches = (
-            session.query(Match)
-            .filter(Match.match_date.between(start, end))
-            .all()
+            session.query(Match).filter(Match.match_date.between(start, end)).all()
         )
 
         # Filter by normalised team names
@@ -171,13 +169,15 @@ def match_to_database(
         for m in matches:
             db_home = _normalise_team(m.home_team.name if m.home_team else "")
             db_away = _normalise_team(m.away_team.name if m.away_team else "")
-            if (db_home == rec_home_norm and db_away == rec_away_norm):
+            if db_home == rec_home_norm and db_away == rec_away_norm:
                 candidates.append(m)
-            elif (db_home == rec_away_norm and db_away == rec_home_norm):
+            elif db_home == rec_away_norm and db_away == rec_home_norm:
                 # Inverted home/away — flag but still match
                 logger.debug(
                     "Inverted teams for %s vs %s on %s — swapping",
-                    rec.home_team, rec.away_team, rec.match_date,
+                    rec.home_team,
+                    rec.away_team,
+                    rec.match_date,
                 )
                 candidates.append(m)
 
@@ -193,7 +193,8 @@ def match_to_database(
     if matched_count:
         logger.info(
             "Matched %d / %d closing odds records to database matches",
-            matched_count, len(records),
+            matched_count,
+            len(records),
         )
     if multiple_count:
         logger.warning(
@@ -306,7 +307,8 @@ class BaseClosingOddsCollector(ABC):
         records = self.collect(start_date, end_date, leagues)
         logger.info(
             "%s: collected %d closing odds records",
-            self.source_name, len(records),
+            self.source_name,
+            len(records),
         )
 
         if not records:
@@ -315,6 +317,7 @@ class BaseClosingOddsCollector(ABC):
         own_session = session is None
         if own_session:
             from src.database.session import get_session as _get_session
+
             with _get_session() as _session:
                 matched = match_to_database(records, _session)
                 count = upsert_closing_odds(matched, _session)
@@ -416,7 +419,8 @@ class FootballDataClosingOddsCollector(BaseClosingOddsCollector):
 
         logger.info(
             "Extracted %d closing odds records from %d CSV files",
-            len(all_records), len(csv_files),
+            len(all_records),
+            len(csv_files),
         )
         return all_records
 
@@ -444,16 +448,22 @@ class FootballDataClosingOddsCollector(BaseClosingOddsCollector):
             return []
 
         df[date_col] = pd.to_datetime(
-            df[date_col], dayfirst=True, errors="coerce",
+            df[date_col],
+            dayfirst=True,
+            errors="coerce",
         )
         df.dropna(subset=[date_col], inplace=True)
 
         # Extract home/away team columns
-        home_col = "hometeam" if "hometeam" in df.columns else (
-            "home_team" if "home_team" in df.columns else None
+        home_col = (
+            "hometeam"
+            if "hometeam" in df.columns
+            else ("home_team" if "home_team" in df.columns else None)
         )
-        away_col = "awayteam" if "awayteam" in df.columns else (
-            "away_team" if "away_team" in df.columns else None
+        away_col = (
+            "awayteam"
+            if "awayteam" in df.columns
+            else ("away_team" if "away_team" in df.columns else None)
         )
         if home_col is None or away_col is None:
             return []
@@ -477,7 +487,9 @@ class FootballDataClosingOddsCollector(BaseClosingOddsCollector):
                 league=league_code,
                 source=self.source_name,
                 odds_timestamp=datetime.combine(
-                    match_date, datetime.min.time(), tzinfo=timezone.utc,
+                    match_date,
+                    datetime.min.time(),
+                    tzinfo=timezone.utc,
                 ),
             )
 
@@ -554,7 +566,8 @@ class OddsPortalClosingOddsCollector(BaseClosingOddsCollector):
     def _create_session(self) -> requests.Session:
         sess = requests.Session()
         retries = Retry(
-            total=3, backoff_factor=2.0,
+            total=3,
+            backoff_factor=2.0,
             status_forcelist=[429, 502, 503, 504],
         )
         sess.mount("https://", HTTPAdapter(max_retries=retries))
@@ -586,7 +599,9 @@ class OddsPortalClosingOddsCollector(BaseClosingOddsCollector):
         records: list[ClosingOddsRecord] = []
         for league in leagues or ["england/premier-league"]:
             league_records = self._scrape_league(
-                league, start, end,
+                league,
+                start,
+                end,
             )
             records.extend(league_records)
 
@@ -613,7 +628,8 @@ class OddsPortalClosingOddsCollector(BaseClosingOddsCollector):
         except requests.RequestException as exc:
             logger.warning(
                 "Failed to fetch OddsPortal page for %s: %s",
-                league_slug, exc,
+                league_slug,
+                exc,
             )
             return records
 
@@ -633,11 +649,13 @@ class OddsPortalClosingOddsCollector(BaseClosingOddsCollector):
         while next_page:
             try:
                 next_resp = self._session.get(
-                    f"{self.BASE_URL}{next_page}", timeout=self.timeout,
+                    f"{self.BASE_URL}{next_page}",
+                    timeout=self.timeout,
                 )
                 next_resp.raise_for_status()
                 next_matches = self._parse_html(
-                    next_resp.text, league_slug,
+                    next_resp.text,
+                    league_slug,
                 )
                 # Stop if we've gone past the start_date
                 if next_matches:
@@ -715,19 +733,23 @@ class OddsPortalClosingOddsCollector(BaseClosingOddsCollector):
             except ValueError:
                 oa = None
 
-            records.append(ClosingOddsRecord(
-                match_date=match_date,
-                home_team=home_text,
-                away_team=away_text,
-                league=league_slug,
-                odds_home=oh,
-                odds_draw=od,
-                odds_away=oa,
-                source=self.source_name,
-                odds_timestamp=datetime.combine(
-                    match_date, datetime.min.time(), tzinfo=timezone.utc,
-                ),
-            ))
+            records.append(
+                ClosingOddsRecord(
+                    match_date=match_date,
+                    home_team=home_text,
+                    away_team=away_text,
+                    league=league_slug,
+                    odds_home=oh,
+                    odds_draw=od,
+                    odds_away=oa,
+                    source=self.source_name,
+                    odds_timestamp=datetime.combine(
+                        match_date,
+                        datetime.min.time(),
+                        tzinfo=timezone.utc,
+                    ),
+                )
+            )
 
         return records
 
@@ -772,7 +794,8 @@ class BetExplorerClosingOddsCollector(BaseClosingOddsCollector):
     def _create_session(self) -> requests.Session:
         sess = requests.Session()
         retries = Retry(
-            total=3, backoff_factor=2.0,
+            total=3,
+            backoff_factor=2.0,
             status_forcelist=[429, 502, 503, 504],
         )
         sess.mount("https://", HTTPAdapter(max_retries=retries))
@@ -830,7 +853,8 @@ class BetExplorerClosingOddsCollector(BaseClosingOddsCollector):
         except requests.RequestException as exc:
             logger.warning(
                 "Failed to fetch BetExplorer page for %s: %s",
-                league_slug, exc,
+                league_slug,
+                exc,
             )
             return records
 
@@ -851,7 +875,8 @@ class BetExplorerClosingOddsCollector(BaseClosingOddsCollector):
                 prev_resp = self._session.get(prev_url, timeout=self.timeout)
                 prev_resp.raise_for_status()
                 prev_results = self._parse_results_table(
-                    prev_resp.text, league_slug,
+                    prev_resp.text,
+                    league_slug,
                 )
                 for r in prev_results:
                     if r.match_date < start_date:
@@ -878,14 +903,14 @@ class BetExplorerClosingOddsCollector(BaseClosingOddsCollector):
 
         # Pattern for standard BetExplorer results table rows
         row_pattern = re.compile(
-            r'<tr[^>]*>'
+            r"<tr[^>]*>"
             r'.*?<td[^>]*class="[^"]*date[^"]*"[^>]*>(.*?)</td>'
             r'.*?<td[^>]*class="[^"]*team[^"]*"[^>]*>(.*?)</td>'
             r'.*?<td[^>]*class="[^"]*score[^"]*"[^>]*>\s*(\d+)\s*:\s*(\d+)\s*</td>'
             r'.*?<td[^>]*class="[^"]*team[^"]*"[^>]*>(.*?)</td>'
-            r'.*?<td[^>]*>\s*([\d.]+)\s*</td>'
-            r'.*?<td[^>]*>\s*([\d.]+)\s*</td>'
-            r'.*?<td[^>]*>\s*([\d.]+)\s*</td>',
+            r".*?<td[^>]*>\s*([\d.]+)\s*</td>"
+            r".*?<td[^>]*>\s*([\d.]+)\s*</td>"
+            r".*?<td[^>]*>\s*([\d.]+)\s*</td>",
             re.DOTALL,
         )
 
@@ -922,19 +947,23 @@ class BetExplorerClosingOddsCollector(BaseClosingOddsCollector):
             except ValueError:
                 oa = None
 
-            records.append(ClosingOddsRecord(
-                match_date=match_date,
-                home_team=home_text,
-                away_team=away_text,
-                league=league_slug,
-                odds_home=oh,
-                odds_draw=od,
-                odds_away=oa,
-                source=self.source_name,
-                odds_timestamp=datetime.combine(
-                    match_date, datetime.min.time(), tzinfo=timezone.utc,
-                ),
-            ))
+            records.append(
+                ClosingOddsRecord(
+                    match_date=match_date,
+                    home_team=home_text,
+                    away_team=away_text,
+                    league=league_slug,
+                    odds_home=oh,
+                    odds_draw=od,
+                    odds_away=oa,
+                    source=self.source_name,
+                    odds_timestamp=datetime.combine(
+                        match_date,
+                        datetime.min.time(),
+                        tzinfo=timezone.utc,
+                    ),
+                )
+            )
 
         return records
 
@@ -1009,7 +1038,10 @@ class ClosingOddsOrchestrator:
 
                 logger.info(
                     "Running collector: %s (start=%s, end=%s, leagues=%s)",
-                    source_name, start_date, end_date, leagues,
+                    source_name,
+                    start_date,
+                    end_date,
+                    leagues,
                 )
                 count = collector.run(
                     session=session,

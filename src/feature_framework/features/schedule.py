@@ -83,18 +83,32 @@ logger = logging.getLogger(__name__)
 # Column patterns for travel distance detection
 _TRAVEL_COL_PATTERNS: dict[str, list[str]] = {
     "home_lat": [
-        "home_lat", "home_latitude", "h_lat", "venue_lat_home",
+        "home_lat",
+        "home_latitude",
+        "h_lat",
+        "venue_lat_home",
     ],
     "home_lon": [
-        "home_lon", "home_longitude", "home_lng", "h_lon",
-        "venue_lon_home", "venue_lng_home",
+        "home_lon",
+        "home_longitude",
+        "home_lng",
+        "h_lon",
+        "venue_lon_home",
+        "venue_lng_home",
     ],
     "away_lat": [
-        "away_lat", "away_latitude", "a_lat", "venue_lat_away",
+        "away_lat",
+        "away_latitude",
+        "a_lat",
+        "venue_lat_away",
     ],
     "away_lon": [
-        "away_lon", "away_longitude", "away_lng", "a_lon",
-        "venue_lon_away", "venue_lng_away",
+        "away_lon",
+        "away_longitude",
+        "away_lng",
+        "a_lon",
+        "venue_lon_away",
+        "venue_lng_away",
     ],
 }
 
@@ -153,9 +167,13 @@ class ScheduleTransformer(FeatureTransformer):
         "a_days_since_competition",
     ]
 
-    _REQUIRED_COLS: frozenset[str] = frozenset({
-        "date", "home_team", "away_team",
-    })
+    _REQUIRED_COLS: frozenset[str] = frozenset(
+        {
+            "date",
+            "home_team",
+            "away_team",
+        }
+    )
 
     def __init__(self, **params: Any) -> None:
         super().__init__(**params)
@@ -258,7 +276,8 @@ class ScheduleTransformer(FeatureTransformer):
         # ── 4. Compute schedule features per team ─────────
         league_specific = self.params.get("league_specific", _DEFAULT_LEAGUE_SPECIFIC)
         schedule_features = self._compute_schedule_features(
-            team_schedule, league_specific=league_specific,
+            team_schedule,
+            league_specific=league_specific,
         )
 
         # ── 5. Add empty feature columns for empty input ──
@@ -273,7 +292,8 @@ class ScheduleTransformer(FeatureTransformer):
         added = [c for c in self._resolved_outputs if c in df.columns]
         logger.debug(
             "Schedule: added %d / %d possible columns",
-            len(added), len(self._resolved_outputs),
+            len(added),
+            len(self._resolved_outputs),
         )
 
         return df
@@ -326,22 +346,30 @@ class ScheduleTransformer(FeatureTransformer):
         n = len(df)
 
         # ── Home team rows ────────────────────────────────
-        home_df = pd.DataFrame({
-            "team": df["home_team"].values,
-            "date": pd.to_datetime(df["date"]).values if "date" in df.columns else pd.NaT,
-            "match_id": df.index.values,
-            "is_home": np.ones(n, dtype=np.int8),
-            "opponent": df["away_team"].values,
-        })
+        home_df = pd.DataFrame(
+            {
+                "team": df["home_team"].values,
+                "date": pd.to_datetime(df["date"]).values
+                if "date" in df.columns
+                else pd.NaT,
+                "match_id": df.index.values,
+                "is_home": np.ones(n, dtype=np.int8),
+                "opponent": df["away_team"].values,
+            }
+        )
 
         # ── Away team rows ────────────────────────────────
-        away_df = pd.DataFrame({
-            "team": df["away_team"].values,
-            "date": pd.to_datetime(df["date"]).values if "date" in df.columns else pd.NaT,
-            "match_id": df.index.values,
-            "is_home": np.zeros(n, dtype=np.int8),
-            "opponent": df["home_team"].values,
-        })
+        away_df = pd.DataFrame(
+            {
+                "team": df["away_team"].values,
+                "date": pd.to_datetime(df["date"]).values
+                if "date" in df.columns
+                else pd.NaT,
+                "match_id": df.index.values,
+                "is_home": np.zeros(n, dtype=np.int8),
+                "opponent": df["home_team"].values,
+            }
+        )
 
         # ── Season and league ─────────────────────────────
         for col in ("season", "league"):
@@ -380,7 +408,10 @@ class ScheduleTransformer(FeatureTransformer):
 
     @staticmethod
     def _haversine_km(
-        lat1: float, lon1: float, lat2: float, lon2: float,
+        lat1: float,
+        lon1: float,
+        lat2: float,
+        lon2: float,
     ) -> float:
         """Compute great-circle distance between two points in kilometres.
 
@@ -393,7 +424,8 @@ class ScheduleTransformer(FeatureTransformer):
         dlon = np.radians(lon2 - lon1)
         a = (
             np.sin(dlat / 2.0) ** 2
-            + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2))
+            + np.cos(np.radians(lat1))
+            * np.cos(np.radians(lat2))
             * np.sin(dlon / 2.0) ** 2
         )
         c = 2.0 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
@@ -505,9 +537,11 @@ class ScheduleTransformer(FeatureTransformer):
                 league_name = str(team_data.iloc[i].get("league", ""))
                 if league_name and league_name != "nan":
                     if league_name in last_comp_date:
-                        diff_days = (dates[i] - last_comp_date[league_name]).astype(
-                            "timedelta64[D]"
-                        ).astype(np.float64)
+                        diff_days = (
+                            (dates[i] - last_comp_date[league_name])
+                            .astype("timedelta64[D]")
+                            .astype(np.float64)
+                        )
                         comp_days[i] = diff_days
                     last_comp_date[league_name] = dates[i]
             team_data["days_since_competition"] = comp_days
@@ -571,11 +605,18 @@ class ScheduleTransformer(FeatureTransformer):
 
         # Keep only match_id, is_home, team, and schedule feature columns
         feat_cols = [
-            "match_id", "is_home", "team",
-            "rest_days", "days_since_last_match",
-            "matches_last_7_days", "matches_last_14_days",
-            "consec_home", "consec_away",
-            "is_back_to_back", "days_since_competition", "travel_distance",
+            "match_id",
+            "is_home",
+            "team",
+            "rest_days",
+            "days_since_last_match",
+            "matches_last_7_days",
+            "matches_last_14_days",
+            "consec_home",
+            "consec_away",
+            "is_back_to_back",
+            "days_since_competition",
+            "travel_distance",
         ]
         keep = [c for c in feat_cols if c in result.columns]
         return result[keep]
@@ -601,7 +642,8 @@ class ScheduleTransformer(FeatureTransformer):
 
         # Feature columns to map (exclude metadata columns)
         feat_cols = [
-            c for c in schedule_features.columns
+            c
+            for c in schedule_features.columns
             if c not in ("match_id", "is_home", "team")
         ]
         # Filter to only include columns in resolved outputs (excludes

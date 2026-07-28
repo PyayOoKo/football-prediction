@@ -60,7 +60,7 @@ def cmd_summary(args: argparse.Namespace) -> None:
     days = args.days or 30
     text = monitor.daily_report.generate(
         label=f"Monitoring Summary — Last {days}d "
-              f"({datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})",
+        f"({datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})",
     )
     print(text)
 
@@ -180,21 +180,26 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Football Prediction — Monitoring Framework",
     )
-    parser.add_argument("--db", default="data/monitoring/monitor.db",
-                        help="Monitoring database path")
-    parser.add_argument("--output", "-o", default="reports/monitoring",
-                        help="Report output directory")
-    parser.add_argument("--data-dir", default="data",
-                        help="Data directory for disk checks")
-    parser.add_argument("--retention", type=int, default=90,
-                        help="Retention days (for cleanup)")
+    parser.add_argument(
+        "--db", default="data/monitoring/monitor.db", help="Monitoring database path"
+    )
+    parser.add_argument(
+        "--output", "-o", default="reports/monitoring", help="Report output directory"
+    )
+    parser.add_argument(
+        "--data-dir", default="data", help="Data directory for disk checks"
+    )
+    parser.add_argument(
+        "--retention", type=int, default=90, help="Retention days (for cleanup)"
+    )
 
     sub = parser.add_subparsers(dest="command", required=True)
 
     # summary
     p_summary = sub.add_parser("summary", help="Print daily summary")
-    p_summary.add_argument("--days", type=int, default=7,
-                           help="Lookback days for trends")
+    p_summary.add_argument(
+        "--days", type=int, default=7, help="Lookback days for trends"
+    )
 
     # report
     p_report = sub.add_parser("report", help="Generate all reports")
@@ -206,8 +211,9 @@ def main(argv: list[str] | None = None) -> int:
 
     # collect
     p_collect = sub.add_parser("collect", help="Collect system metrics")
-    p_collect.add_argument("--cache", action="store_true",
-                           help="Also record cache metrics")
+    p_collect.add_argument(
+        "--cache", action="store_true", help="Also record cache metrics"
+    )
     p_collect.add_argument("--cache-hits", type=int, default=0)
     p_collect.add_argument("--cache-misses", type=int, default=0)
     p_collect.add_argument("--cache-rate", type=float, default=0.0)

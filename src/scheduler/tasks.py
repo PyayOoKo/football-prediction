@@ -160,13 +160,20 @@ def update_database(cfg: ScheduleConfig) -> TaskResult:
         n_train = len(splits["X_train"])
         n_val = len(splits["X_val"])
         df_train = df_sorted.iloc[:n_train] if len(df_sorted) >= n_train else df_sorted
-        df_val = df_sorted.iloc[n_train:n_train + n_val] if len(df_sorted) >= n_train + n_val else pd.DataFrame()
+        df_val = (
+            df_sorted.iloc[n_train : n_train + n_val]
+            if len(df_sorted) >= n_train + n_val
+            else pd.DataFrame()
+        )
 
         ensemble = EnsembleModel()
         fit_report = ensemble.fit(
-            splits["X_train"], splits["y_train"],
-            splits["X_val"], splits["y_val"],
-            df_train=df_train, df_val=df_val,
+            splits["X_train"],
+            splits["y_train"],
+            splits["X_val"],
+            splits["y_val"],
+            df_train=df_train,
+            df_val=df_val,
         )
 
         model_path = Path("models") / "ensemble_model.joblib"
@@ -255,7 +262,8 @@ def validate_data(cfg: ScheduleConfig) -> TaskResult:
             ]
 
         result.status = (
-            TaskStatus.WARNING if validation_result.total_violations > 0
+            TaskStatus.WARNING
+            if validation_result.total_violations > 0
             else TaskStatus.SUCCESS
         )
 
@@ -296,12 +304,15 @@ def clean_data(cfg: ScheduleConfig) -> TaskResult:
         if data_path.exists():
             df = pd.read_csv(data_path, low_memory=False)
             before = len(df)
-            df = df.drop_duplicates(subset=["date", "home_team", "away_team", "league"],
-                                    keep="last")
+            df = df.drop_duplicates(
+                subset=["date", "home_team", "away_team", "league"], keep="last"
+            )
             after = len(df)
             if after < before:
                 df.to_csv(data_path, index=False)
-                actions.append(f"Deduplicated results_clean.csv: {before} -> {after} rows")
+                actions.append(
+                    f"Deduplicated results_clean.csv: {before} -> {after} rows"
+                )
                 logger.info("Cleaned %d duplicate rows from results", before - after)
             else:
                 actions.append("No duplicates found in results_clean.csv")
@@ -403,9 +414,7 @@ def backup_database(cfg: ScheduleConfig) -> TaskResult:
                     dest = backup_path.with_suffix(".sqlite")
                     shutil.copy2(str(src), str(dest))
                     file_size = dest.stat().st_size
-                    result.output = (
-                        f"SQLite backup created: {dest.name} ({file_size / 1024 / 1024:.1f} MB)"
-                    )
+                    result.output = f"SQLite backup created: {dest.name} ({file_size / 1024 / 1024:.1f} MB)"
                     result.records_processed = 1
                 else:
                     result.output = "SQLite database file not found"
@@ -430,7 +439,8 @@ def backup_database(cfg: ScheduleConfig) -> TaskResult:
                     "--no-owner",
                     "--no-acl",
                     "--compress=9",
-                    "-f", str(backup_path),
+                    "-f",
+                    str(backup_path),
                     url,
                 ]
                 subprocess.run(cmd, check=True, capture_output=True, text=True)
@@ -464,7 +474,9 @@ def backup_database(cfg: ScheduleConfig) -> TaskResult:
                     f.unlink()
                     removed += 1
         if removed:
-            result.output += f" | Removed {removed} old backups (retention: {retention}d)"
+            result.output += (
+                f" | Removed {removed} old backups (retention: {retention}d)"
+            )
 
         result.status = TaskStatus.SUCCESS
 
@@ -476,7 +488,6 @@ def backup_database(cfg: ScheduleConfig) -> TaskResult:
     result.duration_seconds = time.perf_counter() - start
     result.completed_at = datetime.now(timezone.utc)
     return result
-
 
 
 # ══════════════════════════════════════════════════════════
@@ -494,7 +505,11 @@ def collect_odds(cfg: ScheduleConfig) -> TaskResult:
     start = time.perf_counter()
 
     try:
-        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "collect_odds.py"
+        script_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "scripts"
+            / "collect_odds.py"
+        )
         if not script_path.exists():
             result.output = "Script not found: scripts/collect_odds.py"
             result.status = TaskStatus.SKIPPED
@@ -504,7 +519,10 @@ def collect_odds(cfg: ScheduleConfig) -> TaskResult:
 
         proc = subprocess.run(
             [sys.executable, str(script_path)],
-            capture_output=True, text=True, check=False, timeout=600,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=600,
         )
 
         result.output = proc.stdout.strip()[:500] or "Completed"
@@ -542,7 +560,11 @@ def collect_xg_data(cfg: ScheduleConfig) -> TaskResult:
     start = time.perf_counter()
 
     try:
-        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "collect_xg_data.py"
+        script_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "scripts"
+            / "collect_xg_data.py"
+        )
         if not script_path.exists():
             result.output = "Script not found: scripts/collect_xg_data.py"
             result.status = TaskStatus.SKIPPED
@@ -552,7 +574,10 @@ def collect_xg_data(cfg: ScheduleConfig) -> TaskResult:
 
         proc = subprocess.run(
             [sys.executable, str(script_path)],
-            capture_output=True, text=True, check=False, timeout=600,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=600,
         )
 
         result.output = proc.stdout.strip()[:500] or "Completed"
@@ -590,7 +615,11 @@ def collect_team_stats(cfg: ScheduleConfig) -> TaskResult:
     start = time.perf_counter()
 
     try:
-        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "collect_team_stats.py"
+        script_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "scripts"
+            / "collect_team_stats.py"
+        )
         if not script_path.exists():
             result.output = "Script not found: scripts/collect_team_stats.py"
             result.status = TaskStatus.SKIPPED
@@ -600,7 +629,10 @@ def collect_team_stats(cfg: ScheduleConfig) -> TaskResult:
 
         proc = subprocess.run(
             [sys.executable, str(script_path)],
-            capture_output=True, text=True, check=False, timeout=300,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=300,
         )
 
         result.output = proc.stdout.strip()[:500] or "Completed"
@@ -638,7 +670,11 @@ def daily_data_pipeline(cfg: ScheduleConfig) -> TaskResult:
     start = time.perf_counter()
 
     try:
-        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "daily_data_pipeline.py"
+        script_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "scripts"
+            / "daily_data_pipeline.py"
+        )
         if not script_path.exists():
             result.output = "Script not found: scripts/daily_data_pipeline.py"
             result.status = TaskStatus.SKIPPED
@@ -648,7 +684,10 @@ def daily_data_pipeline(cfg: ScheduleConfig) -> TaskResult:
 
         proc = subprocess.run(
             [sys.executable, str(script_path), "--quiet"],
-            capture_output=True, text=True, check=False, timeout=600,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=600,
         )
 
         result.output = proc.stdout.strip()[:500] or "Completed"
@@ -681,12 +720,18 @@ def daily_feature_computation(cfg: ScheduleConfig) -> TaskResult:
 
     Delegates to ``scripts/daily_feature_computation.py``.
     """
-    result = TaskResult(task_name="daily_feature_computation", status=TaskStatus.RUNNING)
+    result = TaskResult(
+        task_name="daily_feature_computation", status=TaskStatus.RUNNING
+    )
     result.started_at = datetime.now(timezone.utc)
     start = time.perf_counter()
 
     try:
-        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "daily_feature_computation.py"
+        script_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "scripts"
+            / "daily_feature_computation.py"
+        )
         if not script_path.exists():
             result.output = "Script not found: scripts/daily_feature_computation.py"
             result.status = TaskStatus.SKIPPED
@@ -696,7 +741,10 @@ def daily_feature_computation(cfg: ScheduleConfig) -> TaskResult:
 
         proc = subprocess.run(
             [sys.executable, str(script_path), "--quiet"],
-            capture_output=True, text=True, check=False, timeout=600,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=600,
         )
 
         result.output = proc.stdout.strip()[:500] or "Completed"
@@ -734,7 +782,11 @@ def daily_model_retraining(cfg: ScheduleConfig) -> TaskResult:
     start = time.perf_counter()
 
     try:
-        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "daily_model_retraining.py"
+        script_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "scripts"
+            / "daily_model_retraining.py"
+        )
         if not script_path.exists():
             result.output = "Script not found: scripts/daily_model_retraining.py"
             result.status = TaskStatus.SKIPPED
@@ -744,7 +796,10 @@ def daily_model_retraining(cfg: ScheduleConfig) -> TaskResult:
 
         proc = subprocess.run(
             [sys.executable, str(script_path), "--quiet"],
-            capture_output=True, text=True, check=False, timeout=1200,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=1200,
         )
 
         result.output = proc.stdout.strip()[:500] or "Completed"
@@ -782,7 +837,11 @@ def daily_predictions(cfg: ScheduleConfig) -> TaskResult:
     start = time.perf_counter()
 
     try:
-        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "daily_predictions.py"
+        script_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "scripts"
+            / "daily_predictions.py"
+        )
         if not script_path.exists():
             result.output = "Script not found: scripts/daily_predictions.py"
             result.status = TaskStatus.SKIPPED
@@ -792,7 +851,10 @@ def daily_predictions(cfg: ScheduleConfig) -> TaskResult:
 
         proc = subprocess.run(
             [sys.executable, str(script_path), "--quiet"],
-            capture_output=True, text=True, check=False, timeout=300,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=300,
         )
 
         result.output = proc.stdout.strip()[:500] or "Completed"
@@ -845,7 +907,9 @@ def generate_logs(cfg: ScheduleConfig) -> TaskResult:
         for log_file in log_dir.glob("*.log"):
             mtime = datetime.fromtimestamp(log_file.stat().st_mtime)
             if mtime < cutoff:
-                archive_name = log_file.with_suffix(f"{log_file.suffix}.{mtime.strftime('%Y%m%d')}.old")
+                archive_name = log_file.with_suffix(
+                    f"{log_file.suffix}.{mtime.strftime('%Y%m%d')}.old"
+                )
                 log_file.rename(archive_name)
                 rotated += 1
 

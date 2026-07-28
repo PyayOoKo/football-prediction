@@ -65,8 +65,10 @@ def log_call(level: int = logging.DEBUG) -> Callable[[F], F]:
                 arg_preview = ", ".join(str(a)[:60] for a in args[1:])
                 kwarg_preview = ", ".join(f"{k}={v}" for k, v in kwargs.items())
                 logger.log(
-                    level, "%s.%s(%s%s)",
-                    cls_name, func.__name__,
+                    level,
+                    "%s.%s(%s%s)",
+                    cls_name,
+                    func.__name__,
                     arg_preview,
                     f", {kwarg_preview}" if kwarg_preview else "",
                 )
@@ -118,7 +120,10 @@ def retry(
                         logger.warning(
                             "%s attempt %d/%d failed: %s. Retrying in %.1fs...",
                             func.__qualname__,
-                            attempt, max_attempts, exc, wait,
+                            attempt,
+                            max_attempts,
+                            exc,
+                            wait,
                         )
                         time.sleep(wait)
             raise last_exc  # type: ignore

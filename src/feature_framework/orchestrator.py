@@ -78,6 +78,7 @@ logger = logging.getLogger(__name__)
 
 class OrchestratorStage(Enum):
     """Stages of orchestrator execution."""
+
     DISCOVER = "discover"
     RESOLVE = "resolve"
     COMPUTE = "compute"
@@ -87,6 +88,7 @@ class OrchestratorStage(Enum):
 
 class FeatureStatus(Enum):
     """Per-feature execution status."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -98,6 +100,7 @@ class FeatureStatus(Enum):
 @dataclass
 class FeatureExecutionRecord:
     """Execution details for a single feature."""
+
     name: str = ""
     status: str = "pending"
     duration: float = 0.0
@@ -408,8 +411,12 @@ class FeatureOrchestrator:
                 return report
 
             report.n_features = len(features_config)
-            self._log_stage(run_id, OrchestratorStage.DISCOVER, "end",
-                            extra={"n_features": len(features_config)})
+            self._log_stage(
+                run_id,
+                OrchestratorStage.DISCOVER,
+                "end",
+                extra={"n_features": len(features_config)},
+            )
         except Exception as exc:
             report.errors.append(f"Discovery failed: {exc}")
             self._finalise_report(report, start_time)
@@ -426,47 +433,73 @@ class FeatureOrchestrator:
             dag = self._build_dag(transformer_map)
             sorted_names = self._topological_sort(dag)
 
-            self._log_stage(run_id, OrchestratorStage.RESOLVE, "end",
-                            extra={
-                                "n_transformers": len(transformer_map),
-                                "dag_size": len(dag),
-                            })
+            self._log_stage(
+                run_id,
+                OrchestratorStage.RESOLVE,
+                "end",
+                extra={
+                    "n_transformers": len(transformer_map),
+                    "dag_size": len(dag),
+                },
+            )
         except FeatureDependencyCycleError as exc:
             report.errors.append(str(exc))
             self._finalise_report(report, start_time)
             return report
 
         # ── Stage 3: Compute ────────────────────────────
-        self._log_stage(run_id, OrchestratorStage.COMPUTE, "start",
-                        extra={"n_features": len(sorted_names)})
+        self._log_stage(
+            run_id,
+            OrchestratorStage.COMPUTE,
+            "start",
+            extra={"n_features": len(sorted_names)},
+        )
 
         if entity_type == "dataframe" and df is not None:
             report = self._compute_dataframe_mode(
-                report, transformer_map, sorted_names, df, entity_type,
-                trigger, run_id, force_recompute,
+                report,
+                transformer_map,
+                sorted_names,
+                df,
+                entity_type,
+                trigger,
+                run_id,
+                force_recompute,
             )
         else:
             report = self._compute_entity_mode(
-                report, transformer_map, sorted_names, entity_type,
-                entity_ids or [], trigger, run_id, force_recompute,
+                report,
+                transformer_map,
+                sorted_names,
+                entity_type,
+                entity_ids or [],
+                trigger,
+                run_id,
+                force_recompute,
             )
 
-        self._log_stage(run_id, OrchestratorStage.COMPUTE, "end",
-                        extra={
-                            "computed": report.n_computed,
-                            "skipped": report.n_skipped,
-                            "failed": report.n_failed,
-                        })
+        self._log_stage(
+            run_id,
+            OrchestratorStage.COMPUTE,
+            "end",
+            extra={
+                "computed": report.n_computed,
+                "skipped": report.n_skipped,
+                "failed": report.n_failed,
+            },
+        )
 
         # ── Stage 4: Validate ───────────────────────────
         self._log_stage(run_id, OrchestratorStage.VALIDATE, "start")
         if report.n_computed > 0:
             try:
                 from src.feature_framework.validation import FeatureValidator
+
                 validator = FeatureValidator(verbose=False)
                 if entity_type == "dataframe" and df is not None:
                     validation_result = validator.validate_for_pipeline(
-                        df, step_name="orchestrator_post",
+                        df,
+                        step_name="orchestrator_post",
                     )
                     report.validation = validation_result
                     if not validation_result["passed"]:
@@ -526,6 +559,7 @@ class FeatureOrchestrator:
         if self.show_progress:
             try:
                 from tqdm import tqdm
+
                 pbar = tqdm(
                     total=len(sorted_names),
                     desc="Computing features",
@@ -558,7 +592,9 @@ class FeatureOrchestrator:
                     report.features[feat_name] = record
                     if pbar:
                         pbar.update(1)
-                    self._log_feature(run_id, feat_name, "failed", "transformer not found")
+                    self._log_feature(
+                        run_id, feat_name, "failed", "transformer not found"
+                    )
                     continue
 
                 # Retry loop
@@ -593,7 +629,9 @@ class FeatureOrchestrator:
                         self._update_cache(feat_name, result_df)
 
                         self._log_feature(
-                            run_id, feat_name, "completed",
+                            run_id,
+                            feat_name,
+                            "completed",
                             extra={
                                 "duration": time.time() - feat_start,
                                 "retries": attempt - 1,
@@ -605,11 +643,14 @@ class FeatureOrchestrator:
                     except Exception as exc:
                         last_error = str(exc)
                         if attempt < self.max_retries:
-                            delay = self.retry_delay * (2 ** attempt)
+                            delay = self.retry_delay * (2**attempt)
                             logger.warning(
                                 "%s attempt %d/%d failed: %s. Retrying in %.1fs...",
-                                feat_name, attempt + 1, 1 + self.max_retries,
-                                exc, delay,
+                                feat_name,
+                                attempt + 1,
+                                1 + self.max_retries,
+                                exc,
+                                delay,
                             )
                             time.sleep(delay)
                         else:
@@ -619,7 +660,9 @@ class FeatureOrchestrator:
                             report.n_failed += 1
                             report.errors.append(f"{feat_name}: {last_error}")
                             self._log_feature(
-                                run_id, feat_name, "failed",
+                                run_id,
+                                feat_name,
+                                "failed",
                                 extra={"error": last_error, "attempts": attempt + 1},
                             )
 
@@ -633,7 +676,9 @@ class FeatureOrchestrator:
                 report.n_failed += 1
                 report.errors.append(f"{feat_name}: {exc}")
                 report.features[feat_name] = record
-                self._log_feature(run_id, feat_name, "failed", extra={"error": str(exc)})
+                self._log_feature(
+                    run_id, feat_name, "failed", extra={"error": str(exc)}
+                )
 
             if pbar:
                 pbar.update(1)
@@ -732,7 +777,9 @@ class FeatureOrchestrator:
                     for fname, stats in batch.per_feature_stats.items():
                         record = FeatureExecutionRecord(
                             name=fname,
-                            status="completed" if stats.get("failed", 0) == 0 else "failed",
+                            status="completed"
+                            if stats.get("failed", 0) == 0
+                            else "failed",
                             duration=stats.get("duration", 0.0),
                             n_entities=stats.get("computed", 0),
                         )
@@ -741,12 +788,16 @@ class FeatureOrchestrator:
                 if batch.error:
                     report.errors.append(batch.error)
 
-                self._log_stage(run_id, OrchestratorStage.STORE, "end",
-                                extra={
-                                    "computed": report.n_computed,
-                                    "skipped": report.n_skipped,
-                                    "failed": report.n_failed,
-                                })
+                self._log_stage(
+                    run_id,
+                    OrchestratorStage.STORE,
+                    "end",
+                    extra={
+                        "computed": report.n_computed,
+                        "skipped": report.n_skipped,
+                        "failed": report.n_failed,
+                    },
+                )
 
         except Exception as exc:
             report.errors.append(f"Entity computation failed: {exc}")
@@ -868,8 +919,11 @@ class FeatureOrchestrator:
 
         try:
             context = TransformContext(
-                entity_type=entity_type, entity_ids=[], trigger="manual",
-                raw_data={}, params={},
+                entity_type=entity_type,
+                entity_ids=[],
+                trigger="manual",
+                raw_data={},
+                params={},
             )
 
             if not transformer._initialized:
@@ -914,18 +968,21 @@ class FeatureOrchestrator:
         for feat_cfg in features_config:
             name = feat_cfg.get("name", "?")
             transformer = self._resolve_single_transformer(name, feat_cfg)
-            result.append({
-                "name": feat_cfg.get("name", ""),
-                "type": feat_cfg.get("type", ""),
-                "version": feat_cfg.get("version", 1),
-                "enabled": feat_cfg.get("enabled", True),
-                "category": feat_cfg.get("category", ""),
-                "description": feat_cfg.get("description", ""),
-                "dependencies": feat_cfg.get("dependencies", []),
-                "output_columns": list(transformer.output_columns)
-                if transformer else [],
-                "has_transformer": transformer is not None,
-            })
+            result.append(
+                {
+                    "name": feat_cfg.get("name", ""),
+                    "type": feat_cfg.get("type", ""),
+                    "version": feat_cfg.get("version", 1),
+                    "enabled": feat_cfg.get("enabled", True),
+                    "category": feat_cfg.get("category", ""),
+                    "description": feat_cfg.get("description", ""),
+                    "dependencies": feat_cfg.get("dependencies", []),
+                    "output_columns": list(transformer.output_columns)
+                    if transformer
+                    else [],
+                    "has_transformer": transformer is not None,
+                }
+            )
 
         return result
 
@@ -958,8 +1015,7 @@ class FeatureOrchestrator:
             "enabled": feat_cfg.get("enabled", True),
             "status": "ready" if transformer else "no_transformer",
             "dependencies": feat_cfg.get("dependencies", []),
-            "output_columns": list(transformer.output_columns)
-            if transformer else [],
+            "output_columns": list(transformer.output_columns) if transformer else [],
             "initialized": transformer._initialized if transformer else False,
             "metrics": None,
         }
@@ -1000,10 +1056,22 @@ class FeatureOrchestrator:
         # Check by type
         feat_type = config.get("type", "")
         if feat_type:
-            params = {k: v for k, v in config.items()
-                      if k not in ("name", "type", "enabled", "version",
-                                   "category", "description", "dependencies",
-                                   "output_columns", "tags")}
+            params = {
+                k: v
+                for k, v in config.items()
+                if k
+                not in (
+                    "name",
+                    "type",
+                    "enabled",
+                    "version",
+                    "category",
+                    "description",
+                    "dependencies",
+                    "output_columns",
+                    "tags",
+                )
+            }
             transformer = self.plugins.get_or_create(name, **params)
             if transformer is not None:
                 return transformer
@@ -1189,16 +1257,20 @@ class FeatureOrchestrator:
             try:
                 with open(f) as fh:
                     data = json.load(fh)
-                    checkpoints.append({
-                        "path": str(f),
-                        "run_id": data.get("run_id", f.stem),
-                        "trigger": data.get("trigger", "?"),
-                        "computed": data.get("n_computed", 0),
-                        "failed": data.get("n_failed", 0),
-                        "saved_at": data.get("saved_at", ""),
-                    })
+                    checkpoints.append(
+                        {
+                            "path": str(f),
+                            "run_id": data.get("run_id", f.stem),
+                            "trigger": data.get("trigger", "?"),
+                            "computed": data.get("n_computed", 0),
+                            "failed": data.get("n_failed", 0),
+                            "saved_at": data.get("saved_at", ""),
+                        }
+                    )
             except Exception:
-                logger.warning("Failed to load checkpoint data from %s", f, exc_info=True)
+                logger.warning(
+                    "Failed to load checkpoint data from %s", f, exc_info=True
+                )
         return checkpoints
 
     # ══════════════════════════════════════════════════════
@@ -1208,14 +1280,14 @@ class FeatureOrchestrator:
     def _collect_metrics(self, report: OrchestratorReport) -> None:
         """Collect and store run-level metrics."""
         computed_times = [
-            f.duration for f in report.features.values()
-            if f.status == "completed"
+            f.duration for f in report.features.values() if f.status == "completed"
         ]
 
         metrics = {
             "total_duration": report.duration,
             "avg_feature_time": float(np.mean(computed_times))
-            if computed_times else 0.0,
+            if computed_times
+            else 0.0,
             "total_computed": report.n_computed,
             "total_skipped": report.n_skipped,
             "total_failed": report.n_failed,
@@ -1224,11 +1296,13 @@ class FeatureOrchestrator:
             "features_per_second": report.n_computed / max(report.duration, 0.001),
         }
         report.metrics = metrics
-        self._metrics_history.append({
-            "run_id": report.run_id,
-            "trigger": report.trigger,
-            **metrics,
-        })
+        self._metrics_history.append(
+            {
+                "run_id": report.run_id,
+                "trigger": report.trigger,
+                **metrics,
+            }
+        )
 
     def get_metrics_history(self) -> list[dict[str, Any]]:
         """Return metrics from all runs in this session."""
@@ -1281,7 +1355,9 @@ class FeatureOrchestrator:
     def _write_log(self, record: dict[str, Any]) -> None:
         """Write a structured log entry to file."""
         try:
-            log_path = self.log_dir / f"orchestrator_{datetime.now().strftime('%Y%m')}.jsonl"
+            log_path = (
+                self.log_dir / f"orchestrator_{datetime.now().strftime('%Y%m')}.jsonl"
+            )
             with open(log_path, "a") as f:
                 f.write(json.dumps(record) + "\n")
         except OSError:
@@ -1320,6 +1396,7 @@ class _TransformerComputer:
 
     def compute_one(self, entity_id: int, **kwargs: Any) -> dict[str, Any]:
         import pandas as pd
+
         row: dict[str, Any] = {"id": entity_id}
         row.update(kwargs)
         df = pd.DataFrame([row])
@@ -1335,11 +1412,15 @@ class _TransformerComputer:
             return values
         except Exception as exc:
             raise FeatureComputationError(
-                self.transformer.name, entity_id, str(exc),
+                self.transformer.name,
+                entity_id,
+                str(exc),
             )
 
     def compute_batch(
-        self, entity_ids: list[int], **kwargs: Any,
+        self,
+        entity_ids: list[int],
+        **kwargs: Any,
     ) -> dict[int, dict[str, Any]]:
         results: dict[int, dict[str, Any]] = {}
         for eid in entity_ids:

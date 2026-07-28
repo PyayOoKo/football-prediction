@@ -14,10 +14,17 @@ logging
 """
 
 from src.config.logging import configure_logging
-from src.config.settings import Config, config
+from src.config.settings import (
+    Config,
+    EnsembleConfig,
+    HyperTuneConfig,
+    config,
+)
 
 __all__ = [
     "Config",
     "config",
     "configure_logging",
+    "EnsembleConfig",
+    "HyperTuneConfig",
 ]

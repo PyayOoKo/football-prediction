@@ -28,7 +28,7 @@ from sklearn.metrics import (
     roc_curve,
 )
 
-from config import config as _global_config
+from src.config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,9 @@ def evaluate_model(
         plot_paths["roc_curve"] = path
 
     if cfg.eval.plot_feature_importance:
-        feat_path: str = _save_feature_importance(model, X_test.columns, config=cfg) or ""
+        feat_path: str = (
+            _save_feature_importance(model, X_test.columns, config=cfg) or ""
+        )
         if feat_path:
             plot_paths["feature_importance"] = feat_path
 
@@ -126,7 +128,9 @@ def _compute_roc_auc(y_test: pd.Series, y_proba: np.ndarray) -> float:
     return roc_auc_score(y_test, y_proba, multi_class="ovr", average="macro")  # type: ignore[no-any-return]
 
 
-def _save_confusion_matrix(y_test: pd.Series, y_pred: np.ndarray, config: Any | None = None) -> str:
+def _save_confusion_matrix(
+    y_test: pd.Series, y_pred: np.ndarray, config: Any | None = None
+) -> str:
     """Plot and save a confusion matrix heatmap.
 
     Parameters
@@ -147,8 +151,15 @@ def _save_confusion_matrix(y_test: pd.Series, y_pred: np.ndarray, config: Any | 
     cm = confusion_matrix(y_test, y_pred)
     labels = sorted(set(y_test) | set(y_pred))
     fig, ax = plt.subplots(figsize=(6, 5))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
-                xticklabels=labels, yticklabels=labels, ax=ax)
+    sns.heatmap(
+        cm,
+        annot=True,
+        fmt="d",
+        cmap="Blues",
+        xticklabels=labels,
+        yticklabels=labels,
+        ax=ax,
+    )
     ax.set(xlabel="Predicted", ylabel="Actual", title="Confusion Matrix")
     cfg = config or _global_config
     path = str(cfg.eval.output_dir / "confusion_matrix.png")
@@ -158,7 +169,9 @@ def _save_confusion_matrix(y_test: pd.Series, y_pred: np.ndarray, config: Any | 
     return path
 
 
-def _save_roc_curve(y_test: pd.Series, y_proba: np.ndarray, config: Any | None = None) -> str:
+def _save_roc_curve(
+    y_test: pd.Series, y_proba: np.ndarray, config: Any | None = None
+) -> str:
     """Plot and save ROC curves (one-vs-rest for multi-class).
 
     Parameters
@@ -185,8 +198,13 @@ def _save_roc_curve(y_test: pd.Series, y_proba: np.ndarray, config: Any | None =
         ax.plot(fpr, tpr, label=f"Class {i} (AUC = {auc:.3f})")
 
     ax.plot([0, 1], [0, 1], "k--", alpha=0.5)
-    ax.set(xlabel="False Positive Rate", ylabel="True Positive Rate",
-           title="ROC Curve", xlim=(0, 1), ylim=(0, 1))
+    ax.set(
+        xlabel="False Positive Rate",
+        ylabel="True Positive Rate",
+        title="ROC Curve",
+        xlim=(0, 1),
+        ylim=(0, 1),
+    )
     ax.legend(loc="lower right")
     cfg = config or _global_config
     path = str(cfg.eval.output_dir / "roc_curve.png")
@@ -230,9 +248,12 @@ def _save_feature_importance(
     indices = np.argsort(importances)[::-1][:20]  # top 20
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.barh(range(len(indices)), importances[indices][::-1])
-    ax.set(yticks=range(len(indices)),
-           yticklabels=feature_names[indices][::-1],
-           xlabel="Importance", title="Top 20 Feature Importances")
+    ax.set(
+        yticks=range(len(indices)),
+        yticklabels=feature_names[indices][::-1],
+        xlabel="Importance",
+        title="Top 20 Feature Importances",
+    )
     plt.tight_layout()
     _cfg = config or _global_config
     path = str(_cfg.eval.output_dir / "feature_importance.png")

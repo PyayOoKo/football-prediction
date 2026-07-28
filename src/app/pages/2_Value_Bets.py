@@ -21,7 +21,8 @@ from src.value_betting import compute_value_bets, get_calculation_guide
 st.set_page_config(page_title="Value Bets", page_icon="💰", layout="wide")
 
 # ── Custom CSS ──────────────────────────────────────────
-st.markdown("""
+st.markdown(
+    """
 <style>
     .stApp { background: #0e1117; }
     .value-card {
@@ -49,7 +50,9 @@ st.markdown("""
     }
     .calc-box strong { color: #fff; }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 
 # ── Header ──────────────────────────────────────────────
@@ -80,8 +83,16 @@ if value_bets_df is not None and len(value_bets_df) > 0:
     odds_src = "?"
     n_matches = "?"
     if meta_df is not None and len(meta_df) > 0:
-        cal_method = str(meta_df["calibration_method"].iloc[0]) if "calibration_method" in meta_df.columns else "?"
-        odds_src = str(meta_df["odds_source"].iloc[0]) if "odds_source" in meta_df.columns else "?"
+        cal_method = (
+            str(meta_df["calibration_method"].iloc[0])
+            if "calibration_method" in meta_df.columns
+            else "?"
+        )
+        odds_src = (
+            str(meta_df["odds_source"].iloc[0])
+            if "odds_source" in meta_df.columns
+            else "?"
+        )
         n_matches = str(len(meta_df))
 
     col1, col2, col3, col4 = st.columns(4)
@@ -90,7 +101,7 @@ if value_bets_df is not None and len(value_bets_df) > 0:
             f'<div class="metric-card">'
             f'<div class="metric-value" style="color:#4caf50;">{n_val}</div>'
             f'<div class="metric-label">Value Bets Found</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
     with col2:
@@ -99,7 +110,7 @@ if value_bets_df is not None and len(value_bets_df) > 0:
             f'<div class="metric-card">'
             f'<div class="metric-value" style="color:{ev_color};">{avg_ev:+.0%}</div>'
             f'<div class="metric-label">Avg Expected Value</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
     with col3:
@@ -107,7 +118,7 @@ if value_bets_df is not None and len(value_bets_df) > 0:
             f'<div class="metric-card">'
             f'<div class="metric-value">{n_matches}</div>'
             f'<div class="metric-label">Matches Analyzed</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
     with col4:
@@ -115,7 +126,7 @@ if value_bets_df is not None and len(value_bets_df) > 0:
             f'<div class="metric-card">'
             f'<div class="metric-value" style="font-size:1rem;">{odds_src}</div>'
             f'<div class="metric-label">Odds Source</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
 
@@ -131,26 +142,37 @@ if value_bets_df is not None and len(value_bets_df) > 0:
         st.markdown(
             f'<div class="value-card value-positive">'
             f'<div style="display:flex;justify-content:space-between;align-items:center">'
-            f'<div><strong>⭐ BEST BET</strong><br>'
+            f"<div><strong>⭐ BEST BET</strong><br>"
             f'<span style="font-size:1.2rem">{match}</span></div>'
             f'<div style="text-align:right">'
             f'<span style="font-size:1.5rem;font-weight:700;color:#4caf50">{outcome}</span>'
-            f'</div></div>'
+            f"</div></div>"
             f'<div style="display:flex;gap:2rem;margin-top:0.75rem">'
-            f'<div>Odds: <strong>{odds_val:.2f}</strong></div>'
-            f'<div>Model Prob: <strong>{prob:.1%}</strong></div>'
+            f"<div>Odds: <strong>{odds_val:.2f}</strong></div>"
+            f"<div>Model Prob: <strong>{prob:.1%}</strong></div>"
             f'<div>EV: <strong style="color:#4caf50">{ev_val:+.0%}</strong></div>'
-            f'<div>Stake: <strong>${stake:.2f}</strong></div>'
-            f'</div></div>',
+            f"<div>Stake: <strong>${stake:.2f}</strong></div>"
+            f"</div></div>",
             unsafe_allow_html=True,
         )
 
     # Full value bets table
     st.markdown("### All Value Bet Opportunities")
-    display_cols = [c for c in [
-        "match", "outcome_label", "decimal_odds", "model_prob",
-        "fair_prob", "prob_edge", "ev", "kelly_stake", "odds_source",
-    ] if c in val.columns]
+    display_cols = [
+        c
+        for c in [
+            "match",
+            "outcome_label",
+            "decimal_odds",
+            "model_prob",
+            "fair_prob",
+            "prob_edge",
+            "ev",
+            "kelly_stake",
+            "odds_source",
+        ]
+        if c in val.columns
+    ]
 
     if len(display_cols) > 0:
         display_df = val[display_cols].copy()
@@ -166,7 +188,9 @@ if value_bets_df is not None and len(value_bets_df) > 0:
             "kelly_stake": "Kelly Stake",
             "odds_source": "Source",
         }
-        display_df = display_df.rename(columns={k: v for k, v in rename_map.items() if k in display_df.columns})
+        display_df = display_df.rename(
+            columns={k: v for k, v in rename_map.items() if k in display_df.columns}
+        )
 
         st.dataframe(
             display_df,
@@ -185,21 +209,21 @@ if value_bets_df is not None and len(value_bets_df) > 0:
     # Calibration info
     st.markdown(
         f'<div style="text-align:right;font-size:0.75rem;color:#555">'
-        f'Calibration: {cal_method.upper()} | '
-        f'Kelly: 25% | '
-        f'Run: {pd.Timestamp.now().strftime("%d %b %Y %H:%M")}'
-        f'</div>',
+        f"Calibration: {cal_method.upper()} | "
+        f"Kelly: 25% | "
+        f"Run: {pd.Timestamp.now().strftime('%d %b %Y %H:%M')}"
+        f"</div>",
         unsafe_allow_html=True,
     )
 
     st.markdown("---")
     st.markdown("### ✏️ Manual Value Bet Tool")
-    st.markdown(
-        "Or enter odds manually below for any matchup."
-    )
+    st.markdown("Or enter odds manually below for any matchup.")
 
 elif value_bets_df is not None and len(value_bets_df) == 0:
-    st.info("📭 No value bets found in the latest run. Try running `python today_value_bets_live.py` from the terminal.")
+    st.info(
+        "📭 No value bets found in the latest run. Try running `python today_value_bets_live.py` from the terminal."
+    )
 else:
     st.info(
         "📭 No cached value bets found. Run `python today_value_bets_live.py` from the terminal "
@@ -235,16 +259,18 @@ teams = get_available_teams(data)
 col1, col2 = st.columns(2)
 with col1:
     home_team = st.selectbox(
-        "🏠 **Home Team**", teams,
+        "🏠 **Home Team**",
+        teams,
         index=teams.index("Manchester United") if "Manchester United" in teams else 0,
         key="vb_home",
     )
 with col2:
     away_team = st.selectbox(
-        "✈️ **Away Team**", teams,
-        index=teams.index("Liverpool") if "Liverpool" in teams else (
-            teams.index("Chelsea") if "Chelsea" in teams else min(1, len(teams) - 1)
-        ),
+        "✈️ **Away Team**",
+        teams,
+        index=teams.index("Liverpool")
+        if "Liverpool" in teams
+        else (teams.index("Chelsea") if "Chelsea" in teams else min(1, len(teams) - 1)),
         key="vb_away",
     )
 
@@ -254,35 +280,56 @@ st.markdown("### 📊 Enter Bookmaker Odds")
 odds_col1, odds_col2, odds_col3 = st.columns(3)
 with odds_col1:
     home_odds = st.number_input(
-        f"**{home_team}** (Home)", min_value=1.01, max_value=100.0,
-        value=2.10, step=0.05, format="%.2f",
+        f"**{home_team}** (Home)",
+        min_value=1.01,
+        max_value=100.0,
+        value=2.10,
+        step=0.05,
+        format="%.2f",
     )
 with odds_col2:
     draw_odds = st.number_input(
-        "**Draw**", min_value=1.01, max_value=100.0,
-        value=3.40, step=0.05, format="%.2f",
+        "**Draw**",
+        min_value=1.01,
+        max_value=100.0,
+        value=3.40,
+        step=0.05,
+        format="%.2f",
     )
 with odds_col3:
     away_odds = st.number_input(
-        f"**{away_team}** (Away)", min_value=1.01, max_value=100.0,
-        value=3.80, step=0.05, format="%.2f",
+        f"**{away_team}** (Away)",
+        min_value=1.01,
+        max_value=100.0,
+        value=3.80,
+        step=0.05,
+        format="%.2f",
     )
 
 
 # ── Settings ───────────────────────────────────────────
 with st.expander("⚙️ Betting Settings"):
     bankroll = st.number_input(
-        "Bankroll (£)", min_value=100.0, max_value=1_000_000.0,
-        value=1000.0, step=100.0,
+        "Bankroll (£)",
+        min_value=100.0,
+        max_value=1_000_000.0,
+        value=1000.0,
+        step=100.0,
     )
     kelly_fraction = st.slider(
-        "Kelly Fraction", min_value=0.0, max_value=1.0,
-        value=0.25, step=0.05,
+        "Kelly Fraction",
+        min_value=0.0,
+        max_value=1.0,
+        value=0.25,
+        step=0.05,
         help="Fraction of Kelly Criterion to use. 0.25 = 25% Kelly (conservative).",
     )
     min_ev = st.slider(
-        "Minimum EV", min_value=0.0, max_value=0.5,
-        value=0.0, step=0.01,
+        "Minimum EV",
+        min_value=0.0,
+        max_value=0.5,
+        value=0.0,
+        step=0.01,
         help="Only flag bets with EV above this threshold.",
     )
 
@@ -290,7 +337,6 @@ with st.expander("⚙️ Betting Settings"):
 # ── Predict button ─────────────────────────────────────
 if st.button("💰 CALCULATE VALUE", type="primary", use_container_width=True):
     with st.spinner("Running model and computing value metrics ..."):
-
         # Build feature matrix and get model prediction for this matchup
         synthetic = {
             "date": pd.Timestamp.now(),
@@ -336,7 +382,7 @@ if st.button("💰 CALCULATE VALUE", type="primary", use_container_width=True):
                 f'<div class="value-card">'
                 f'<div style="color:#8b8fa3;font-size:0.85rem">Bookmaker Margin</div>'
                 f'<div style="color:#fff;font-size:1.5rem;font-weight:700">{margin_pct:.1f}%</div>'
-                f'</div>',
+                f"</div>",
                 unsafe_allow_html=True,
             )
         with col2:
@@ -345,7 +391,7 @@ if st.button("💰 CALCULATE VALUE", type="primary", use_container_width=True):
                 f'<div class="value-card">'
                 f'<div style="color:#8b8fa3;font-size:0.85rem">Value Bet Opportunities</div>'
                 f'<div style="color:#4caf50;font-size:1.5rem;font-weight:700">{int(n_pos)} / 3</div>'
-                f'</div>',
+                f"</div>",
                 unsafe_allow_html=True,
             )
         with col3:
@@ -355,7 +401,7 @@ if st.button("💰 CALCULATE VALUE", type="primary", use_container_width=True):
                 f'<div class="value-card">'
                 f'<div style="color:#8b8fa3;font-size:0.85rem">Average EV</div>'
                 f'<div style="color:{ev_color};font-size:1.5rem;font-weight:700">{avg_ev:+.1%}</div>'
-                f'</div>',
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
@@ -388,8 +434,7 @@ if st.button("💰 CALCULATE VALUE", type="primary", use_container_width=True):
                 m1.metric("Model Prob", f"{row['model_prob']:.1%}")
                 m2.metric("Fair Prob", f"{row['fair_prob']:.1%}")
                 m3.metric("Edge", f"{row['prob_edge']:+.1%}")
-                m4.metric("EV", f"{row['ev']:+.1%}",
-                          delta_color="off")
+                m4.metric("EV", f"{row['ev']:+.1%}", delta_color="off")
 
             st.markdown("</div>", unsafe_allow_html=True)
 

@@ -62,6 +62,7 @@ def _load_report(path: str) -> ProfilingReport:
     # Populate metadata
     if "timestamp" in data:
         from datetime import datetime
+
         with contextlib.suppress(ValueError, TypeError, KeyError):
             report.timestamp = datetime.fromisoformat(data["timestamp"])
     report.n_rows = data.get("n_rows", 0)
@@ -71,10 +72,19 @@ def _load_report(path: str) -> ProfilingReport:
     # Populate sections
     sections_data = data.get("sections", {})
     section_names = [
-        "missing_values", "duplicate_records", "column_summary",
-        "result_distribution", "goal_distribution", "odds_distribution",
-        "league_distribution", "season_distribution", "team_distribution",
-        "home_advantage", "outliers", "schema_validation", "type_validation",
+        "missing_values",
+        "duplicate_records",
+        "column_summary",
+        "result_distribution",
+        "goal_distribution",
+        "odds_distribution",
+        "league_distribution",
+        "season_distribution",
+        "team_distribution",
+        "home_advantage",
+        "outliers",
+        "schema_validation",
+        "type_validation",
         "data_drift",
     ]
     for name in section_names:
@@ -220,7 +230,9 @@ def cmd_auto(args: argparse.Namespace) -> int:
     found_file: Path | None = None
     for d in data_dirs:
         if d.exists():
-            csvs = sorted(d.glob("*.csv"), key=lambda p: p.stat().st_mtime, reverse=True)
+            csvs = sorted(
+                d.glob("*.csv"), key=lambda p: p.stat().st_mtime, reverse=True
+            )
             if csvs:
                 found_file = csvs[0]
                 break
@@ -255,6 +267,7 @@ def cmd_auto(args: argparse.Namespace) -> int:
 
     # Save current as previous for next comparison
     import shutil
+
     current_path = REPORTS_DIR / f"{source_name}.json"
     if current_path.exists():
         shutil.copy2(current_path, prev_path)
@@ -302,8 +315,8 @@ def _drift_to_html(drift: Any) -> str:
             f'<div class="metric {sev_class}">'
             f'<div class="name">{m.name}</div>'
             f'<div class="delta">{m.previous_value} → {m.current_value} ({m.delta:+.1%})</div>'
-            f'<div>{m.description}</div>'
-            f'</div>'
+            f"<div>{m.description}</div>"
+            f"</div>"
         )
     lines.append("</body></html>")
     return "\n".join(lines)
@@ -321,11 +334,21 @@ def main(argv: list[str] | None = None) -> int:
     # ── create-report ─────────────────────────────────
     p_create = sub.add_parser("create-report", help="Profile a CSV/Parquet file")
     p_create.add_argument("filepath", help="Path to CSV or Parquet file")
-    p_create.add_argument("--source", help="Dataset source name (default: filename stem)")
-    p_create.add_argument("--odds-patterns", nargs="*", default=None,
-                          help="Column patterns for odds detection")
-    p_create.add_argument("--outlier-std", type=float, default=3.0,
-                          help="Z-score threshold for outliers (default: 3.0)")
+    p_create.add_argument(
+        "--source", help="Dataset source name (default: filename stem)"
+    )
+    p_create.add_argument(
+        "--odds-patterns",
+        nargs="*",
+        default=None,
+        help="Column patterns for odds detection",
+    )
+    p_create.add_argument(
+        "--outlier-std",
+        type=float,
+        default=3.0,
+        help="Z-score threshold for outliers (default: 3.0)",
+    )
 
     # ── list-reports ──────────────────────────────────
     sub.add_parser("list-reports", help="List all profiling reports")
@@ -335,16 +358,24 @@ def main(argv: list[str] | None = None) -> int:
     p_compare.add_argument("--prev", required=True, help="Previous report JSON path")
     p_compare.add_argument("--curr", required=True, help="Current report JSON path")
     p_compare.add_argument("--output", "-o", help="Output path for drift HTML report")
-    p_compare.add_argument("--row-threshold", type=float, default=0.05, help="Row count drift threshold")
-    p_compare.add_argument("--null-threshold", type=float, default=5.0, help="Null %% drift threshold (pp)")
-    p_compare.add_argument("--metric-threshold", type=float, default=0.10, help="Metric drift threshold")
+    p_compare.add_argument(
+        "--row-threshold", type=float, default=0.05, help="Row count drift threshold"
+    )
+    p_compare.add_argument(
+        "--null-threshold", type=float, default=5.0, help="Null %% drift threshold (pp)"
+    )
+    p_compare.add_argument(
+        "--metric-threshold", type=float, default=0.10, help="Metric drift threshold"
+    )
 
     # ── auto ──────────────────────────────────────────
     p_auto = sub.add_parser("auto", help="Auto-profile latest data and compare")
     p_auto.add_argument("--source", default="latest", help="Source name for the report")
 
     # ── dashboard ─────────────────────────────────────
-    p_dash = sub.add_parser("dashboard", help="Generate HTML dashboard from JSON report")
+    p_dash = sub.add_parser(
+        "dashboard", help="Generate HTML dashboard from JSON report"
+    )
     p_dash.add_argument("report_json", help="Path to profiling JSON report")
 
     args = parser.parse_args(argv)

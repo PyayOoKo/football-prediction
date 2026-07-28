@@ -21,6 +21,7 @@ from typing import Any
 
 class Outcome(Enum):
     """Match outcome labels."""
+
     HOME = "H"
     DRAW = "D"
     AWAY = "A"
@@ -45,7 +46,7 @@ class BetStatus(Enum):
     PENDING = "pending"
     WON = "won"
     LOST = "lost"
-    VOID = "void"       # Match abandoned, bet refunded
+    VOID = "void"  # Match abandoned, bet refunded
     CANCELLED = "cancelled"
 
 
@@ -81,6 +82,7 @@ class MatchOdds:
     metadata : dict, optional
         Additional info (league, region, etc.).
     """
+
     home_odds: Decimal
     draw_odds: Decimal
     away_odds: Decimal
@@ -89,12 +91,18 @@ class MatchOdds:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        for name, val in [("home_odds", self.home_odds), ("draw_odds", self.draw_odds), ("away_odds", self.away_odds)]:
+        for name, val in [
+            ("home_odds", self.home_odds),
+            ("draw_odds", self.draw_odds),
+            ("away_odds", self.away_odds),
+        ]:
             if val <= Decimal("1.0"):
                 raise ValueError(f"{name} must be > 1.0, got {val}")
 
     def odds_for(self, outcome: Outcome) -> Decimal:
-        return {"H": self.home_odds, "D": self.draw_odds, "A": self.away_odds}[outcome.value]
+        return {"H": self.home_odds, "D": self.draw_odds, "A": self.away_odds}[
+            outcome.value
+        ]
 
     def implied_prob(self, outcome: Outcome) -> Decimal:
         return Decimal("1.0") / self.odds_for(outcome)
@@ -136,6 +144,7 @@ class ModelPrediction:
     metadata : dict, optional
         Additional prediction metadata.
     """
+
     home_prob: Decimal
     draw_prob: Decimal
     away_prob: Decimal
@@ -147,12 +156,12 @@ class ModelPrediction:
     def __post_init__(self) -> None:
         total = self.home_prob + self.draw_prob + self.away_prob
         if not (Decimal("0.99") <= total <= Decimal("1.01")):
-            raise ValueError(
-                f"Probabilities must sum to ~1.0, got {float(total):.4f}"
-            )
+            raise ValueError(f"Probabilities must sum to ~1.0, got {float(total):.4f}")
 
     def prob_for(self, outcome: Outcome) -> Decimal:
-        return {"H": self.home_prob, "D": self.draw_prob, "A": self.away_prob}[outcome.value]
+        return {"H": self.home_prob, "D": self.draw_prob, "A": self.away_prob}[
+            outcome.value
+        ]
 
     def as_array(self) -> list[float]:
         """Return [away_prob, draw_prob, home_prob] (model output order)."""
@@ -192,6 +201,7 @@ class BetSlip:
     odds_source : str
         Bookmaker or odds source.
     """
+
     match_id: str
     home_team: str
     away_team: str
@@ -227,7 +237,12 @@ class BetSlip:
 
     @property
     def positive_ev(self) -> bool:
-        return self.ev is not None and self.ev > 0 and self.edge is not None and self.edge > 0
+        return (
+            self.ev is not None
+            and self.ev > 0
+            and self.edge is not None
+            and self.edge > 0
+        )
 
 
 @dataclass
@@ -274,7 +289,11 @@ class Bankroll:
     def roi_pct(self) -> float:
         if self.initial_balance == 0:
             return 0.0
-        return ((self.current_balance or 0) - self.initial_balance) / self.initial_balance * 100
+        return (
+            ((self.current_balance or 0) - self.initial_balance)
+            / self.initial_balance
+            * 100
+        )
 
     @property
     def yield_pct(self) -> float:
@@ -361,7 +380,9 @@ class MarketFilterConfig:
     require_h2h_odds: bool = True
     require_closing_odds: bool = False
     only_premium_bookmakers: bool = False
-    premium_bookmakers: list[str] = field(default_factory=lambda: ["pinnacle", "bet365", "betfair"])
+    premium_bookmakers: list[str] = field(
+        default_factory=lambda: ["pinnacle", "bet365", "betfair"]
+    )
 
 
 @dataclass

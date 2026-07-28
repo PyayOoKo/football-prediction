@@ -61,18 +61,20 @@ _DEFAULT_CONFIG_PATH = Path("config/risk_management.yaml")
 @dataclass
 class _DailyState:
     """Tracks mutable daily counters (reset each day)."""
-    date: str = ""                          # ISO date string "2026-07-15"
-    starting_bankroll: float = 0.0          # Bankroll at start of day
-    daily_loss: float = 0.0                 # Cumulative loss in currency
-    daily_profit: float = 0.0               # Cumulative profit in currency
-    bets_today: int = 0                     # Number of bets placed today
-    drawdown_breached: bool = False         # Drawdown limit was hit today
-    consecutive_losses: int = 0             # Current consecutive loss streak
+
+    date: str = ""  # ISO date string "2026-07-15"
+    starting_bankroll: float = 0.0  # Bankroll at start of day
+    daily_loss: float = 0.0  # Cumulative loss in currency
+    daily_profit: float = 0.0  # Cumulative profit in currency
+    bets_today: int = 0  # Number of bets placed today
+    drawdown_breached: bool = False  # Drawdown limit was hit today
+    consecutive_losses: int = 0  # Current consecutive loss streak
 
 
 @dataclass
 class _FrequencyState:
     """Rolling-window counters for frequency limits."""
+
     bet_timestamps: deque[datetime.datetime] = field(
         default_factory=lambda: deque(maxlen=200),
     )
@@ -84,6 +86,7 @@ class _FrequencyState:
 @dataclass
 class _ExposureState:
     """Tracks current open-bet exposure."""
+
     open_bets: list[dict[str, Any]] = field(default_factory=list)
     total_staked_open: float = 0.0
     exposure_by_league: dict[str, float] = field(default_factory=dict)
@@ -155,8 +158,7 @@ class RiskManager:
         if peak is None or peak <= 0:
             return 0.0
         current = (
-            bankroll.current_balance if bankroll
-            else self._daily.starting_bankroll
+            bankroll.current_balance if bankroll else self._daily.starting_bankroll
         )
         return max(0.0, (peak - (current or 0)) / peak * 100)
 
@@ -292,7 +294,8 @@ class RiskManager:
             except Exception as exc:
                 logger.warning(
                     "Failed to load risk config from %s: %s — using defaults",
-                    path, exc,
+                    path,
+                    exc,
                 )
                 self._config = self._default_config()
                 if config_override:
@@ -340,11 +343,7 @@ class RiskManager:
     def _deep_merge(base: dict[str, Any], overrides: dict[str, Any]) -> None:
         """Recursively merge *overrides* into *base* (mutates base)."""
         for key, value in overrides.items():
-            if (
-                key in base
-                and isinstance(base[key], dict)
-                and isinstance(value, dict)
-            ):
+            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
                 RiskManager._deep_merge(base[key], value)
             else:
                 base[key] = value
@@ -398,9 +397,7 @@ class RiskManager:
                 "consecutive_losses": self._daily.consecutive_losses,
             },
             "frequency": {
-                "bet_timestamps": [
-                    t.isoformat() for t in self._freq.bet_timestamps
-                ],
+                "bet_timestamps": [t.isoformat() for t in self._freq.bet_timestamps],
                 "bets_this_week": self._freq.bets_this_week,
                 "week_number": self._freq.week_number,
             },
@@ -449,7 +446,8 @@ class RiskManager:
         if version != self._STATE_VERSION:
             logger.warning(
                 "Risk state version mismatch: expected %d, got %d — ignoring",
-                self._STATE_VERSION, version,
+                self._STATE_VERSION,
+                version,
             )
             return False
 
@@ -466,8 +464,7 @@ class RiskManager:
         # Restore frequency state
         f = state.get("frequency", {})
         timestamps = [
-            datetime.datetime.fromisoformat(t)
-            for t in f.get("bet_timestamps", [])
+            datetime.datetime.fromisoformat(t) for t in f.get("bet_timestamps", [])
         ]
         self._freq.bet_timestamps = deque(timestamps, maxlen=200)
         self._freq.bets_this_week = f.get("bets_this_week", 0)
@@ -478,10 +475,12 @@ class RiskManager:
         self._exposure.open_bets = e.get("open_bets", [])
         self._exposure.total_staked_open = e.get("total_staked_open", 0.0)
         self._exposure.exposure_by_league = defaultdict(
-            float, e.get("exposure_by_league", {}),
+            float,
+            e.get("exposure_by_league", {}),
         )
         self._exposure.exposure_by_team = defaultdict(
-            float, e.get("exposure_by_team", {}),
+            float,
+            e.get("exposure_by_team", {}),
         )
 
         self._peak_bankroll = state.get("peak_bankroll", 0.0)
@@ -612,8 +611,7 @@ class RiskManager:
         loss_pct = self.daily_loss_pct
         if loss_pct >= max_loss_pct:
             return False, (
-                f"Daily loss limit reached: {loss_pct:.1f}% "
-                f"(max {max_loss_pct:.1f}%)"
+                f"Daily loss limit reached: {loss_pct:.1f}% (max {max_loss_pct:.1f}%)"
             )
 
         # Check absolute loss cap
@@ -648,8 +646,7 @@ class RiskManager:
                 self._set_cooldown(minutes=cooldown * 5)
 
             return False, (
-                f"Drawdown limit exceeded: {dd_pct:.1f}% "
-                f"(max {max_dd:.1f}%)"
+                f"Drawdown limit exceeded: {dd_pct:.1f}% (max {max_dd:.1f}%)"
             )
 
         return True, ""
@@ -684,9 +681,7 @@ class RiskManager:
         # Per hour
         max_per_hour = cfg.get("max_per_hour", 3)
         hour_ago = now - datetime.timedelta(hours=1)
-        bets_last_hour = sum(
-            1 for t in self._freq.bet_timestamps if t > hour_ago
-        )
+        bets_last_hour = sum(1 for t in self._freq.bet_timestamps if t > hour_ago)
         if bets_last_hour >= max_per_hour:
             cooldown_min = cfg.get("cooldown_minutes", 30)
             self._set_cooldown(minutes=cooldown_min)
@@ -718,7 +713,9 @@ class RiskManager:
         return True, ""
 
     def _check_stake(
-        self, slip: BetSlip, bankroll: Bankroll,
+        self,
+        slip: BetSlip,
+        bankroll: Bankroll,
     ) -> tuple[bool, str]:
         """Check stake size and odds limits."""
         cfg = self._config.get("risk_manager", {}).get("stake", {})
@@ -740,9 +737,7 @@ class RiskManager:
         # Max total exposure %
         max_exposure_pct = cfg.get("max_total_exposure_pct", 50.0)
         if slip.stake_amount is not None:
-            total_exposure = (
-                self._exposure.total_staked_open + slip.stake_amount
-            )
+            total_exposure = self._exposure.total_staked_open + slip.stake_amount
             exposure_pct = (total_exposure / current * 100) if current > 0 else 0
             if exposure_pct > max_exposure_pct:
                 return False, (
@@ -754,16 +749,14 @@ class RiskManager:
         min_odds = cfg.get("min_odds", 1.50)
         if float(slip.decimal_odds) < min_odds:
             return False, (
-                f"Odds {float(slip.decimal_odds):.2f} below "
-                f"minimum {min_odds:.2f}"
+                f"Odds {float(slip.decimal_odds):.2f} below minimum {min_odds:.2f}"
             )
 
         # Max odds
         max_odds = cfg.get("max_odds", 20.0)
         if float(slip.decimal_odds) > max_odds:
             return False, (
-                f"Odds {float(slip.decimal_odds):.2f} above "
-                f"maximum {max_odds:.2f}"
+                f"Odds {float(slip.decimal_odds):.2f} above maximum {max_odds:.2f}"
             )
 
         return True, ""
@@ -796,9 +789,7 @@ class RiskManager:
         # Preferred leagues (if set, only these are allowed)
         preferred = cfg.get("preferred_leagues", [])
         if preferred and league and league not in preferred:
-            return False, (
-                f"League '{league}' not in preferred leagues: {preferred}"
-            )
+            return False, (f"League '{league}' not in preferred leagues: {preferred}")
 
         # Max per league
         max_per_league_cfg = cfg.get("max_per_league", {})
@@ -848,8 +839,7 @@ class RiskManager:
         max_bets_league = cfg.get("max_bets_per_league", 5)
         if league:
             league_bets = sum(
-                1 for ob in self._exposure.open_bets
-                if ob.get("league") == league
+                1 for ob in self._exposure.open_bets if ob.get("league") == league
             )
             if league_bets >= max_bets_league:
                 return False, (
@@ -861,8 +851,7 @@ class RiskManager:
         max_bets_team = cfg.get("max_bets_per_team", 2)
         if team:
             team_bets = sum(
-                1 for ob in self._exposure.open_bets
-                if ob.get("team") == team
+                1 for ob in self._exposure.open_bets if ob.get("team") == team
             )
             if team_bets >= max_bets_team:
                 return False, (
@@ -887,8 +876,7 @@ class RiskManager:
 
         max_per_match = cfg.get("max_open_bets_per_match", 1)
         match_bets = sum(
-            1 for ob in self._exposure.open_bets
-            if ob.get("match_id") == slip.match_id
+            1 for ob in self._exposure.open_bets if ob.get("match_id") == slip.match_id
         )
         if match_bets >= max_per_match:
             return False, (
@@ -1048,15 +1036,15 @@ class RiskManager:
             self._daily.drawdown_breached = False
             logger.debug(
                 "RiskManager: new day %s — starting_bankroll=%.2f",
-                today, self._daily.starting_bankroll,
+                today,
+                self._daily.starting_bankroll,
             )
 
     def _set_cooldown(self, minutes: int = 30) -> None:
         """Set a cooldown period during which no bets are allowed."""
-        self._cooldown_until = (
-            datetime.datetime.now(datetime.timezone.utc)
-            + datetime.timedelta(minutes=minutes)
-        )
+        self._cooldown_until = datetime.datetime.now(
+            datetime.timezone.utc
+        ) + datetime.timedelta(minutes=minutes)
         logger.info(
             "RiskManager: cooldown activated for %d minutes (until %s)",
             minutes,
@@ -1088,7 +1076,7 @@ class RiskManager:
     def __repr__(self) -> str:
         return (
             f"RiskManager("
-            f"dd={self._config.get('risk_manager',{}).get('drawdown',{}).get('max_drawdown_pct','?')}%, "
+            f"dd={self._config.get('risk_manager', {}).get('drawdown', {}).get('max_drawdown_pct', '?')}%, "
             f"dl={self.daily_loss_pct:.1f}%, "
             f"bets_today={self._daily.bets_today}, "
             f"open={len(self._exposure.open_bets)}, "

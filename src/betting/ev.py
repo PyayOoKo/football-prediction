@@ -57,9 +57,9 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # ── Constants ────────────────────────────────────────────
-_MIN_ODDS = 1.0          # Minimum valid decimal odds
-_MAX_PROB = 1.0          # Maximum valid probability
-_MIN_PROB = 0.0          # Minimum valid probability
+_MIN_ODDS = 1.0  # Minimum valid decimal odds
+_MAX_PROB = 1.0  # Maximum valid probability
+_MIN_PROB = 0.0  # Minimum valid probability
 
 
 # ═══════════════════════════════════════════════════════════
@@ -115,7 +115,8 @@ def calculate_ev(
     if odds <= _MIN_ODDS:
         logger.warning(
             "decimal_odds must be > %.1f, got %.4f — returning zero EV",
-            _MIN_ODDS, odds,
+            _MIN_ODDS,
+            odds,
         )
         return _zero_ev(prob, odds, error="odds must be > 1.0")
 
@@ -144,7 +145,9 @@ def calculate_ev(
         "is_value": ev > 0,
         "model_prob": round(prob, round_to) if round_to else prob,
         "decimal_odds": round(odds, round_to) if round_to else odds,
-        "implied_market_prob": round(implied_market_prob, round_to) if round_to else implied_market_prob,
+        "implied_market_prob": round(implied_market_prob, round_to)
+        if round_to
+        else implied_market_prob,
         "fair_odds": fair_odds,
         "edge_vs_market": edge_vs_market,
     }

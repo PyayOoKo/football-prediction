@@ -13,9 +13,9 @@ from typing import Any
 class Severity(str, Enum):
     """Severity level for a validation check result."""
 
-    ERROR = "error"       # Data must be fixed
-    WARNING = "warning"   # Suspicious but not necessarily wrong
-    INFO = "info"         # Statistical observation
+    ERROR = "error"  # Data must be fixed
+    WARNING = "warning"  # Suspicious but not necessarily wrong
+    INFO = "info"  # Statistical observation
 
 
 @dataclass
@@ -97,10 +97,12 @@ class ValidationResult:
         result: list[dict[str, Any]] = []
         for c in self.checks:
             for v in c.violations:
-                result.append({
-                    "check": c.check_name,
-                    "message": v.get("message", ""),
-                })
+                result.append(
+                    {
+                        "check": c.check_name,
+                        "message": v.get("message", ""),
+                    }
+                )
         return result
 
     def to_dict(self) -> dict[str, Any]:
@@ -152,19 +154,25 @@ class ValidationResult:
 
         with open(filepath, "w", newline="") as f:
             fieldnames = [
-                "check_name", "severity", "row_index",
-                "field", "value", "message",
+                "check_name",
+                "severity",
+                "row_index",
+                "field",
+                "value",
+                "message",
             ]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
 
             for check in self.checks:
                 for violation in check.violations:
-                    writer.writerow({
-                        "check_name": check.check_name,
-                        "severity": check.severity.value,
-                        **violation,
-                    })
+                    writer.writerow(
+                        {
+                            "check_name": check.check_name,
+                            "severity": check.severity.value,
+                            **violation,
+                        }
+                    )
 
     def to_html(self, filepath: str) -> None:
         """Export results as a professional HTML report.

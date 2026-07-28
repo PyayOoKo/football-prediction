@@ -207,14 +207,14 @@ class HTMLReporter:
 
             violation_table = (
                 f'<div class="violations">'
-                f'<table><thead><tr>'
-                f'<th>Row</th><th>Field</th><th>Value</th><th>Issue</th>'
-                f'</tr></thead><tbody>{rows_html}</tbody></table></div>'
+                f"<table><thead><tr>"
+                f"<th>Row</th><th>Field</th><th>Value</th><th>Issue</th>"
+                f"</tr></thead><tbody>{rows_html}</tbody></table></div>"
             )
         else:
             violation_table = (
                 '<div class="violations"><p class="no-violations">'
-                '✓ No violations found</p></div>'
+                "✓ No violations found</p></div>"
             )
 
         return (
@@ -224,13 +224,13 @@ class HTMLReporter:
             f'<span class="badge {badge_class}">{badge_text}</span>'
             f'<span class="name">{check.check_name}</span>'
             f'<span class="desc">{check.description}</span>'
-            f'</div>'
+            f"</div>"
             f'<span style="font-size:13px;color:#6b7280;">'
-            f'{check.violation_count} violations / {check.total_rows} rows'
-            f'</span>'
-            f'</div>'
-            f'{violation_table}'
-            f'</div>'
+            f"{check.violation_count} violations / {check.total_rows} rows"
+            f"</span>"
+            f"</div>"
+            f"{violation_table}"
+            f"</div>"
         )
 
 

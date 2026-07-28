@@ -44,12 +44,24 @@ class PredictionResult:
             "confidence": round(self.confidence, 4),
             "model_name": self.model_name,
             "processing_time_ms": round(self.processing_time_ms, 2),
-            "over_2_5_prob": round(self.over_2_5_prob, 4) if self.over_2_5_prob is not None else None,
-            "under_2_5_prob": round(self.under_2_5_prob, 4) if self.under_2_5_prob is not None else None,
-            "over_3_5_prob": round(self.over_3_5_prob, 4) if self.over_3_5_prob is not None else None,
-            "under_3_5_prob": round(self.under_3_5_prob, 4) if self.under_3_5_prob is not None else None,
-            "btts_prob": round(self.btts_prob, 4) if self.btts_prob is not None else None,
-            "btts_no_prob": round(self.btts_no_prob, 4) if self.btts_no_prob is not None else None,
+            "over_2_5_prob": round(self.over_2_5_prob, 4)
+            if self.over_2_5_prob is not None
+            else None,
+            "under_2_5_prob": round(self.under_2_5_prob, 4)
+            if self.under_2_5_prob is not None
+            else None,
+            "over_3_5_prob": round(self.over_3_5_prob, 4)
+            if self.over_3_5_prob is not None
+            else None,
+            "under_3_5_prob": round(self.under_3_5_prob, 4)
+            if self.under_3_5_prob is not None
+            else None,
+            "btts_prob": round(self.btts_prob, 4)
+            if self.btts_prob is not None
+            else None,
+            "btts_no_prob": round(self.btts_no_prob, 4)
+            if self.btts_no_prob is not None
+            else None,
         }
 
 

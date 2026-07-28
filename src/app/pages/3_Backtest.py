@@ -21,7 +21,8 @@ from src.feature_engineering import train_val_test_split
 st.set_page_config(page_title="Backtest Results", page_icon="📊", layout="wide")
 
 # ── Custom CSS ──────────────────────────────────────────
-st.markdown("""
+st.markdown(
+    """
 <style>
     .stApp { background: #0e1117; }
     .metric-card {
@@ -51,7 +52,9 @@ st.markdown("""
         margin: 1rem 0;
     }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 
 # ── Header ──────────────────────────────────────────────
@@ -86,7 +89,6 @@ if data is None:
 # ── Run backtest button ────────────────────────────────
 if st.button("▶️ RUN FULL BACKTEST", type="primary", use_container_width=True):
     with st.spinner("Running backtest simulation ..."):
-
         # Build feature matrix
         result = build_feature_matrix(data)
         if result is None:
@@ -125,14 +127,17 @@ if st.button("▶️ RUN FULL BACKTEST", type="primary", use_container_width=Tru
             n_total = len(X)
             n_test = len(splits["X_test"])
             test_start = n_total - n_test
-            odds_df = data_sorted.iloc[test_start:test_start + n_test][
+            odds_df = data_sorted.iloc[test_start : test_start + n_test][
                 list(odds_cols) + ["home_team", "away_team"]
             ].copy()
 
         # Run backtest
         bt_result = run_backtest_cached(
-            model, splits["X_test"], splits["y_test"],
-            odds_df=odds_df, odds_cols=odds_cols or ("BbAvA", "BbAvD", "BbAvH"),
+            model,
+            splits["X_test"],
+            splits["y_test"],
+            odds_df=odds_df,
+            odds_cols=odds_cols or ("BbAvA", "BbAvD", "BbAvH"),
         )
 
         metrics = bt_result["metrics"]
@@ -156,12 +161,18 @@ else:
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        roi_color = "metric-positive" if metrics.roi_pct > 0 else "metric-negative" if metrics.roi_pct < 0 else "metric-neutral"
+        roi_color = (
+            "metric-positive"
+            if metrics.roi_pct > 0
+            else "metric-negative"
+            if metrics.roi_pct < 0
+            else "metric-neutral"
+        )
         st.markdown(
             f'<div class="metric-card">'
             f'<div class="metric-label">ROI</div>'
             f'<div class="metric-value {roi_color}">{metrics.roi_pct:+.2f}%</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
 
@@ -171,7 +182,7 @@ else:
             f'<div class="metric-card">'
             f'<div class="metric-label">YIELD</div>'
             f'<div class="metric-value {yield_color}">{metrics.yield_pct:+.2f}%</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
 
@@ -180,17 +191,23 @@ else:
             f'<div class="metric-card">'
             f'<div class="metric-label">WIN RATE</div>'
             f'<div class="metric-value">{metrics.win_rate_pct:.1f}%</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
 
     with col4:
-        dd_color = "metric-positive" if metrics.max_drawdown_pct < 10 else "metric-negative" if metrics.max_drawdown_pct > 25 else "metric-neutral"
+        dd_color = (
+            "metric-positive"
+            if metrics.max_drawdown_pct < 10
+            else "metric-negative"
+            if metrics.max_drawdown_pct > 25
+            else "metric-neutral"
+        )
         st.markdown(
             f'<div class="metric-card">'
             f'<div class="metric-label">MAX DRAWDOWN</div>'
             f'<div class="metric-value {dd_color}">{metrics.max_drawdown_pct:.1f}%</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
 
@@ -201,7 +218,7 @@ else:
             f'<div class="metric-card">'
             f'<div class="metric-label">Total Bets</div>'
             f'<div class="metric-value">{metrics.total_bets:,}</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
     with detail_col2:
@@ -209,8 +226,8 @@ else:
             f'<div class="metric-card">'
             f'<div class="metric-label">Profit / Loss</div>'
             f'<div class="metric-value {"metric-positive" if metrics.total_profit >= 0 else "metric-negative"}">'
-            f'£{metrics.total_profit:+,.2f}</div>'
-            f'</div>',
+            f"£{metrics.total_profit:+,.2f}</div>"
+            f"</div>",
             unsafe_allow_html=True,
         )
     with detail_col3:
@@ -218,7 +235,7 @@ else:
             f'<div class="metric-card">'
             f'<div class="metric-label">Profit Factor</div>'
             f'<div class="metric-value">{metrics.profit_factor:.2f}</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
     with detail_col4:
@@ -226,8 +243,8 @@ else:
             f'<div class="metric-card">'
             f'<div class="metric-label">Avg EV</div>'
             f'<div class="metric-value {"metric-positive" if metrics.avg_ev > 0 else "metric-negative"}">'
-            f'{metrics.avg_ev:+.2%}</div>'
-            f'</div>',
+            f"{metrics.avg_ev:+.2%}</div>"
+            f"</div>",
             unsafe_allow_html=True,
         )
 
@@ -238,7 +255,7 @@ else:
             f'<div class="metric-card">'
             f'<div class="metric-label">Winning Bets</div>'
             f'<div class="metric-value metric-positive">{metrics.winning_bets}</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
     with streak_col2:
@@ -246,7 +263,7 @@ else:
             f'<div class="metric-card">'
             f'<div class="metric-label">Losing Bets</div>'
             f'<div class="metric-value metric-negative">{metrics.losing_bets}</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
     with streak_col3:
@@ -254,7 +271,7 @@ else:
             f'<div class="metric-card">'
             f'<div class="metric-label">Longest Win Streak</div>'
             f'<div class="metric-value metric-positive">{metrics.longest_win_streak}</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
     with streak_col4:
@@ -262,7 +279,7 @@ else:
             f'<div class="metric-card">'
             f'<div class="metric-label">Longest Lose Streak</div>'
             f'<div class="metric-value metric-negative">{metrics.longest_lose_streak}</div>'
-            f'</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
 
@@ -305,16 +322,26 @@ else:
 
     assessment_parts = []
     if metrics.roi_pct > 0:
-        assessment_parts.append(f"✅ Profitable strategy with {metrics.roi_pct:+.1f}% ROI")
+        assessment_parts.append(
+            f"✅ Profitable strategy with {metrics.roi_pct:+.1f}% ROI"
+        )
     else:
-        assessment_parts.append(f"🔴 Loss-making strategy with {metrics.roi_pct:+.1f}% ROI")
+        assessment_parts.append(
+            f"🔴 Loss-making strategy with {metrics.roi_pct:+.1f}% ROI"
+        )
 
     if metrics.max_drawdown_pct < 10:
-        assessment_parts.append(f"✓ Low drawdown ({metrics.max_drawdown_pct:.1f}%) — good risk management")
+        assessment_parts.append(
+            f"✓ Low drawdown ({metrics.max_drawdown_pct:.1f}%) — good risk management"
+        )
     elif metrics.max_drawdown_pct < 25:
-        assessment_parts.append(f"⚠ Moderate drawdown ({metrics.max_drawdown_pct:.1f}%) — acceptable")
+        assessment_parts.append(
+            f"⚠ Moderate drawdown ({metrics.max_drawdown_pct:.1f}%) — acceptable"
+        )
     else:
-        assessment_parts.append(f"🔴 High drawdown ({metrics.max_drawdown_pct:.1f}%) — high risk of ruin")
+        assessment_parts.append(
+            f"🔴 High drawdown ({metrics.max_drawdown_pct:.1f}%) — high risk of ruin"
+        )
 
     if metrics.profit_factor >= 2.0:
         assessment_parts.append("✓ Profit factor ≥ 2.0 — strong risk/reward")
@@ -330,15 +357,27 @@ else:
     with st.expander("📋 Detailed Backtest Statistics"):
         detail_data = {
             "Metric": [
-                "Total Bets", "Winning Bets", "Losing Bets",
-                "Win Rate", "Total Staked", "Total Profit",
-                "ROI", "Yield", "Max Drawdown",
-                "Average Odds", "Average EV", "Profit Factor",
-                "Longest Win Streak", "Longest Losing Streak",
-                "Final Bankroll", "Starting Bankroll",
+                "Total Bets",
+                "Winning Bets",
+                "Losing Bets",
+                "Win Rate",
+                "Total Staked",
+                "Total Profit",
+                "ROI",
+                "Yield",
+                "Max Drawdown",
+                "Average Odds",
+                "Average EV",
+                "Profit Factor",
+                "Longest Win Streak",
+                "Longest Losing Streak",
+                "Final Bankroll",
+                "Starting Bankroll",
             ],
             "Value": [
-                metrics.total_bets, metrics.winning_bets, metrics.losing_bets,
+                metrics.total_bets,
+                metrics.winning_bets,
+                metrics.losing_bets,
                 f"{metrics.win_rate_pct:.1f}%",
                 f"£{metrics.total_staked:,.2f}",
                 f"£{metrics.total_profit:+,.2f}",
@@ -354,7 +393,9 @@ else:
                 f"£{metrics.initial_bankroll:,.0f}",
             ],
         }
-        st.dataframe(pd.DataFrame(detail_data), use_container_width=True, hide_index=True)
+        st.dataframe(
+            pd.DataFrame(detail_data), use_container_width=True, hide_index=True
+        )
 
 
 # ── Navigation ──────────────────────────────────────────

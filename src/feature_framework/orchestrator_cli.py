@@ -281,6 +281,7 @@ def _load_config(config_path: str | None) -> dict[str, Any] | None:
         with open(path) as f:
             if suffix in (".yaml", ".yml"):
                 import yaml
+
                 return yaml.safe_load(f)  # type: ignore[no-any-return]
             elif suffix == ".json":
                 return json.load(f)  # type: ignore[no-any-return]
@@ -343,7 +344,9 @@ def _save_output(
             # Default to CSV
             csv_path = path.with_suffix(".csv")
             df.to_csv(csv_path, index=False)
-            print(f"  Output saved: {csv_path} (unsupported format '{suffix}', used .csv)")
+            print(
+                f"  Output saved: {csv_path} (unsupported format '{suffix}', used .csv)"
+            )
             return
     except Exception as exc:
         print(f"  Error saving output: {exc}", file=sys.stderr)
@@ -357,7 +360,9 @@ def _save_output(
         with open(report_path, "w") as f:
             json.dump(report.to_dict(), f, indent=2, default=str)
     except Exception:
-        logger.warning("Failed to save report metadata to %s", report_path, exc_info=True)
+        logger.warning(
+            "Failed to save report metadata to %s", report_path, exc_info=True
+        )
 
 
 def _print_report(report: OrchestratorReport, verbose: bool) -> int:
@@ -368,8 +373,10 @@ def _print_report(report: OrchestratorReport, verbose: bool) -> int:
 
     if verbose and report.validation:
         val = report.validation
-        print(f"  Validation: {val['total_violations']} violations, "
-              f"{val['failed_checks']} failed checks")
+        print(
+            f"  Validation: {val['total_violations']} violations, "
+            f"{val['failed_checks']} failed checks"
+        )
         print()
 
     return 0 if report.success else 1
@@ -383,19 +390,26 @@ def _print_report(report: OrchestratorReport, verbose: bool) -> int:
 def _add_common_args(parser: argparse.ArgumentParser) -> None:
     """Add common orchestrator args to a subparser."""
     parser.add_argument(
-        "--config", "-c",
+        "--config",
+        "-c",
         help="Path to YAML/JSON config file with feature definitions",
     )
     parser.add_argument(
-        "--quiet", "-q", action="store_true",
+        "--quiet",
+        "-q",
+        action="store_true",
         help="Suppress progress bars and verbose output",
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true",
+        "--verbose",
+        "-v",
+        action="store_true",
         help="Enable verbose debug output and detailed reports",
     )
     parser.add_argument(
-        "--force", "-f", action="store_true",
+        "--force",
+        "-f",
+        action="store_true",
         help="Force recompute all features (skip cache)",
     )
     parser.add_argument(
@@ -409,23 +423,30 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
         help="Checkpoint directory (default: .checkpoints/)",
     )
     parser.add_argument(
-        "--no-parallel", action="store_true",
+        "--no-parallel",
+        action="store_true",
         help="Disable parallel computation",
     )
     parser.add_argument(
-        "--max-workers", type=int, default=None,
+        "--max-workers",
+        type=int,
+        default=None,
         help="Max parallel workers (default: CPU count)",
     )
     parser.add_argument(
-        "--max-retries", type=int, default=2,
+        "--max-retries",
+        type=int,
+        default=2,
         help="Max retry attempts per feature (default: 2)",
     )
     parser.add_argument(
-        "--log-to-file", action="store_true",
+        "--log-to-file",
+        action="store_true",
         help="Write structured JSON logs to file",
     )
     parser.add_argument(
-        "--log-dir", default=".logs/",
+        "--log-dir",
+        default=".logs/",
         help="Log directory (default: .logs/)",
     )
 
@@ -457,7 +478,8 @@ Examples:
     )
 
     subparsers = parser.add_subparsers(
-        dest="command", required=True,
+        dest="command",
+        required=True,
         help="Available commands",
     )
 
@@ -468,19 +490,25 @@ Examples:
     )
     _add_common_args(p_build)
     p_build.add_argument(
-        "--input", "-i", required=True,
+        "--input",
+        "-i",
+        required=True,
         help="Input data file (CSV, JSON, or Parquet)",
     )
     p_build.add_argument(
-        "--output", "-o", required=True,
+        "--output",
+        "-o",
+        required=True,
         help="Output file for computed features (CSV, JSON, or Parquet)",
     )
     p_build.add_argument(
-        "--entity-type", default="dataframe",
+        "--entity-type",
+        default="dataframe",
         help="Entity type (default: dataframe)",
     )
     p_build.add_argument(
-        "--trigger", default="cli",
+        "--trigger",
+        default="cli",
         help="Computation trigger (default: cli)",
     )
     p_build.set_defaults(func=cmd_build_features)
@@ -492,11 +520,14 @@ Examples:
     )
     _add_common_args(p_val)
     p_val.add_argument(
-        "--input", "-i", required=True,
+        "--input",
+        "-i",
+        required=True,
         help="Input feature file (CSV, JSON, or Parquet)",
     )
     p_val.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output path for validation report JSON",
     )
     p_val.add_argument(
@@ -516,11 +547,13 @@ Examples:
         help="Name of the feature to recompute",
     )
     p_rec.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         help="Input data file (required for DataFrame-mode features)",
     )
     p_rec.add_argument(
-        "--entity-type", default="dataframe",
+        "--entity-type",
+        default="dataframe",
         help="Entity type (default: dataframe)",
     )
     p_rec.set_defaults(func=cmd_recompute_feature)
@@ -540,7 +573,8 @@ Examples:
         help="Filter by feature category",
     )
     p_list.add_argument(
-        "--enabled-only", action="store_true",
+        "--enabled-only",
+        action="store_true",
         help="Show only enabled features",
     )
     p_list.set_defaults(func=cmd_list_features)
@@ -584,6 +618,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         return 1
 

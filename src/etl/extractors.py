@@ -199,7 +199,9 @@ class StatsBombExtractor(BaseExtractor):
 
         if data_type == "matches":
             if not competition_name:
-                raise ValueError("StatsBombExtractor(data_type='matches') requires 'competition_name'")
+                raise ValueError(
+                    "StatsBombExtractor(data_type='matches') requires 'competition_name'"
+                )
             matches = list_matches(
                 competition_name=competition_name,
                 use_cache=kwargs.get("use_cache", self.use_cache),
@@ -208,27 +210,40 @@ class StatsBombExtractor(BaseExtractor):
 
         elif data_type == "events":
             if not match_id:
-                raise ValueError("StatsBombExtractor(data_type='events') requires 'match_id'")
-            events = get_match_events(match_id, use_cache=kwargs.get("use_cache", self.use_cache))
+                raise ValueError(
+                    "StatsBombExtractor(data_type='events') requires 'match_id'"
+                )
+            events = get_match_events(
+                match_id, use_cache=kwargs.get("use_cache", self.use_cache)
+            )
             df = pd.DataFrame(events)
 
         elif data_type == "lineups":
             if not match_id:
-                raise ValueError("StatsBombExtractor(data_type='lineups') requires 'match_id'")
+                raise ValueError(
+                    "StatsBombExtractor(data_type='lineups') requires 'match_id'"
+                )
             from src.data_collection.sources.statsbomb_open import lineups_to_dataframe
-            df = lineups_to_dataframe(match_id, use_cache=kwargs.get("use_cache", self.use_cache))
+
+            df = lineups_to_dataframe(
+                match_id, use_cache=kwargs.get("use_cache", self.use_cache)
+            )
 
         elif data_type == "shots":
             match_ids = kwargs.get("match_ids", [match_id] if match_id else [])
             if not match_ids:
-                raise ValueError("StatsBombExtractor(data_type='shots') requires 'match_ids' or 'match_id'")
+                raise ValueError(
+                    "StatsBombExtractor(data_type='shots') requires 'match_ids' or 'match_id'"
+                )
             df = shots_to_dataframe(
                 match_ids=match_ids,
                 use_cache=kwargs.get("use_cache", self.use_cache),
             )
 
         else:
-            raise ValueError(f"Unknown data_type: {data_type}. Choose from: matches, events, lineups, shots")
+            raise ValueError(
+                f"Unknown data_type: {data_type}. Choose from: matches, events, lineups, shots"
+            )
 
         return df.to_dict(orient="records") if not df.empty else []
 
@@ -265,8 +280,7 @@ def get_extractor(name: str, **kwargs: Any) -> BaseExtractor:
     """
     if name not in EXTRACTOR_REGISTRY:
         raise KeyError(
-            f"Unknown extractor '{name}'. "
-            f"Available: {list(EXTRACTOR_REGISTRY.keys())}"
+            f"Unknown extractor '{name}'. Available: {list(EXTRACTOR_REGISTRY.keys())}"
         )
     cls = EXTRACTOR_REGISTRY[name]
     return cls(**kwargs)
@@ -277,7 +291,6 @@ def get_extractor(name: str, **kwargs: Any) -> BaseExtractor:
 # ═══════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",

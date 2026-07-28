@@ -65,20 +65,23 @@ TEAM_MATCHES_PATH = "spielplan/verein"
 
 # ── Session ─────────────────────────────────────────────
 
+
 def session() -> requests.Session:
     """Create a requests session with retry logic and polite headers."""
     sess = requests.Session()
     retries = Retry(total=3, backoff_factor=2.0, status_forcelist=[502, 503, 504])
     sess.mount("https://", HTTPAdapter(max_retries=retries))
-    sess.headers.update({
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-GB,en;q=0.9",
-    })
+    sess.headers.update(
+        {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-GB,en;q=0.9",
+        }
+    )
     return sess
 
 
@@ -230,7 +233,9 @@ def scrape_all_tournament_lineups(
             resp = sess.get(url, timeout=REQUEST_TIMEOUT)
             resp.raise_for_status()
         except Exception:
-            logger.warning("Failed to fetch matches for %s (ID %d)", team, tm_id, exc_info=True)
+            logger.warning(
+                "Failed to fetch matches for %s (ID %d)", team, tm_id, exc_info=True
+            )
             continue
 
         matches_df = _parse_team_matches_page(resp.text, team)
@@ -266,7 +271,8 @@ def scrape_all_tournament_lineups(
         result = pd.concat(all_lineups, ignore_index=True)
         logger.info(
             "Scraped %d lineup records for %d matches",
-            len(result), len(all_lineups),
+            len(result),
+            len(all_lineups),
         )
         return result
 
@@ -309,9 +315,7 @@ def _parse_match_page(
     records: list[dict[str, str]] = []
 
     # Find all player profile links
-    all_links = soup.find_all(
-        "a", href=lambda h: h and "/profil/spieler/" in (h or "")
-    )
+    all_links = soup.find_all("a", href=lambda h: h and "/profil/spieler/" in (h or ""))
 
     for a_tag in all_links:
         player_name = a_tag.get_text(strip=True)
@@ -326,7 +330,13 @@ def _parse_match_page(
 
         while parent and parent != soup:
             raw_classes = parent.get("class")
-            parent_classes: list[str] = raw_classes if isinstance(raw_classes, list) else [raw_classes] if raw_classes else []
+            parent_classes: list[str] = (
+                raw_classes
+                if isinstance(raw_classes, list)
+                else [raw_classes]
+                if raw_classes
+                else []
+            )
             parent_class_str = " ".join(parent_classes) if parent_classes else ""
 
             # Check if we're in the starting XI section
@@ -346,7 +356,11 @@ def _parse_match_page(
                     team_name = team_names[0] if team_names else "Home"
                 else:
                     # Check if we've already assigned team0's players
-                    team0_count = sum(1 for r in records if r["team"] == (team_names[0] if team_names else "Home"))
+                    team0_count = sum(
+                        1
+                        for r in records
+                        if r["team"] == (team_names[0] if team_names else "Home")
+                    )
                     if team0_count < 14:  # 11 starters + few subs
                         team_name = team_names[0] if team_names else "Home"
                     else:
@@ -355,18 +369,29 @@ def _parse_match_page(
             parent = parent.parent
 
         if is_starter and team_name:
-            records.append({
-                "team": team_name,
-                "date": date,
-                "player_name": player_name,
-            })
+            records.append(
+                {
+                    "team": team_name,
+                    "date": date,
+                    "player_name": player_name,
+                }
+            )
 
     # Direct approach: find ALL aufstellung-vereinsseite sections with player links
     # This is the most reliable approach - these divs contain starting XI players
-    xi_sections = soup.find_all("div", class_=lambda c: c and "aufstellung-vereinsseite" in (" ".join(c) if isinstance(c, list) else str(c)))
+    xi_sections = soup.find_all(
+        "div",
+        class_=lambda c: (
+            c
+            and "aufstellung-vereinsseite"
+            in (" ".join(c) if isinstance(c, list) else str(c))
+        ),
+    )
     xi_sections_with_players = []
     for section in xi_sections:
-        links = section.find_all("a", href=lambda h: h and "/profil/spieler/" in (h or ""))
+        links = section.find_all(
+            "a", href=lambda h: h and "/profil/spieler/" in (h or "")
+        )
         # A starting XI section has 5-15 player links
         # A substitutes section might have more or fewer
         # Exclude sections that are clearly substitutes (contain "ersatz" in class)
@@ -377,14 +402,20 @@ def _parse_match_page(
     # Take XI sections and deduplicate: no more than 15 per team
     seen: set[tuple[str, str]] = set()  # (team, player_name)
     for team_idx, (section, links) in enumerate(xi_sections_with_players):
-        box_team = team_names[team_idx] if team_idx < len(team_names) else f"Team{team_idx + 1}"
+        box_team = (
+            team_names[team_idx]
+            if team_idx < len(team_names)
+            else f"Team{team_idx + 1}"
+        )
         for a_tag in links:
             pname = a_tag.get_text(strip=True)
             if pname and len(pname) > 1:
                 key = (box_team, pname)
                 if key not in seen:
                     seen.add(key)
-                    records.append({"team": box_team, "date": date, "player_name": pname})
+                    records.append(
+                        {"team": box_team, "date": date, "player_name": pname}
+                    )
         # Stop after we have enough for both teams
         team_counts: dict[str, int] = {}
         for r in records:
@@ -407,8 +438,10 @@ def _parse_match_page(
     if not records:
         records = _parse_lineup_text_based(soup, date, team_names)
 
-    df = pd.DataFrame(records) if records else pd.DataFrame(
-        columns=["team", "date", "player_name"]
+    df = (
+        pd.DataFrame(records)
+        if records
+        else pd.DataFrame(columns=["team", "date", "player_name"])
     )
     return df
 
@@ -439,8 +472,9 @@ def _extract_team_names_from_title(
     return (team_name_home or "Home", team_name_away or "Away")
 
 
-
-def _parse_lineup_text_based(soup: BeautifulSoup, date: str, team_names: tuple[str, str] | None = None) -> list[dict[str, str]]:
+def _parse_lineup_text_based(
+    soup: BeautifulSoup, date: str, team_names: tuple[str, str] | None = None
+) -> list[dict[str, str]]:
     """Fallback: parse starting XI from plain text sections."""
     text = soup.get_text(separator="\n")
     lines = text.split("\n")
@@ -478,7 +512,9 @@ def _parse_lineup_text_based(soup: BeautifulSoup, date: str, team_names: tuple[s
         if line and in_starting_xi and current_team:
             name = _extract_player_name(line)
             if name:
-                records.append({"team": current_team, "date": date, "player_name": name})
+                records.append(
+                    {"team": current_team, "date": date, "player_name": name}
+                )
 
         # Team name detection
         if not in_starting_xi and line and len(line) < 30 and not line[0].isdigit():
@@ -511,13 +547,23 @@ def _extract_date_from_title(title: str) -> str:
     # Try "Nov 24, 2022" pattern
     m = re.search(
         r"(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s*\.?\s*(\d{4})",
-        title, re.IGNORECASE,
+        title,
+        re.IGNORECASE,
     )
     if m:
         months = {
-            "jan": "01", "feb": "02", "mar": "03", "apr": "04",
-            "may": "05", "jun": "06", "jul": "07", "aug": "08",
-            "sep": "09", "oct": "10", "nov": "11", "dec": "12",
+            "jan": "01",
+            "feb": "02",
+            "mar": "03",
+            "apr": "04",
+            "may": "05",
+            "jun": "06",
+            "jul": "07",
+            "aug": "08",
+            "sep": "09",
+            "oct": "10",
+            "nov": "11",
+            "dec": "12",
         }
         month = months.get(m.group(2).lower()[:3], "01")
         day = m.group(1).zfill(2)
@@ -540,13 +586,33 @@ def _extract_player_name(text: str) -> str | None:
     text = re.sub(r"\s*\([^)]*\)\s*$", "", text).strip()
 
     # Remove common suffixes that aren't part of the name
-    text = re.sub(r"\s*,\s*(Tactical|Injury|Yellow card|Red card|Goal).*$", "", text, re.IGNORECASE).strip()
+    text = re.sub(
+        r"\s*,\s*(Tactical|Injury|Yellow card|Red card|Goal).*$",
+        "",
+        text,
+        re.IGNORECASE,
+    ).strip()
 
     # Filter out non-player lines
-    skip_words = {"goals", "assist", "cards", "substitutions", "manager", "timeline",
-                  "world cup", "referee", "attendance", "stadium", "line-ups"}
+    skip_words = {
+        "goals",
+        "assist",
+        "cards",
+        "substitutions",
+        "manager",
+        "timeline",
+        "world cup",
+        "referee",
+        "attendance",
+        "stadium",
+        "line-ups",
+    }
     text_lower = text.lower().strip()
-    if not text or text_lower in skip_words or any(text_lower.startswith(w) for w in skip_words):
+    if (
+        not text
+        or text_lower in skip_words
+        or any(text_lower.startswith(w) for w in skip_words)
+    ):
         return None
 
     # Minimum name length (a real name has at least 3 chars and isn't all caps formation like "4-2-3-1")
@@ -596,11 +662,13 @@ def _parse_lineup_from_html(
                 if name and 2 < len(name) < 40:
                     player_name = _extract_player_name(name)
                     if player_name and teams_found:
-                        records.append({
-                            "team": teams_found[-1],
-                            "date": date,
-                            "player_name": player_name,
-                        })
+                        records.append(
+                            {
+                                "team": teams_found[-1],
+                                "date": date,
+                                "player_name": player_name,
+                            }
+                        )
 
     return records
 
@@ -661,7 +729,9 @@ def _parse_team_matches_page(html: str, team_name: str) -> pd.DataFrame:
             # Transfermarkt schedule table layout:
             #   [Date, Time, (crest), Home, (crest), Away, Formation, Coach, Attendance, Result]
             # The exact column index varies by table, so find text cells that aren't empty
-            text_cells = [c.get_text(strip=True) for c in cells if c.get_text(strip=True)]
+            text_cells = [
+                c.get_text(strip=True) for c in cells if c.get_text(strip=True)
+            ]
 
             # Skip cells that are date, time, or metadata
             # Find team names by looking for non-empty text cells after the time column
@@ -689,18 +759,27 @@ def _parse_team_matches_page(html: str, team_name: str) -> pd.DataFrame:
                     result = txt
                     break
 
-            records.append({
-                "date": date_text,
-                "home_team": home_team,
-                "away_team": away_team,
-                "result": result,
-                "match_url": str(match_link) if match_link else "",
-                "match_id": match_id,
-            })
+            records.append(
+                {
+                    "date": date_text,
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "result": result,
+                    "match_url": str(match_link) if match_link else "",
+                    "match_id": match_id,
+                }
+            )
 
     if not records:
         return pd.DataFrame(
-            columns=["date", "home_team", "away_team", "result", "match_url", "match_id"]
+            columns=[
+                "date",
+                "home_team",
+                "away_team",
+                "result",
+                "match_url",
+                "match_id",
+            ]
         )
 
     df = pd.DataFrame(records)

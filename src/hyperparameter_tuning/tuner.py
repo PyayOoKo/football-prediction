@@ -10,7 +10,7 @@ from typing import Any
 import joblib
 import pandas as pd
 
-from config import HyperTuneConfig, config
+from src.config import HyperTuneConfig, config
 from src.hyperparameter_tuning.models import (
     build_baseline,
     build_with_params,
@@ -83,7 +83,9 @@ class HyperTuner:
         best_model_type = best_result.model_type
         test_results: dict[str, Any] = {}
         if X_test is not None and y_test is not None:
-            test_results = self._evaluate_on_test(best_model, best_model_type, X_test, y_test)
+            test_results = self._evaluate_on_test(
+                best_model, best_model_type, X_test, y_test
+            )
         report_path: str | None = None
         if self.cfg.save_report:
             report_path = self._save_report(report["text"])
@@ -111,9 +113,9 @@ class HyperTuner:
     ) -> ModelResult:
         cfg = self.cfg
         if cfg.verbose:
-            logger.info("  ┌─ %s", '=' * 60)
+            logger.info("  ┌─ %s", "=" * 60)
             logger.info("  │  MODEL: %s", model_type)
-            logger.info("  └─ %s", '=' * 60)
+            logger.info("  └─ %s", "=" * 60)
         if cfg.verbose:
             logger.info("  │  Training baseline ...")
         baseline = build_baseline(model_type)
@@ -125,15 +127,27 @@ class HyperTuner:
         baseline_time = time.time() - t0
         baseline_ll, baseline_acc = evaluate(baseline, X_val, y_val, model_type)
         if cfg.verbose:
-            logger.info("  │    ✓ Baseline  |  log-loss: %.4f  |  accuracy: %.2f%%", baseline_ll, baseline_acc * 100)
+            logger.info(
+                "  │    ✓ Baseline  |  log-loss: %.4f  |  accuracy: %.2f%%",
+                baseline_ll,
+                baseline_acc * 100,
+            )
         if model_type == "logistic_regression":
-            best_params, cv_loss = optimise_lr(X_train, y_train, cfg.cv_folds, cfg.verbose)
+            best_params, cv_loss = optimise_lr(
+                X_train, y_train, cfg.cv_folds, cfg.verbose
+            )
         elif model_type == "random_forest":
-            best_params, cv_loss = optimise_rf(X_train, y_train, cfg.cv_folds, cfg.n_iter_random, cfg.verbose)
+            best_params, cv_loss = optimise_rf(
+                X_train, y_train, cfg.cv_folds, cfg.n_iter_random, cfg.verbose
+            )
         elif model_type == "xgboost":
-            best_params, cv_loss = optimise_xgb(X_train, y_train, cfg.cv_folds, cfg.n_iter_random, cfg.verbose)
+            best_params, cv_loss = optimise_xgb(
+                X_train, y_train, cfg.cv_folds, cfg.n_iter_random, cfg.verbose
+            )
         elif model_type == "lightgbm":
-            best_params, cv_loss = optimise_lgbm(X_train, y_train, cfg.cv_folds, cfg.n_iter_random, cfg.verbose)
+            best_params, cv_loss = optimise_lgbm(
+                X_train, y_train, cfg.cv_folds, cfg.n_iter_random, cfg.verbose
+            )
         else:
             raise ValueError(f"Unknown model_type: {model_type}")
         if cfg.verbose:
@@ -149,10 +163,16 @@ class HyperTuner:
         tuned_time = time.time() - t0
         tuned_ll, tuned_acc = evaluate(tuned, X_val, y_val, model_type)
         if cfg.verbose:
-            logger.info("  │    ✓ Tuned     |  log-loss: %.4f  |  accuracy: %.2f%%", tuned_ll, tuned_acc * 100)
+            logger.info(
+                "  │    ✓ Tuned     |  log-loss: %.4f  |  accuracy: %.2f%%",
+                tuned_ll,
+                tuned_acc * 100,
+            )
             imp_ll = baseline_ll - tuned_ll
             imp_acc = tuned_acc - baseline_acc
-            logger.info("  │    Δ log-loss: %+.4f  |  Δ accuracy: %+.4f", imp_ll, imp_acc)
+            logger.info(
+                "  │    Δ log-loss: %+.4f  |  Δ accuracy: %+.4f", imp_ll, imp_acc
+            )
         if cfg.save_models:
             self._save_models(model_type, baseline, tuned)
         return ModelResult(
@@ -190,18 +210,22 @@ class HyperTuner:
     def _build_summary_df(self) -> pd.DataFrame:
         rows = []
         for r in self.results:
-            rows.append({
-                "Model": r.model_type,
-                "Baseline LogLoss": round(r.baseline_val_log_loss, 4),
-                "Tuned LogLoss": round(r.tuned_val_log_loss, 4),
-                "LogLoss Δ": round(r.improvement_log_loss, 4),
-                "Baseline Accuracy": round(r.baseline_val_accuracy, 4),
-                "Tuned Accuracy": round(r.tuned_val_accuracy, 4),
-                "Accuracy Δ": round(r.improvement_accuracy, 4),
-                "CV LogLoss": round(r.cv_log_loss, 4) if r.cv_log_loss is not None else None,
-                "Baseline Time (s)": round(r.baseline_train_time, 2),
-                "Tuned Time (s)": round(r.tuned_train_time, 2),
-            })
+            rows.append(
+                {
+                    "Model": r.model_type,
+                    "Baseline LogLoss": round(r.baseline_val_log_loss, 4),
+                    "Tuned LogLoss": round(r.tuned_val_log_loss, 4),
+                    "LogLoss Δ": round(r.improvement_log_loss, 4),
+                    "Baseline Accuracy": round(r.baseline_val_accuracy, 4),
+                    "Tuned Accuracy": round(r.tuned_val_accuracy, 4),
+                    "Accuracy Δ": round(r.improvement_accuracy, 4),
+                    "CV LogLoss": round(r.cv_log_loss, 4)
+                    if r.cv_log_loss is not None
+                    else None,
+                    "Baseline Time (s)": round(r.baseline_train_time, 2),
+                    "Tuned Time (s)": round(r.tuned_train_time, 2),
+                }
+            )
         return pd.DataFrame(rows)
 
     def _build_report(self) -> dict[str, str]:
@@ -222,10 +246,14 @@ class HyperTuner:
             lines.append("  Train size:  (no results)")
         lines.append("")
         lines.append(f"  {'─' * 88}")
-        lines.append(f"  {'Model':<22s} {'Baseline':>12s} {'Tuned':>12s} {'Δ LogLoss':>12s}  "
-                      f"{'Baseline':>10s} {'Tuned':>10s} {'Δ Acc':>10s}")
-        lines.append(f"  {'':<22s} {'LogLoss':>12s} {'LogLoss':>12s} {'':>12s}  "
-                      f"{'Accuracy':>10s} {'Accuracy':>10s} {'':>10s}")
+        lines.append(
+            f"  {'Model':<22s} {'Baseline':>12s} {'Tuned':>12s} {'Δ LogLoss':>12s}  "
+            f"{'Baseline':>10s} {'Tuned':>10s} {'Δ Acc':>10s}"
+        )
+        lines.append(
+            f"  {'':<22s} {'LogLoss':>12s} {'LogLoss':>12s} {'':>12s}  "
+            f"{'Accuracy':>10s} {'Accuracy':>10s} {'':>10s}"
+        )
         if df is None:
             lines.append("  No results to display.")
             lines.append(sep)
@@ -234,8 +262,16 @@ class HyperTuner:
         for _, row in df.iterrows():
             is_best = row["Model"] == best_row["Model"]
             marker = " ★" if is_best else "  "
-            ll_delta_str = f"{row['LogLoss Δ']:+.4f}" if pd.notna(row.get("LogLoss Δ")) else "  N/A"
-            acc_delta_str = f"{row['Accuracy Δ']:+.4f}" if pd.notna(row.get("Accuracy Δ")) else "  N/A"
+            ll_delta_str = (
+                f"{row['LogLoss Δ']:+.4f}"
+                if pd.notna(row.get("LogLoss Δ"))
+                else "  N/A"
+            )
+            acc_delta_str = (
+                f"{row['Accuracy Δ']:+.4f}"
+                if pd.notna(row.get("Accuracy Δ"))
+                else "  N/A"
+            )
             lines.append(
                 f"  {row['Model']:<20s}{marker} "
                 f"{row['Baseline LogLoss']:>12.4f} "
@@ -250,12 +286,16 @@ class HyperTuner:
         lines.append(f"  {'★' * 30}  BEST MODEL  {'★' * 30}")
         lines.append("")
         lines.append(f"    {best_row['Model']}")
-        lines.append(f"      Validation log-loss: {best_row['Baseline LogLoss']:.4f} -> "
-                      f"{best_row['Tuned LogLoss']:.4f} "
-                      f"(Δ = {best_row['LogLoss Δ']:+.4f})")
-        lines.append(f"      Validation accuracy: {best_row['Baseline Accuracy']:.2%} -> "
-                      f"{best_row['Tuned Accuracy']:.2%} "
-                      f"(Δ = {best_row['Accuracy Δ']:+.4f})")
+        lines.append(
+            f"      Validation log-loss: {best_row['Baseline LogLoss']:.4f} -> "
+            f"{best_row['Tuned LogLoss']:.4f} "
+            f"(Δ = {best_row['LogLoss Δ']:+.4f})"
+        )
+        lines.append(
+            f"      Validation accuracy: {best_row['Baseline Accuracy']:.2%} -> "
+            f"{best_row['Tuned Accuracy']:.2%} "
+            f"(Δ = {best_row['Accuracy Δ']:+.4f})"
+        )
         lines.append("")
         lines.append(f"  {'★' * 76}")
         lines.append("")
@@ -267,15 +307,23 @@ class HyperTuner:
             lines.append(f"  ── {r.model_type} ──")
             lines.append(f"    Default params:  {r.baseline_params}")
             lines.append(f"    Tuned params:    {r.tuned_params}")
-            lines.append(f"    CV log-loss:     {r.cv_log_loss:.4f}" if r.cv_log_loss else "")
-            lines.append(f"    Train time:      {r.baseline_train_time:.2f}s -> {r.tuned_train_time:.2f}s")
+            lines.append(
+                f"    CV log-loss:     {r.cv_log_loss:.4f}" if r.cv_log_loss else ""
+            )
+            lines.append(
+                f"    Train time:      {r.baseline_train_time:.2f}s -> {r.tuned_train_time:.2f}s"
+            )
             lines.append("")
         lines.append(sep)
         lines.append("")
         return {"text": "\n".join(lines)}
 
     def _evaluate_on_test(
-        self, model: Any, model_type: str, X_test: pd.DataFrame, y_test: pd.Series,
+        self,
+        model: Any,
+        model_type: str,
+        X_test: pd.DataFrame,
+        y_test: pd.Series,
     ) -> dict[str, Any]:
         test_ll, test_acc = evaluate(model, X_test, y_test, model_type)
         all_test: dict[str, dict[str, float]] = {}
@@ -284,17 +332,27 @@ class HyperTuner:
             all_test[r.model_type] = {"log_loss": ll, "accuracy": acc}
         if self.cfg.verbose:
             logger.info("")
-            logger.info("  %s", '=' * 90)
+            logger.info("  %s", "=" * 90)
             logger.info("  TEST SET EVALUATION")
-            logger.info("  %s", '=' * 90)
+            logger.info("  %s", "=" * 90)
             logger.info("    Best model (%s):", model_type)
             logger.info("      Test log-loss: %.4f", test_ll)
             logger.info("      Test accuracy: %.2f%%", test_acc * 100)
             logger.info("    All tuned models on test set:")
             for mt, m in all_test.items():
                 marker = " ★" if mt == model_type else "  "
-                logger.info("      %-22s%s  log-loss: %.4f  |  accuracy: %.2f%%", mt, marker, m['log_loss'], m['accuracy'] * 100)
-        return {"best_model_log_loss": test_ll, "best_model_accuracy": test_acc, "all_tuned_test_metrics": all_test}
+                logger.info(
+                    "      %-22s%s  log-loss: %.4f  |  accuracy: %.2f%%",
+                    mt,
+                    marker,
+                    m["log_loss"],
+                    m["accuracy"] * 100,
+                )
+        return {
+            "best_model_log_loss": test_ll,
+            "best_model_accuracy": test_acc,
+            "all_tuned_test_metrics": all_test,
+        }
 
     def _print_header(self) -> None:
         if not self.cfg.verbose:
@@ -303,7 +361,7 @@ class HyperTuner:
         logger.info("=" * 90)
         logger.info("  HYPER-PARAMETER TUNING".center(88))
         logger.info("=" * 90)
-        logger.info("  Model types:  %s", ', '.join(self.cfg.model_types))
+        logger.info("  Model types:  %s", ", ".join(self.cfg.model_types))
         logger.info("  CV folds:     %d", self.cfg.cv_folds)
         logger.info("  Random iters: %d", self.cfg.n_iter_random)
         logger.info("  Saving models: %s", self.cfg.save_models)
@@ -312,9 +370,21 @@ class HyperTuner:
         if not self.cfg.verbose:
             return
         logger.info("  ── %s complete ──", result.model_type)
-        logger.info("     Baseline:  log-loss=%.4f  accuracy=%.2f%%", result.baseline_val_log_loss, result.baseline_val_accuracy * 100)
-        logger.info("     Tuned:     log-loss=%.4f  accuracy=%.2f%%", result.tuned_val_log_loss, result.tuned_val_accuracy * 100)
-        logger.info("     Δ log-loss: %+.4f  |  Δ accuracy: %+.4f", result.improvement_log_loss, result.improvement_accuracy)
+        logger.info(
+            "     Baseline:  log-loss=%.4f  accuracy=%.2f%%",
+            result.baseline_val_log_loss,
+            result.baseline_val_accuracy * 100,
+        )
+        logger.info(
+            "     Tuned:     log-loss=%.4f  accuracy=%.2f%%",
+            result.tuned_val_log_loss,
+            result.tuned_val_accuracy * 100,
+        )
+        logger.info(
+            "     Δ log-loss: %+.4f  |  Δ accuracy: %+.4f",
+            result.improvement_log_loss,
+            result.improvement_accuracy,
+        )
 
     def _print_footer(self, best: ModelResult) -> None:
         if not self.cfg.verbose:
@@ -324,7 +394,11 @@ class HyperTuner:
         logger.info("  TUNING COMPLETE".center(88))
         logger.info("=" * 90)
         logger.info("  Best model:          %s", best.model_type)
-        logger.info("  Validation log-loss: %.4f -> %.4f", best.baseline_val_log_loss, best.tuned_val_log_loss)
+        logger.info(
+            "  Validation log-loss: %.4f -> %.4f",
+            best.baseline_val_log_loss,
+            best.tuned_val_log_loss,
+        )
         logger.info("  Δ log-loss:          %+.4f", best.improvement_log_loss)
         logger.info("  Tuned params:        %s", best.tuned_params)
         logger.info("  Models saved to:     %s", config.paths.models)

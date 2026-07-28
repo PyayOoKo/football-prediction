@@ -21,9 +21,13 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Live Prediction System")
-    parser.add_argument("--mode", type=str, default="oneshot",
-                        choices=["oneshot", "continuous", "value-bets"],
-                        help="Execution mode (default: oneshot)")
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="oneshot",
+        choices=["oneshot", "continuous", "value-bets"],
+        help="Execution mode (default: oneshot)",
+    )
     parser.add_argument("--sport", type=str, default=DEFAULT_SPORT_KEY)
     parser.add_argument("--interval", type=int, default=DEFAULT_POLL_INTERVAL)
     parser.add_argument("--cycles", type=int, default=None)
@@ -37,9 +41,11 @@ def main() -> None:
         if bets:
             print(f"\n  Found {len(bets)} value bets:\n")
             for b in bets:
-                print(f"    {b['home_team']:20} vs {b['away_team']:20}  "
-                      f"\u2192 {b['outcome']:5} at {b['decimal_odds']:.2f}  "
-                      f"(EV: {b['ev']:+.1%})")
+                print(
+                    f"    {b['home_team']:20} vs {b['away_team']:20}  "
+                    f"\u2192 {b['outcome']:5} at {b['decimal_odds']:.2f}  "
+                    f"(EV: {b['ev']:+.1%})"
+                )
         else:
             print("\n  No value bets found.\n")
         sys.exit(0)

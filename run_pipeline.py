@@ -52,7 +52,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from config import config
+from src.config import config
 
 # ── Ensure logs directory exists ────────────────────────
 _log_dir = Path("logs")
@@ -1023,7 +1023,7 @@ def fit_per_league_dc_models(df: pd.DataFrame, blend: Any, min_matches: int = 10
     """
     import joblib
     from src.dixon_coles import DixonColesModel
-    from config import config
+    from src.config import config
 
     logger.info("  Fitting per-league Dixon-Coles models ...")
 

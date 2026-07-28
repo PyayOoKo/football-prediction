@@ -19,7 +19,9 @@ class MatchRepository(BaseRepository[Match]):
     def __init__(self, session: Any) -> None:
         super().__init__(session, Match)
 
-    def get_by_date_range(self, start: date, end: date, limit: int = 10000) -> list[Match]:
+    def get_by_date_range(
+        self, start: date, end: date, limit: int = 10000
+    ) -> list[Match]:
         stmt = (
             select(Match)
             .where(and_(Match.match_date >= start, Match.match_date <= end))
@@ -50,9 +52,7 @@ class MatchRepository(BaseRepository[Match]):
     def get_by_team(self, team_id: int, limit: int = 50) -> list[Match]:
         stmt = (
             select(Match)
-            .where(
-                or_(Match.home_team_id == team_id, Match.away_team_id == team_id)
-            )
+            .where(or_(Match.home_team_id == team_id, Match.away_team_id == team_id))
             .order_by(Match.match_date.desc())
             .limit(limit)
         )

@@ -134,6 +134,7 @@ class ConfidenceConfig:
     calibration_brier_default : float
         Fallback Brier score if none is provided (default 0.25 — moderate).
     """
+
     weight_spread: float = _DEFAULT_W_SPREAD
     weight_agreement: float = _DEFAULT_W_AGREEMENT
     weight_calibration: float = _DEFAULT_W_CALIBRATION
@@ -165,7 +166,11 @@ class ConfidenceScorer:
 
     def _validate_weights(self) -> None:
         """Ensure weights sum to 1.0 (normalise if not, guard against zero)."""
-        total = self.cfg.weight_spread + self.cfg.weight_agreement + self.cfg.weight_calibration
+        total = (
+            self.cfg.weight_spread
+            + self.cfg.weight_agreement
+            + self.cfg.weight_calibration
+        )
         if total < 1e-12:
             # All zero — reset to defaults
             self.cfg.weight_spread = _DEFAULT_W_SPREAD
@@ -247,7 +252,9 @@ class ConfidenceScorer:
             "confidence": confidence,
             "spread_score": spread,
             "agreement_score": agreement,
-            "calibration_score": np.full(n, calibration) if isinstance(calibration, float) else calibration,
+            "calibration_score": np.full(n, calibration)
+            if isinstance(calibration, float)
+            else calibration,
             "formula": self._formula(),
         }
 

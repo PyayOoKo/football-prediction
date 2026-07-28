@@ -678,7 +678,7 @@ class TestDIPattern:
 
         with patch("src.feature_engineering.build_features", wraps=_dummy_build_features):
             from src.services.training_service import TrainingService
-            from config import config as global_config
+            from src.config import config as global_config
 
             service = TrainingService(model_dir=tmp_path / "models")
             # Verify it uses the global config singleton
@@ -752,7 +752,7 @@ class TestDIPattern:
 
         with patch("src.feature_engineering.build_features", wraps=_dummy_build_features):
             from src.services.prediction_service import PredictionService
-            from config import config as global_config
+            from src.config import config as global_config
 
             service = PredictionService(config=mock_cfg, model_dir=model_dir)
 

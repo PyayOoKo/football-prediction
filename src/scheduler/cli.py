@@ -68,7 +68,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ── Run ────────────────────────────────────────────
     run_parser = subparsers.add_parser(
-        "run", help="Run pipeline tasks",
+        "run",
+        help="Run pipeline tasks",
         description="Execute one or more pipeline tasks.",
     )
     run_parser.add_argument(
@@ -77,63 +78,79 @@ def build_parser() -> argparse.ArgumentParser:
         help="Comma-separated task names to run (default: all enabled)",
     )
     run_parser.add_argument(
-        "--quiet", action="store_true",
+        "--quiet",
+        action="store_true",
         help="Minimal output (for cron/scheduled runs)",
     )
     run_parser.add_argument(
-        "--no-report", action="store_true",
+        "--no-report",
+        action="store_true",
         help="Skip writing report to disk",
     )
     run_parser.add_argument(
-        "--abort", action="store_true", default=True,
+        "--abort",
+        action="store_true",
+        default=True,
         help="Abort pipeline on task failure (default: True)",
     )
 
     # ── Install ─────────────────────────────────────────
     install_parser = subparsers.add_parser(
-        "install", help="Install scheduled task",
+        "install",
+        help="Install scheduled task",
         description="Install the pipeline as a scheduled task (Windows Task Scheduler or cron).",
     )
     install_parser.add_argument(
-        "--platform", choices=["windows", "cron"], default="windows",
+        "--platform",
+        choices=["windows", "cron"],
+        default="windows",
         help="Target platform (default: windows)",
     )
     install_parser.add_argument(
-        "--schedule", default="daily",
+        "--schedule",
+        default="daily",
         help="Schedule frequency: daily, hourly, weekly (default: daily)",
     )
     install_parser.add_argument(
-        "--time", default="08:00",
+        "--time",
+        default="08:00",
         help="Schedule time (HH:MM) for daily tasks (default: 08:00)",
     )
     install_parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Show what would be installed without actually installing",
     )
 
     # ── Generate ────────────────────────────────────────
     gen_parser = subparsers.add_parser(
-        "generate", help="Generate install scripts",
+        "generate",
+        help="Generate install scripts",
         description="Generate .bat or crontab files without installing.",
     )
     gen_parser.add_argument(
-        "--platform", choices=["windows", "cron"], default="windows",
+        "--platform",
+        choices=["windows", "cron"],
+        default="windows",
         help="Target platform",
     )
     gen_parser.add_argument(
-        "--output", default="",
+        "--output",
+        default="",
         help="Output file path (default: auto-named)",
     )
 
     # ── Status ─────────────────────────────────────────
     subparsers.add_parser(
-        "status", help="Show scheduler status",
+        "status",
+        help="Show scheduler status",
         description="Check last run status and scheduled tasks.",
     )
 
     # ── List ───────────────────────────────────────────
     subparsers.add_parser(
-        "list", help="List available tasks",
+        "list",
+        help="List available tasks",
         description="Show all available pipeline tasks with descriptions.",
     )
 
@@ -157,7 +174,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     if not args.no_report:
         report_dir = Path(cfg.report_dir)
         report_dir.mkdir(parents=True, exist_ok=True)
-        report_path = report_dir / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        report_path = (
+            report_dir / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        )
         with open(report_path, "w") as f:
             json.dump(report.to_dict(), f, indent=2)
 
@@ -271,8 +290,10 @@ def cmd_list(args: argparse.Namespace) -> int:
     cfg = ScheduleConfig.default()
     for task in cfg.tasks:
         deps = ", ".join(task.dependencies) if task.dependencies else "—"
-        print(f"  {task.name:<25} {'Yes' if task.enabled else 'No':<10} "
-              f"{task.retry_count:<10} {deps}")
+        print(
+            f"  {task.name:<25} {'Yes' if task.enabled else 'No':<10} "
+            f"{task.retry_count:<10} {deps}"
+        )
     print(f"\n  Pipeline: {cfg.pipeline_name}")
     print(f"  Tasks: {len(cfg.tasks)} total")
     return 0
@@ -283,7 +304,9 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 def format_report(report: Any) -> str:
     """Format a RunReport as a human-readable string."""
-    return format_report_dict(report.to_dict() if hasattr(report, "to_dict") else report)
+    return format_report_dict(
+        report.to_dict() if hasattr(report, "to_dict") else report
+    )
 
 
 def format_report_dict(data: dict[str, Any]) -> str:
@@ -323,6 +346,7 @@ def main(argv: list[str] | None = None) -> int:
     """
     # Configure logging
     from src.config.logging import configure_logging
+
     configure_logging(level="INFO")
 
     parser = build_parser()

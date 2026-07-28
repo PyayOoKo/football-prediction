@@ -15,6 +15,7 @@ from src.time_series_cv import create_time_series_folds
 
 try:
     import optuna
+
     _HAS_OPTUNA = True
 except ImportError:
     _HAS_OPTUNA = False
@@ -53,7 +54,8 @@ class OptunaTuner:
         if not _HAS_OPTUNA:
             logger.info("Optuna not available — falling back to RandomizedSearchCV")
             result = tune_hyperparameters(
-                X_train, y_train,
+                X_train,
+                y_train,
                 model_type=model_type,
                 n_folds=self.cv_folds,
                 n_iter=self.n_trials,
@@ -87,19 +89,30 @@ class OptunaTuner:
                     return 1.0
             return float(np.mean(losses)) if losses else 1.0
 
-        logger.info("Optuna tuning %s — %d trials, %d-fold CV", model_type, self.n_trials, self.cv_folds)
+        logger.info(
+            "Optuna tuning %s — %d trials, %d-fold CV",
+            model_type,
+            self.n_trials,
+            self.cv_folds,
+        )
 
         sampler = optuna.samplers.TPESampler(seed=self.seed)
         pruner = optuna.pruners.HyperbandPruner(
-            min_resource=1, max_resource=self.n_trials, reduction_factor=3,
+            min_resource=1,
+            max_resource=self.n_trials,
+            reduction_factor=3,
         )
         study = optuna.create_study(
-            direction="minimize", sampler=sampler, pruner=pruner,
+            direction="minimize",
+            sampler=sampler,
+            pruner=pruner,
             study_name=f"tune_{model_type}",
         )
         study.optimize(
-            objective, n_trials=self.n_trials,
-            timeout=self.timeout_seconds, show_progress_bar=verbose,
+            objective,
+            n_trials=self.n_trials,
+            timeout=self.timeout_seconds,
+            show_progress_bar=verbose,
         )
 
         if verbose:
@@ -122,7 +135,9 @@ class OptunaTuner:
             return {
                 "n_estimators": trial.suggest_int("n_estimators", 100, 1000, step=50),
                 "max_depth": trial.suggest_int("max_depth", 3, 12),
-                "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.3, log=True),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.005, 0.3, log=True
+                ),
                 "subsample": trial.suggest_float("subsample", 0.5, 1.0),
                 "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
                 "reg_lambda": trial.suggest_float("reg_lambda", 0.001, 10.0, log=True),
@@ -134,14 +149,18 @@ class OptunaTuner:
             return {
                 "n_estimators": trial.suggest_int("n_estimators", 100, 800, step=50),
                 "max_depth": trial.suggest_int("max_depth", 3, 12),
-                "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.3, log=True),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.005, 0.3, log=True
+                ),
                 "subsample": trial.suggest_float("subsample", 0.5, 1.0),
                 "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
                 "reg_lambda": trial.suggest_float("reg_lambda", 0.001, 10.0, log=True),
                 "reg_alpha": trial.suggest_float("reg_alpha", 0.0, 1.0),
                 "num_leaves": trial.suggest_int("num_leaves", 15, 255, step=8),
                 "min_child_samples": trial.suggest_int("min_child_samples", 5, 100),
-                "min_child_weight": trial.suggest_float("min_child_weight", 0.001, 10.0, log=True),
+                "min_child_weight": trial.suggest_float(
+                    "min_child_weight", 0.001, 10.0, log=True
+                ),
             }
         elif model_type == "random_forest":
             return {
@@ -149,20 +168,28 @@ class OptunaTuner:
                 "max_depth": trial.suggest_int("max_depth", 4, 20),
                 "min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 20),
                 "min_samples_split": trial.suggest_int("min_samples_split", 2, 10),
-                "max_features": trial.suggest_categorical("max_features", ["sqrt", "log2", None]),
+                "max_features": trial.suggest_categorical(
+                    "max_features", ["sqrt", "log2", None]
+                ),
             }
         elif model_type == "logistic_regression":
             return {
                 "C": trial.suggest_float("C", 0.01, 10.0, log=True),
-                "solver": trial.suggest_categorical("solver", ["lbfgs", "liblinear", "newton-cg"]),
+                "solver": trial.suggest_categorical(
+                    "solver", ["lbfgs", "liblinear", "newton-cg"]
+                ),
                 "max_iter": trial.suggest_int("max_iter", 1000, 5000, step=500),
             }
         elif model_type == "catboost":
             return {
                 "iterations": trial.suggest_int("iterations", 100, 800, step=50),
                 "depth": trial.suggest_int("depth", 3, 10),
-                "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.3, log=True),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 0.001, 10.0, log=True),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.005, 0.3, log=True
+                ),
+                "l2_leaf_reg": trial.suggest_float(
+                    "l2_leaf_reg", 0.001, 10.0, log=True
+                ),
                 "border_count": trial.suggest_int("border_count", 32, 255),
             }
         else:

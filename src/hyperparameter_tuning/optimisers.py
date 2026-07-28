@@ -11,7 +11,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
-from config import config
+from src.config import config
 from src.hyperparameter_tuning.models import (
     impute,
     needs_impute,
@@ -27,7 +27,9 @@ from src.time_series_cv import create_time_series_folds
 logger = logging.getLogger(__name__)
 
 
-def evaluate(model: Any, X: pd.DataFrame, y: pd.Series, model_type: str) -> tuple[float, float]:
+def evaluate(
+    model: Any, X: pd.DataFrame, y: pd.Series, model_type: str
+) -> tuple[float, float]:
     X_eval = impute(X) if needs_impute(model_type) else X
     probs = model.predict_proba(X_eval)
     preds = model.predict(X_eval)
@@ -41,32 +43,52 @@ def check_model_type(model_type: str) -> None:
 
 
 def optimise_lr(
-    X_train: pd.DataFrame, y_train: pd.Series, cv: int, verbose: bool,
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    cv: int,
+    verbose: bool,
 ) -> tuple[dict[str, Any], float]:
     logger.info("  GridSearchCV (Logistic Regression) — %d-fold time-series CV", cv)
     ts_cv = create_time_series_folds(n_splits=cv)
     base = LogisticRegression(random_state=config.train.seed, class_weight="balanced")
     searcher = GridSearchCV(
-        base, lr_param_grid(),
-        cv=ts_cv, scoring="neg_log_loss",
-        n_jobs=-1, verbose=1 if verbose else 0,
+        base,
+        lr_param_grid(),
+        cv=ts_cv,
+        scoring="neg_log_loss",
+        n_jobs=-1,
+        verbose=1 if verbose else 0,
     )
     searcher.fit(impute(X_train), y_train)
     return searcher.best_params_, -searcher.best_score_
 
 
 def optimise_rf(
-    X_train: pd.DataFrame, y_train: pd.Series, cv: int, n_iter: int, verbose: bool,
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    cv: int,
+    n_iter: int,
+    verbose: bool,
 ) -> tuple[dict[str, Any], float]:
-    logger.info("  RandomizedSearchCV (Random Forest) — %d-fold time-series CV, %d iters", cv, n_iter)
+    logger.info(
+        "  RandomizedSearchCV (Random Forest) — %d-fold time-series CV, %d iters",
+        cv,
+        n_iter,
+    )
     ts_cv = create_time_series_folds(n_splits=cv)
     base = RandomForestClassifier(
-        random_state=config.train.seed, class_weight="balanced_subsample", n_jobs=-1,
+        random_state=config.train.seed,
+        class_weight="balanced_subsample",
+        n_jobs=-1,
     )
     searcher = RandomizedSearchCV(
-        base, rf_param_dist(),
-        n_iter=n_iter, cv=ts_cv, scoring="neg_log_loss",
-        n_jobs=-1, random_state=config.train.seed,
+        base,
+        rf_param_dist(),
+        n_iter=n_iter,
+        cv=ts_cv,
+        scoring="neg_log_loss",
+        n_jobs=-1,
+        random_state=config.train.seed,
         verbose=1 if verbose else 0,
     )
     searcher.fit(impute(X_train), y_train)
@@ -74,19 +96,32 @@ def optimise_rf(
 
 
 def optimise_xgb(
-    X_train: pd.DataFrame, y_train: pd.Series, cv: int, n_iter: int, verbose: bool,
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    cv: int,
+    n_iter: int,
+    verbose: bool,
 ) -> tuple[dict[str, Any], float]:
-    logger.info("  RandomizedSearchCV (XGBoost) — %d-fold time-series CV, %d iters", cv, n_iter)
+    logger.info(
+        "  RandomizedSearchCV (XGBoost) — %d-fold time-series CV, %d iters", cv, n_iter
+    )
     ts_cv = create_time_series_folds(n_splits=cv)
     import xgboost as xgb
+
     base = xgb.XGBClassifier(
-        objective="multi:softprob", eval_metric="mlogloss",
-        random_state=config.train.seed, n_jobs=-1,
+        objective="multi:softprob",
+        eval_metric="mlogloss",
+        random_state=config.train.seed,
+        n_jobs=-1,
     )
     searcher = RandomizedSearchCV(
-        base, xgb_param_dist(),
-        n_iter=n_iter, cv=ts_cv, scoring="neg_log_loss",
-        n_jobs=-1, random_state=config.train.seed,
+        base,
+        xgb_param_dist(),
+        n_iter=n_iter,
+        cv=ts_cv,
+        scoring="neg_log_loss",
+        n_jobs=-1,
+        random_state=config.train.seed,
         verbose=1 if verbose else 0,
     )
     searcher.fit(X_train, y_train)
@@ -94,19 +129,33 @@ def optimise_xgb(
 
 
 def optimise_lgbm(
-    X_train: pd.DataFrame, y_train: pd.Series, cv: int, n_iter: int, verbose: bool,
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    cv: int,
+    n_iter: int,
+    verbose: bool,
 ) -> tuple[dict[str, Any], float]:
-    logger.info("  RandomizedSearchCV (LightGBM) — %d-fold time-series CV, %d iters", cv, n_iter)
+    logger.info(
+        "  RandomizedSearchCV (LightGBM) — %d-fold time-series CV, %d iters", cv, n_iter
+    )
     ts_cv = create_time_series_folds(n_splits=cv)
     import lightgbm as lgb
+
     base = lgb.LGBMClassifier(
-        objective="multiclass", metric="multi_logloss",
-        random_state=config.train.seed, n_jobs=-1, verbose=-1,
+        objective="multiclass",
+        metric="multi_logloss",
+        random_state=config.train.seed,
+        n_jobs=-1,
+        verbose=-1,
     )
     searcher = RandomizedSearchCV(
-        base, lgbm_param_dist(),
-        n_iter=n_iter, cv=ts_cv, scoring="neg_log_loss",
-        n_jobs=-1, random_state=config.train.seed,
+        base,
+        lgbm_param_dist(),
+        n_iter=n_iter,
+        cv=ts_cv,
+        scoring="neg_log_loss",
+        n_jobs=-1,
+        random_state=config.train.seed,
         verbose=1 if verbose else 0,
     )
     searcher.fit(X_train, y_train)
@@ -124,7 +173,9 @@ def tune_hyperparameters(
     check_model_type(model_type)
     optim_fn = {
         "logistic_regression": lambda: optimise_lr(X_train, y_train, n_folds, verbose),
-        "random_forest": lambda: optimise_rf(X_train, y_train, n_folds, n_iter, verbose),
+        "random_forest": lambda: optimise_rf(
+            X_train, y_train, n_folds, n_iter, verbose
+        ),
         "xgboost": lambda: optimise_xgb(X_train, y_train, n_folds, n_iter, verbose),
         "lightgbm": lambda: optimise_lgbm(X_train, y_train, n_folds, n_iter, verbose),
     }

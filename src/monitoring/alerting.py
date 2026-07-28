@@ -118,92 +118,310 @@ class AlertEvent:
 
 DEFAULT_RULES = [
     # System
-    AlertRule("high_cpu", "system.cpu_percent", ">", 90.0, "warning",
-              "CPU usage above 90%"),
-    AlertRule("critical_cpu", "system.cpu_percent", ">", 95.0, "critical",
-              "CPU usage above 95% — immediate attention"),
-    AlertRule("high_memory", "system.memory_percent", ">", 85.0, "warning",
-              "Memory usage above 85%"),
-    AlertRule("critical_memory", "system.memory_percent", ">", 95.0, "critical",
-              "Memory usage above 95%"),
-    AlertRule("disk_space", "system.disk_usage_pct", ">", 90.0, "warning",
-              "Disk usage above 90%"),
-    AlertRule("critical_disk", "system.disk_usage_pct", ">", 95.0, "critical",
-              "Disk usage above 95% — running out of space"),
-
+    AlertRule(
+        "high_cpu", "system.cpu_percent", ">", 90.0, "warning", "CPU usage above 90%"
+    ),
+    AlertRule(
+        "critical_cpu",
+        "system.cpu_percent",
+        ">",
+        95.0,
+        "critical",
+        "CPU usage above 95% — immediate attention",
+    ),
+    AlertRule(
+        "high_memory",
+        "system.memory_percent",
+        ">",
+        85.0,
+        "warning",
+        "Memory usage above 85%",
+    ),
+    AlertRule(
+        "critical_memory",
+        "system.memory_percent",
+        ">",
+        95.0,
+        "critical",
+        "Memory usage above 95%",
+    ),
+    AlertRule(
+        "disk_space",
+        "system.disk_usage_pct",
+        ">",
+        90.0,
+        "warning",
+        "Disk usage above 90%",
+    ),
+    AlertRule(
+        "critical_disk",
+        "system.disk_usage_pct",
+        ">",
+        95.0,
+        "critical",
+        "Disk usage above 95% — running out of space",
+    ),
     # ETL
-    AlertRule("etl_duration", "etl.duration_seconds", ">", 300.0, "warning",
-              "ETL pipeline took more than 5 minutes"),
-    AlertRule("etl_failures", "etl.validation_failures", ">", 10, "warning",
-              "More than 10 validation failures in ETL run"),
-    AlertRule("etl_low_rows", "etl.rows_imported", "<", 100, "warning",
-              "ETL imported fewer than 100 rows (possible source issue)"),
-    AlertRule("etl_high_duplicates", "etl.duplicate_pct", ">", 15.0, "warning",
-              "Duplicate percentage above 15% in ETL data"),
-    AlertRule("etl_high_missing", "etl.missing_values_pct", ">", 10.0, "warning",
-              "Missing values percentage above 10%"),
-
+    AlertRule(
+        "etl_duration",
+        "etl.duration_seconds",
+        ">",
+        300.0,
+        "warning",
+        "ETL pipeline took more than 5 minutes",
+    ),
+    AlertRule(
+        "etl_failures",
+        "etl.validation_failures",
+        ">",
+        10,
+        "warning",
+        "More than 10 validation failures in ETL run",
+    ),
+    AlertRule(
+        "etl_low_rows",
+        "etl.rows_imported",
+        "<",
+        100,
+        "warning",
+        "ETL imported fewer than 100 rows (possible source issue)",
+    ),
+    AlertRule(
+        "etl_high_duplicates",
+        "etl.duplicate_pct",
+        ">",
+        15.0,
+        "warning",
+        "Duplicate percentage above 15% in ETL data",
+    ),
+    AlertRule(
+        "etl_high_missing",
+        "etl.missing_values_pct",
+        ">",
+        10.0,
+        "warning",
+        "Missing values percentage above 10%",
+    ),
     # Data quality
-    AlertRule("dq_null_rate", "data_quality.null_pct", ">", 20.0, "warning",
-              "Null percentage above 20% in quality check"),
-    AlertRule("dq_duplicate_rate", "data_quality.duplicate_pct", ">", 10.0, "warning",
-              "Duplicate percentage above 10% in quality check"),
-
+    AlertRule(
+        "dq_null_rate",
+        "data_quality.null_pct",
+        ">",
+        20.0,
+        "warning",
+        "Null percentage above 20% in quality check",
+    ),
+    AlertRule(
+        "dq_duplicate_rate",
+        "data_quality.duplicate_pct",
+        ">",
+        10.0,
+        "warning",
+        "Duplicate percentage above 10% in quality check",
+    ),
     # Cache
-    AlertRule("cache_hit_rate_low", "cache.hit_rate", "<", 0.5, "warning",
-              "Cache hit rate below 50%"),
-
+    AlertRule(
+        "cache_hit_rate_low",
+        "cache.hit_rate",
+        "<",
+        0.5,
+        "warning",
+        "Cache hit rate below 50%",
+    ),
     # Drift
-    AlertRule("feature_drift", "drift.feature_drift_score", ">", 0.3, "warning",
-              "Feature drift score above 0.3 (significant drift detected)"),
-    AlertRule("prediction_drift", "drift.prediction_drift_score", ">", 0.2, "warning",
-              "Prediction distribution drift above 0.2"),
-
+    AlertRule(
+        "feature_drift",
+        "drift.feature_drift_score",
+        ">",
+        0.3,
+        "warning",
+        "Feature drift score above 0.3 (significant drift detected)",
+    ),
+    AlertRule(
+        "prediction_drift",
+        "drift.prediction_drift_score",
+        ">",
+        0.2,
+        "warning",
+        "Prediction distribution drift above 0.2",
+    ),
     # ── Model Performance ──────────────────────────────────
-    AlertRule("accuracy_drop", "performance.accuracy", "<", 0.50, "warning",
-              "Model accuracy below 50% — significant underperformance"),
-    AlertRule("accuracy_critical", "performance.accuracy", "<", 0.40, "critical",
-              "Model accuracy below 40% — immediate investigation required"),
-    AlertRule("brier_spike", "performance.brier_score", ">", 0.30, "warning",
-              "Brier score above 0.30 — calibration degrading"),
-    AlertRule("brier_critical", "performance.brier_score", ">", 0.40, "critical",
-              "Brier score above 0.40 — severe calibration failure"),
-    AlertRule("log_loss_spike", "performance.log_loss", ">", 1.2, "warning",
-              "Log loss above 1.2 — prediction confidence is misaligned"),
-    AlertRule("log_loss_critical", "performance.log_loss", ">", 1.5, "critical",
-              "Log loss above 1.5 — model is no better than random"),
-    AlertRule("roi_negative", "performance.roi_pct", "<", -5.0, "warning",
-              "ROI below -5% — betting strategy losing money"),
-    AlertRule("roi_critical", "performance.roi_pct", "<", -15.0, "critical",
-              "ROI below -15% — severe losses, halt betting"),
-    AlertRule("clv_negative_persistent", "performance.avg_clv", "<", -0.01, "warning",
-              "Average CLV negative — consistently getting worse odds than closing line"),
-    AlertRule("clv_critical", "performance.avg_clv", "<", -0.03, "critical",
-              "Average CLV below -3% — severe adverse line movement"),
-    AlertRule("win_rate_low", "performance.win_rate_pct", "<", 40.0, "warning",
-              "Win rate below 40% — model predictions are losing more than winning"),
-    AlertRule("win_rate_critical", "performance.win_rate_pct", "<", 30.0, "critical",
-              "Win rate below 30% — model is significantly worse than random"),
-    AlertRule("sharpe_below_one", "performance.sharpe_ratio", "<", 1.0, "warning",
-              "Sharpe ratio below 1.0 — risk-adjusted returns suboptimal"),
-    AlertRule("sharpe_negative", "performance.sharpe_ratio", "<", 0.0, "critical",
-              "Sharpe ratio negative — strategy destroying value"),
-    AlertRule("drawdown_excessive", "performance.max_drawdown_pct", ">", 20.0, "warning",
-              "Max drawdown above 20% — excessive risk exposure"),
-    AlertRule("drawdown_critical", "performance.max_drawdown_pct", ">", 35.0, "critical",
-              "Max drawdown above 35% — near-ruin level drawdown"),
-    AlertRule("bankroll_decline", "performance.bankroll_change_pct", "<", -10.0, "warning",
-              "Bankroll declined more than 10% from peak"),
-    AlertRule("bankroll_critical", "performance.bankroll_change_pct", "<", -25.0, "critical",
-              "Bankroll declined more than 25% from peak — risk of ruin"),
-    AlertRule("bet_frequency_drop", "performance.bets_per_day", "<", 1.0, "info",
-              "Less than 1 bet per day on average — possible data pipeline issue"),
-    AlertRule("bet_frequency_surge", "performance.bets_per_day", ">", 50.0, "warning",
-              "More than 50 bets per day — possible over-betting or filter failure"),
-    AlertRule("avg_ev_negative", "performance.avg_ev", "<", -0.02, "warning",
-              "Average expected value negative — odds consistently unfavourable"),
-    AlertRule("confidence_drop", "performance.avg_confidence", "<", 30.0, "warning",
-              "Average model confidence below 30 — predictions too uncertain"),
+    AlertRule(
+        "accuracy_drop",
+        "performance.accuracy",
+        "<",
+        0.50,
+        "warning",
+        "Model accuracy below 50% — significant underperformance",
+    ),
+    AlertRule(
+        "accuracy_critical",
+        "performance.accuracy",
+        "<",
+        0.40,
+        "critical",
+        "Model accuracy below 40% — immediate investigation required",
+    ),
+    AlertRule(
+        "brier_spike",
+        "performance.brier_score",
+        ">",
+        0.30,
+        "warning",
+        "Brier score above 0.30 — calibration degrading",
+    ),
+    AlertRule(
+        "brier_critical",
+        "performance.brier_score",
+        ">",
+        0.40,
+        "critical",
+        "Brier score above 0.40 — severe calibration failure",
+    ),
+    AlertRule(
+        "log_loss_spike",
+        "performance.log_loss",
+        ">",
+        1.2,
+        "warning",
+        "Log loss above 1.2 — prediction confidence is misaligned",
+    ),
+    AlertRule(
+        "log_loss_critical",
+        "performance.log_loss",
+        ">",
+        1.5,
+        "critical",
+        "Log loss above 1.5 — model is no better than random",
+    ),
+    AlertRule(
+        "roi_negative",
+        "performance.roi_pct",
+        "<",
+        -5.0,
+        "warning",
+        "ROI below -5% — betting strategy losing money",
+    ),
+    AlertRule(
+        "roi_critical",
+        "performance.roi_pct",
+        "<",
+        -15.0,
+        "critical",
+        "ROI below -15% — severe losses, halt betting",
+    ),
+    AlertRule(
+        "clv_negative_persistent",
+        "performance.avg_clv",
+        "<",
+        -0.01,
+        "warning",
+        "Average CLV negative — consistently getting worse odds than closing line",
+    ),
+    AlertRule(
+        "clv_critical",
+        "performance.avg_clv",
+        "<",
+        -0.03,
+        "critical",
+        "Average CLV below -3% — severe adverse line movement",
+    ),
+    AlertRule(
+        "win_rate_low",
+        "performance.win_rate_pct",
+        "<",
+        40.0,
+        "warning",
+        "Win rate below 40% — model predictions are losing more than winning",
+    ),
+    AlertRule(
+        "win_rate_critical",
+        "performance.win_rate_pct",
+        "<",
+        30.0,
+        "critical",
+        "Win rate below 30% — model is significantly worse than random",
+    ),
+    AlertRule(
+        "sharpe_below_one",
+        "performance.sharpe_ratio",
+        "<",
+        1.0,
+        "warning",
+        "Sharpe ratio below 1.0 — risk-adjusted returns suboptimal",
+    ),
+    AlertRule(
+        "sharpe_negative",
+        "performance.sharpe_ratio",
+        "<",
+        0.0,
+        "critical",
+        "Sharpe ratio negative — strategy destroying value",
+    ),
+    AlertRule(
+        "drawdown_excessive",
+        "performance.max_drawdown_pct",
+        ">",
+        20.0,
+        "warning",
+        "Max drawdown above 20% — excessive risk exposure",
+    ),
+    AlertRule(
+        "drawdown_critical",
+        "performance.max_drawdown_pct",
+        ">",
+        35.0,
+        "critical",
+        "Max drawdown above 35% — near-ruin level drawdown",
+    ),
+    AlertRule(
+        "bankroll_decline",
+        "performance.bankroll_change_pct",
+        "<",
+        -10.0,
+        "warning",
+        "Bankroll declined more than 10% from peak",
+    ),
+    AlertRule(
+        "bankroll_critical",
+        "performance.bankroll_change_pct",
+        "<",
+        -25.0,
+        "critical",
+        "Bankroll declined more than 25% from peak — risk of ruin",
+    ),
+    AlertRule(
+        "bet_frequency_drop",
+        "performance.bets_per_day",
+        "<",
+        1.0,
+        "info",
+        "Less than 1 bet per day on average — possible data pipeline issue",
+    ),
+    AlertRule(
+        "bet_frequency_surge",
+        "performance.bets_per_day",
+        ">",
+        50.0,
+        "warning",
+        "More than 50 bets per day — possible over-betting or filter failure",
+    ),
+    AlertRule(
+        "avg_ev_negative",
+        "performance.avg_ev",
+        "<",
+        -0.02,
+        "warning",
+        "Average expected value negative — odds consistently unfavourable",
+    ),
+    AlertRule(
+        "confidence_drop",
+        "performance.avg_confidence",
+        "<",
+        30.0,
+        "warning",
+        "Average model confidence below 30 — predictions too uncertain",
+    ),
 ]
 
 
@@ -241,10 +459,14 @@ class AlertEngine:
     def _save_history(self) -> None:
         """Persist suppression timestamps."""
         try:
-            self._history_path.write_text(json.dumps({
-                "last_alert": self._last_alert,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }))
+            self._history_path.write_text(
+                json.dumps(
+                    {
+                        "last_alert": self._last_alert,
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+            )
         except Exception as exc:
             logger.warning("Failed to save alert history: %s", exc)
 
@@ -326,7 +548,7 @@ class AlertEngine:
                     threshold=rule.threshold,
                     severity=rule.severity,
                     message=f"ALERT [{rule.severity.upper()}] {rule.description}: "
-                            f"{rule.metric}={value_f:.2f} (threshold={rule.threshold})",
+                    f"{rule.metric}={value_f:.2f} (threshold={rule.threshold})",
                 )
                 triggered.append(event)
                 self._last_alert[rule.name] = now
@@ -357,9 +579,12 @@ class AlertEngine:
         results = []
         try:
             from src.scheduler.notifications import Notifier
+
             notifier = Notifier()
         except Exception as exc:
-            logger.warning("Notifier not available: %s. Logging alerts to console.", exc)
+            logger.warning(
+                "Notifier not available: %s. Logging alerts to console.", exc
+            )
             notifier = None
 
         for event in events:

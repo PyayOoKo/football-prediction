@@ -59,7 +59,9 @@ TOURNAMENT_IMPORTANCE: dict[str, float] = {
 }
 
 
-def get_tournament_importance(league: str | None, round_str: str | None = None) -> float:
+def get_tournament_importance(
+    league: str | None, round_str: str | None = None
+) -> float:
     """Return the importance weight for a given competition.
 
     Matches against known league/competition names (case-insensitive).
@@ -87,7 +89,9 @@ def get_tournament_importance(league: str | None, round_str: str | None = None) 
             bonus = 1.0
             if round_str and weight >= 1.5:
                 round_lower = round_str.lower()
-                if any(kw in round_lower for kw in ["final", "semi", "quarter", "round of"]):
+                if any(
+                    kw in round_lower for kw in ["final", "semi", "quarter", "round of"]
+                ):
                     bonus = 1.2
             return weight * bonus
 

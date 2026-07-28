@@ -108,7 +108,8 @@ class ETLPipeline:
         self.name = name
         self.source = source
         self.config = config or ETLConfig(
-            name=name, source=source,
+            name=name,
+            source=source,
             checkpoint=checkpoint,
             parallel=parallel,
             max_workers=max_workers,
@@ -179,9 +180,7 @@ class ETLPipeline:
 
         # Determine total stages for progress bar
         if resume_from:
-            start_idx = next(
-                i for i, (s, _) in enumerate(stages) if s == resume_from
-            )
+            start_idx = next(i for i, (s, _) in enumerate(stages) if s == resume_from)
             stages = stages[start_idx:]
 
         self.progress.start_pipeline(len(stages))
@@ -212,7 +211,9 @@ class ETLPipeline:
             etl_result.total_errors += len(stage_result.errors)
 
             self.progress.finish_stage(
-                stage, stage_result.status, stage_result.records_out,
+                stage,
+                stage_result.status,
+                stage_result.records_out,
             )
 
             # Pass data to next stage
@@ -277,32 +278,20 @@ class ETLPipeline:
 
     # ── Stage runners ──────────────────────────────────
 
-    def _run_extract(
-        self, data: list[dict[str, Any]], **kwargs: Any
-    ) -> StageResult:
+    def _run_extract(self, data: list[dict[str, Any]], **kwargs: Any) -> StageResult:
         return self.extractor.run(**kwargs)
 
-    def _run_validate(
-        self, data: list[dict[str, Any]], **kwargs: Any
-    ) -> StageResult:
+    def _run_validate(self, data: list[dict[str, Any]], **kwargs: Any) -> StageResult:
         return self.validator.run(data)
 
-    def _run_clean(
-        self, data: list[dict[str, Any]], **kwargs: Any
-    ) -> StageResult:
+    def _run_clean(self, data: list[dict[str, Any]], **kwargs: Any) -> StageResult:
         return self.cleaner.run(data)
 
-    def _run_normalize(
-        self, data: list[dict[str, Any]], **kwargs: Any
-    ) -> StageResult:
+    def _run_normalize(self, data: list[dict[str, Any]], **kwargs: Any) -> StageResult:
         return self.normalizer.run(data)
 
-    def _run_transform(
-        self, data: list[dict[str, Any]], **kwargs: Any
-    ) -> StageResult:
+    def _run_transform(self, data: list[dict[str, Any]], **kwargs: Any) -> StageResult:
         return self.transformer.run(data)
 
-    def _run_store(
-        self, data: list[dict[str, Any]], **kwargs: Any
-    ) -> StageResult:
+    def _run_store(self, data: list[dict[str, Any]], **kwargs: Any) -> StageResult:
         return self.store.write(data)

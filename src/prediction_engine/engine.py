@@ -33,7 +33,11 @@ class PredictionEngine:
         blend_config: Any | None = None,
     ) -> None:
         self.model: Any = None
-        self.model_metadata: dict[str, Any] = {"model_type": "none", "name": "none", "loaded": False}
+        self.model_metadata: dict[str, Any] = {
+            "model_type": "none",
+            "name": "none",
+            "loaded": False,
+        }
 
         self.min_confidence = min_confidence
         self.min_ev = min_ev
@@ -64,7 +68,9 @@ class PredictionEngine:
                 self.model_metadata["model_type"],
             )
         else:
-            logger.warning("PredictionEngine: no model loaded — predictions will use fallback")
+            logger.warning(
+                "PredictionEngine: no model loaded — predictions will use fallback"
+            )
         return bool(loaded)
 
     def load_three_model_blend(
@@ -72,7 +78,8 @@ class PredictionEngine:
         config: Any | None = None,
     ) -> bool:
         if config is None:
-            from config import config as _cfg
+            from src.config import config as _cfg
+
             config = _cfg
 
         blend_cfg = config.blend
@@ -121,7 +128,9 @@ class PredictionEngine:
                     break
 
             if xgb is None:
-                logger.warning("No XGBoost model found for 3-model blend — blend will use DC + Elo only")
+                logger.warning(
+                    "No XGBoost model found for 3-model blend — blend will use DC + Elo only"
+                )
 
             cond_rates = ConditionalRates.from_data(historical)
 
@@ -133,9 +142,13 @@ class PredictionEngine:
                         with open(w_path) as f:
                             w_data = json.load(f)
                         weights = w_data.get("weights", None)
-                        logger.info("Loaded optimised blend weights from %s", w_path.name)
+                        logger.info(
+                            "Loaded optimised blend weights from %s", w_path.name
+                        )
                     except Exception as exc:
-                        logger.warning("Failed to load blend weights from %s: %s", w_path, exc)
+                        logger.warning(
+                            "Failed to load blend weights from %s: %s", w_path, exc
+                        )
 
             if weights is None:
                 weights = dict(DEFAULT_WEIGHTS)
@@ -201,7 +214,10 @@ class PredictionEngine:
         if not self._blend_loaded or self._blend_model is None:
             return None
         try:
-            return cast("dict[str, float] | None", self._blend_model.predict_over_under(home_team, away_team, threshold))
+            return cast(
+                "dict[str, float] | None",
+                self._blend_model.predict_over_under(home_team, away_team, threshold),
+            )
         except Exception as exc:
             logger.debug("Blend OU prediction failed: %s", exc)
             return None
@@ -214,7 +230,10 @@ class PredictionEngine:
         if not self._blend_loaded or self._blend_model is None:
             return None
         try:
-            return cast("dict[str, float] | None", self._blend_model.predict_btts(home_team, away_team))
+            return cast(
+                "dict[str, float] | None",
+                self._blend_model.predict_btts(home_team, away_team),
+            )
         except Exception as exc:
             logger.debug("Blend BTTS prediction failed: %s", exc)
             return None
@@ -232,7 +251,13 @@ class PredictionEngine:
 
         if self.model_loaded:
             try:
-                fixture = [{"home_team": home_team, "away_team": away_team, "match_date": match_date or ""}]
+                fixture = [
+                    {
+                        "home_team": home_team,
+                        "away_team": away_team,
+                        "match_date": match_date or "",
+                    }
+                ]
                 X = self._feature_builder.build_features(fixture)
                 if X is not None and len(X) > 0:
                     probs = self._predict_with_model(X)
@@ -255,10 +280,14 @@ class PredictionEngine:
 
         return {"away_win": 0.0, "draw": 0.0, "home_win": 0.0}
 
-    def predict(self, home_team: str, away_team: str, match_date: str | None = None) -> str:
+    def predict(
+        self, home_team: str, away_team: str, match_date: str | None = None
+    ) -> str:
         probs = self.predict_proba(home_team, away_team, match_date)
         outcomes = ["Away Win", "Draw", "Home Win"]
-        return outcomes[np.argmax([probs["away_win"], probs["draw"], probs["home_win"]])]
+        return outcomes[
+            np.argmax([probs["away_win"], probs["draw"], probs["home_win"]])
+        ]
 
     # ── Batch Prediction ───────────────────────────────────
 
@@ -274,13 +303,17 @@ class PredictionEngine:
             try:
                 X_batch = self._feature_builder.build_features(fixtures)
             except Exception as exc:
-                logger.warning("Batch feature engineering failed for %d fixtures: %s", len(fixtures), exc)
+                logger.warning(
+                    "Batch feature engineering failed for %d fixtures: %s",
+                    len(fixtures),
+                    exc,
+                )
 
         if X_batch is not None and len(X_batch) > 0:
             for i, fixture in enumerate(fixtures):
                 start = time.perf_counter()
                 try:
-                    row = X_batch.iloc[i:i+1]
+                    row = X_batch.iloc[i : i + 1]
                     probs_arr = self._predict_with_model(row)
                     if probs_arr is not None:
                         result = self._make_result(probs_arr, fixture, start)
@@ -291,7 +324,8 @@ class PredictionEngine:
                         "Batch prediction failed for %s vs %s (idx=%d): %s",
                         fixture.get("home_team", "?"),
                         fixture.get("away_team", "?"),
-                        i, exc,
+                        i,
+                        exc,
                     )
                 if use_fallback:
                     start = time.perf_counter()
@@ -302,7 +336,9 @@ class PredictionEngine:
                     results.append(self._make_result(probs_arr, fixture, start))
                 else:
                     start = time.perf_counter()
-                    results.append(self._make_result([0.33, 0.34, 0.33], fixture, start))
+                    results.append(
+                        self._make_result([0.33, 0.34, 0.33], fixture, start)
+                    )
         else:
             for fixture in fixtures:
                 start = time.perf_counter()
@@ -313,9 +349,15 @@ class PredictionEngine:
                     use_fallback=use_fallback,
                 )
                 probs_list = [probs["away_win"], probs["draw"], probs["home_win"]]
-                results.append(self._make_result(probs_list, fixture, time.perf_counter() - start))
+                results.append(
+                    self._make_result(probs_list, fixture, time.perf_counter() - start)
+                )
 
-        if include_blend_markets and self._blend_loaded and self._blend_model is not None:
+        if (
+            include_blend_markets
+            and self._blend_loaded
+            and self._blend_model is not None
+        ):
             for result in results:
                 ht, at = result.home_team, result.away_team
                 try:
@@ -334,7 +376,9 @@ class PredictionEngine:
                         result.btts_prob = btts["BTTS"]
                         result.btts_no_prob = btts["No BTTS"]
                 except Exception as exc:
-                    logger.debug("Blend enrichment failed for %s vs %s: %s", ht, at, exc)
+                    logger.debug(
+                        "Blend enrichment failed for %s vs %s: %s", ht, at, exc
+                    )
 
         return results
 
@@ -347,7 +391,9 @@ class PredictionEngine:
         min_ev: float | None = None,
         min_confidence: float | None = None,
     ) -> list[BetRecommendation]:
-        kelly_frac = kelly_fraction if kelly_fraction is not None else self.kelly_fraction
+        kelly_frac = (
+            kelly_fraction if kelly_fraction is not None else self.kelly_fraction
+        )
         min_ev_val = min_ev if min_ev is not None else self.min_ev
         min_conf = min_confidence if min_confidence is not None else self.min_confidence
 
@@ -391,9 +437,7 @@ class PredictionEngine:
                     edge=edge,
                     confidence=pred.confidence,
                     recommended=(
-                        ev > min_ev_val
-                        and pred.confidence >= min_conf
-                        and kelly > 0
+                        ev > min_ev_val and pred.confidence >= min_conf and kelly > 0
                     ),
                 )
                 recommendations.append(rec)
@@ -449,19 +493,27 @@ class PredictionEngine:
             return None
 
         try:
-            df = pd.DataFrame([{
-                "home_team": home_team,
-                "away_team": away_team,
-                "date": datetime.now().strftime("%Y-%m-%d"),
-            }])
+            df = pd.DataFrame(
+                [
+                    {
+                        "home_team": home_team,
+                        "away_team": away_team,
+                        "date": datetime.now().strftime("%Y-%m-%d"),
+                    }
+                ]
+            )
             result = self.model.predict_matches(df)
             if result is not None and not result.empty:
                 row = result.iloc[0]
-                return np.array([
-                    [float(row.get("away_win_prob", 0.33)),
-                     float(row.get("draw_prob", 0.34)),
-                     float(row.get("home_win_prob", 0.33))],
-                ])
+                return np.array(
+                    [
+                        [
+                            float(row.get("away_win_prob", 0.33)),
+                            float(row.get("draw_prob", 0.34)),
+                            float(row.get("home_win_prob", 0.33)),
+                        ],
+                    ]
+                )
         except Exception as exc:
             logger.debug("Direct prediction failed: %s", exc)
 
@@ -494,7 +546,10 @@ class PredictionEngine:
 
     @staticmethod
     def _normalise_probs(
-        probs: np.ndarray, home_team: str, away_team: str, start: float,
+        probs: np.ndarray,
+        home_team: str,
+        away_team: str,
+        start: float,
     ) -> dict[str, float]:
         arr = np.asarray(probs).flatten()
         if arr.shape[0] != 3:
@@ -509,7 +564,10 @@ class PredictionEngine:
         }
 
     def _make_result(
-        self, probs: np.ndarray | list[Any], fixture: dict[str, Any], start_time: float,
+        self,
+        probs: np.ndarray | list[Any],
+        fixture: dict[str, Any],
+        start_time: float,
     ) -> PredictionResult:
         probs_arr = np.asarray(probs).flatten()
         if len(probs_arr) != 3:
@@ -595,7 +653,9 @@ class PredictionEngine:
             "model_type": self.model_type,
             "supports_proba": self.supports_predict_proba,
             "blend_loaded": self.blend_loaded,
-            "blend_markets": list(self._blend_model.available_markets) if self._blend_model else [],
+            "blend_markets": list(self._blend_model.available_markets)
+            if self._blend_model
+            else [],
             "kelly_fraction": self.kelly_fraction,
             "min_confidence": self.min_confidence,
             "min_ev": self.min_ev,
@@ -603,9 +663,7 @@ class PredictionEngine:
 
     def summary(self) -> str:
         blend_market_count = (
-            len(self._blend_model.available_markets)
-            if self._blend_model
-            else 0
+            len(self._blend_model.available_markets) if self._blend_model else 0
         )
         lines = [
             "=" * 55,

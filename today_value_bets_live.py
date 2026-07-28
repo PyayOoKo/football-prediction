@@ -151,7 +151,7 @@ def main(argv=None):
 
     # -- 3. Build features ONCE on combined data --
     log("\n  Building features (this may take a moment)...")
-    from config import config
+    from src.config import config
     config.dixon_coles.enabled = args.dixon_coles
     if args.dixon_coles:
         config.dixon_coles.decay_halflife_days = 1460.0

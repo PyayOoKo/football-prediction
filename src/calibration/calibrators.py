@@ -107,7 +107,8 @@ class IsotonicRegressionCalibrator:
         self._fitted = True
         logger.debug(
             "IsotonicRegressionCalibrator fitted — %d classes, %d samples",
-            self.n_classes, len(X),
+            self.n_classes,
+            len(X),
         )
         return self
 
@@ -240,7 +241,8 @@ class PlattScalingCalibrator:
         self._fitted = True
         logger.debug(
             "PlattScalingCalibrator fitted — %d classes, %d samples",
-            self.n_classes, len(X),
+            self.n_classes,
+            len(X),
         )
         return self
 
@@ -324,9 +326,13 @@ class HybridTailCalibrator:
         random_state: int | None = None,
     ) -> None:
         if not 0.0 < tail_threshold < 0.5:
-            raise ValueError(f"tail_threshold must be in (0, 0.5), got {tail_threshold}")
+            raise ValueError(
+                f"tail_threshold must be in (0, 0.5), got {tail_threshold}"
+            )
         if not 0.0 <= mid_isotonic_weight <= 1.0:
-            raise ValueError(f"mid_isotonic_weight must be in [0, 1], got {mid_isotonic_weight}")
+            raise ValueError(
+                f"mid_isotonic_weight must be in [0, 1], got {mid_isotonic_weight}"
+            )
 
         self.n_classes = n_classes
         self.tail_threshold = tail_threshold
@@ -371,15 +377,19 @@ class HybridTailCalibrator:
             # Platt scaling
             X_logit = np.log(p / (1.0 - p)).reshape(-1, 1)
             platt_cal = LogisticRegression(
-                penalty=None, solver="lbfgs",
-                max_iter=self.max_iter, random_state=self.random_state,
+                penalty=None,
+                solver="lbfgs",
+                max_iter=self.max_iter,
+                random_state=self.random_state,
             )
             platt_cal.fit(X_logit, y_binary)
             self._platt_calibrators[c] = platt_cal
 
             # Isotonic regression
             iso_cal = IsotonicRegression(
-                out_of_bounds="clip", y_min=0.0, y_max=1.0,
+                out_of_bounds="clip",
+                y_min=0.0,
+                y_max=1.0,
             )
             iso_cal.fit(p, y_binary.astype(np.float64))
             self._iso_calibrators[c] = iso_cal
@@ -388,7 +398,10 @@ class HybridTailCalibrator:
         logger.info(
             "HybridTailCalibrator fitted — %d classes, %d samples, "
             "tail_threshold=%.2f, mid_isotonic_weight=%.2f",
-            self.n_classes, len(X), self.tail_threshold, self.mid_isotonic_weight,
+            self.n_classes,
+            len(X),
+            self.tail_threshold,
+            self.mid_isotonic_weight,
         )
         return self
 
@@ -438,14 +451,16 @@ class HybridTailCalibrator:
             # Lower tail: p < tail
             lower_mask = p < tail
             if lower_mask.any():
-                iso_weight[lower_mask] = 1.0 - (p[lower_mask] / tail) * (1.0 - mid_iso_w)
+                iso_weight[lower_mask] = 1.0 - (p[lower_mask] / tail) * (
+                    1.0 - mid_iso_w
+                )
 
             # Upper tail: p > 1 - tail
             upper_mask = p > (1.0 - tail)
             if upper_mask.any():
-                iso_weight[upper_mask] = (
-                    ((p[upper_mask] - (1.0 - tail)) / tail) * (1.0 - mid_iso_w) + mid_iso_w
-                )
+                iso_weight[upper_mask] = ((p[upper_mask] - (1.0 - tail)) / tail) * (
+                    1.0 - mid_iso_w
+                ) + mid_iso_w
 
             calibrated[:, c] = iso_weight * iso_out + (1.0 - iso_weight) * platt_out
 
@@ -593,7 +608,9 @@ class TemperatureScalingCalibrator:
         if X.shape[1] != self.n_classes:
             raise ValueError(f"X must have {self.n_classes} columns, got {X.shape[1]}")
         if len(X) != len(y):
-            raise ValueError(f"X ({len(X)} samples) and y ({len(y)} samples) must match")
+            raise ValueError(
+                f"X ({len(X)} samples) and y ({len(y)} samples) must match"
+            )
         if not np.all(np.isfinite(X)):
             raise ValueError("X contains NaN or Inf values")
 
@@ -639,14 +656,17 @@ class TemperatureScalingCalibrator:
         if not np.isfinite(self.temperature_) or self.temperature_ > 1e6:
             logger.warning(
                 "Temperature exploded to %s — resetting to init_temp=%.2f",
-                self.temperature_, self.init_temp,
+                self.temperature_,
+                self.init_temp,
             )
             self.temperature_ = self.init_temp
 
         self._fitted = True
         logger.info(
             "TemperatureScalingCalibrator fitted — T=%.4f (nll=%.4f, %d samples)",
-            self.temperature_, result.fun, len(X),
+            self.temperature_,
+            result.fun,
+            len(X),
         )
         return self
 
@@ -661,7 +681,9 @@ class TemperatureScalingCalibrator:
 
         X = np.asarray(X, dtype=np.float64)
         if X.ndim != 2 or X.shape[1] != self.n_classes:
-            raise ValueError(f"Expected X of shape (n, {self.n_classes}), got {X.shape}")
+            raise ValueError(
+                f"Expected X of shape (n, {self.n_classes}), got {X.shape}"
+            )
 
         if not np.all(np.isfinite(X)):
             X = np.nan_to_num(X, nan=0.0, posinf=1e6, neginf=-1e6)

@@ -129,7 +129,7 @@ class PipelineHealth:
                 total = total_succeeded + total_failed
                 if total > 0:
                     success_rate = total_succeeded / total
-                    score *= (0.4 * success_rate + 0.6)
+                    score *= 0.4 * success_rate + 0.6
             else:
                 # No reports — assume healthy (new system)
                 pass
@@ -142,13 +142,14 @@ class PipelineHealth:
             if recent_reports:
                 recent_failures = sum(r.get("failed", 0) for r in recent_reports)
                 failure_penalty = min(1.0, recent_failures * 0.05)
-                score *= (0.2 * (1.0 - failure_penalty) + 0.8)
+                score *= 0.2 * (1.0 - failure_penalty) + 0.8
         except Exception:
             logger.exception("Failed to compute recent failure penalty")
 
         # System resources (20%)
         try:
             from src.monitoring.store import MonitoringStore
+
             store = MonitoringStore(db_path=str(self._db_path))
             latest_system = store.get_latest().system
             if latest_system:
@@ -165,7 +166,7 @@ class PipelineHealth:
                     sys_score -= 0.3
                 elif latest_system.disk_usage_pct > 75:
                     sys_score -= 0.1
-                score *= (0.2 * sys_score + 0.8)
+                score *= 0.2 * sys_score + 0.8
         except Exception:
             logger.exception("Failed to compute system resource health")
 
@@ -177,9 +178,14 @@ class PipelineHealth:
                 last_run = latest.get("started_at") or latest.get("completed_at")
                 if last_run:
                     from datetime import datetime
+
                     try:
-                        last_dt = datetime.fromisoformat(last_run.replace("Z", "+00:00"))
-                        hours_since = (datetime.now(timezone.utc) - last_dt).total_seconds() / 3600
+                        last_dt = datetime.fromisoformat(
+                            last_run.replace("Z", "+00:00")
+                        )
+                        hours_since = (
+                            datetime.now(timezone.utc) - last_dt
+                        ).total_seconds() / 3600
                         if hours_since > 48:
                             score -= 0.2
                         elif hours_since > 24:
@@ -242,7 +248,11 @@ class PipelineHealth:
         try:
             reports = self._load_recent_reports(days=7)
             if reports:
-                times = [r.get("duration_seconds", 0) for r in reports if r.get("duration_seconds")]
+                times = [
+                    r.get("duration_seconds", 0)
+                    for r in reports
+                    if r.get("duration_seconds")
+                ]
                 avg_time = sum(times) / len(times) if times else 0.0
             else:
                 avg_time = 0.0
@@ -254,6 +264,7 @@ class PipelineHealth:
         system_health = "unknown"
         try:
             from src.monitoring.store import MonitoringStore
+
             store = MonitoringStore(db_path=str(self._db_path))
             latest_system = store.get_latest().system
             if latest_system:
@@ -277,6 +288,7 @@ class PipelineHealth:
         dq_health = "unknown"
         try:
             from src.monitoring.store import MonitoringStore
+
             store = MonitoringStore(db_path=str(self._db_path))
             latest_dq = store.get_latest().data_quality
             if latest_dq:
@@ -300,6 +312,7 @@ class PipelineHealth:
         alert_count = 0
         try:
             from src.monitoring.alerting import AlertEngine
+
             engine = AlertEngine()
             history = engine.get_alert_history(days=7)
             alert_count = len(history)
@@ -313,12 +326,14 @@ class PipelineHealth:
             if recent_runs:
                 details["recent_runs"] = []
                 for r in recent_runs[:10]:
-                    details["recent_runs"].append({
-                        "started": r.get("started_at", ""),
-                        "duration": r.get("duration_seconds", 0),
-                        "succeeded": r.get("succeeded", 0),
-                        "failed": r.get("failed", 0),
-                    })
+                    details["recent_runs"].append(
+                        {
+                            "started": r.get("started_at", ""),
+                            "duration": r.get("duration_seconds", 0),
+                            "succeeded": r.get("succeeded", 0),
+                            "failed": r.get("failed", 0),
+                        }
+                    )
         except Exception:
             logger.exception("Failed to get recent runs summary")
 

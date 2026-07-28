@@ -58,15 +58,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Create a new dataset version from a file",
         description="Load data from CSV or Parquet and save as a new version.",
     )
-    cv_parser.add_argument("--file", "-f", required=True, help="Path to input data file (CSV or Parquet)")
+    cv_parser.add_argument(
+        "--file", "-f", required=True, help="Path to input data file (CSV or Parquet)"
+    )
     cv_parser.add_argument("--source", "-s", default="", help="Data source identifier")
     cv_parser.add_argument("--league", "-l", default="", help="League code")
     cv_parser.add_argument("--season", default="", help="Season identifier")
-    cv_parser.add_argument("--schema-version", default="", help="Schema version identifier")
-    cv_parser.add_argument("--pipeline-version", default="", help="Pipeline version identifier")
-    cv_parser.add_argument("--user", "-u", default="cli", help="User creating the version")
+    cv_parser.add_argument(
+        "--schema-version", default="", help="Schema version identifier"
+    )
+    cv_parser.add_argument(
+        "--pipeline-version", default="", help="Pipeline version identifier"
+    )
+    cv_parser.add_argument(
+        "--user", "-u", default="cli", help="User creating the version"
+    )
     cv_parser.add_argument("--notes", "-n", default="", help="Optional notes")
-    cv_parser.add_argument("--tag", action="append", help="Key=value tags (can be repeated)")
+    cv_parser.add_argument(
+        "--tag", action="append", help="Key=value tags (can be repeated)"
+    )
 
     # ── list-versions ──────────────────────────────────
     subparsers.add_parser(
@@ -84,7 +94,8 @@ def build_parser() -> argparse.ArgumentParser:
     comp_parser.add_argument("base", help="Base (older) version ID")
     comp_parser.add_argument("target", help="Target (newer) version ID")
     comp_parser.add_argument(
-        "--no-samples", action="store_true",
+        "--no-samples",
+        action="store_true",
         help="Don't include sample row data in output",
     )
 
@@ -96,11 +107,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rb_parser.add_argument("version_id", help="Version to rollback to")
     rb_parser.add_argument(
-        "--no-backup", action="store_true",
+        "--no-backup",
+        action="store_true",
         help="Don't create a backup before rolling back",
     )
     rb_parser.add_argument(
-        "--user", default="cli",
+        "--user",
+        default="cli",
         help="User performing the rollback",
     )
 
@@ -111,7 +124,8 @@ def build_parser() -> argparse.ArgumentParser:
         description="Check that stored data hashes match metadata.",
     )
     verify_parser.add_argument(
-        "--version", default=None,
+        "--version",
+        default=None,
         help="Specific version to verify (default: all)",
     )
 
@@ -163,6 +177,7 @@ def cmd_create_version(args: argparse.Namespace, mgr: VersionManager) -> int:
             )
         elif file_path.suffix.lower() in (".parquet", ".pq"):
             import pandas as pd
+
             df = pd.read_parquet(file_path)
             info = mgr.create_version(
                 df=df,
@@ -205,12 +220,16 @@ def cmd_list_versions(args: argparse.Namespace, mgr: VersionManager) -> int:
     if not versions:
         print("  No versions found.")
         print(f"  Version directory: {mgr.storage.base_dir}")
-        print("  Create one with: python -m src.data_versioning.cli create-version --file <path>")
+        print(
+            "  Create one with: python -m src.data_versioning.cli create-version --file <path>"
+        )
         return 0
 
     current_id = mgr.storage.get_current_version_id()
 
-    print(f"\n  {'ID':<8} {'Created':<22} {'Source':<20} {'League':<6} {'Season':<8} {'Rows':>10}  {'Hash'}")
+    print(
+        f"\n  {'ID':<8} {'Created':<22} {'Source':<20} {'League':<6} {'Season':<8} {'Rows':>10}  {'Hash'}"
+    )
     print(f"  {'─' * 84}")
     for v in versions:
         marker = "  ← CURRENT" if v.version_id == current_id else ""
@@ -299,7 +318,9 @@ def cmd_verify(args: argparse.Namespace, mgr: VersionManager) -> int:
     all_valid = all(r["valid"] for r in results.values())
     for vid, result in sorted(results.items()):
         status = "✅" if result["valid"] else "❌"
-        print(f"  {status} {vid:<8} rows={result['n_rows']:>10,}  hash={result['hash']}  source={result['source']}")
+        print(
+            f"  {status} {vid:<8} rows={result['n_rows']:>10,}  hash={result['hash']}  source={result['source']}"
+        )
 
     if all_valid:
         print(f"\n  ✅ All {len(results)} version(s) passed integrity check.")

@@ -91,8 +91,7 @@ class SyncState:
     ) -> list[MatchXG]:
         """Return only matches that haven't been imported yet."""
         return [
-            m for m in all_matches
-            if not self.is_match_imported(league_key, m.match_id)
+            m for m in all_matches if not self.is_match_imported(league_key, m.match_id)
         ]
 
 
@@ -193,17 +192,23 @@ class UnderstatImporter:
         if api_data and ("teams" in api_data or "dates" in api_data):
             logger.info(
                 "Using JSON API for %s/%d (%d keys)",
-                league, year, len(api_data),
+                league,
+                year,
+                len(api_data),
             )
             teams, matches = self.parser.parse_league_from_json(
-                api_data, league, year,
+                api_data,
+                league,
+                year,
             )
             if teams or matches:
                 return teams, matches
 
         # Fall back to legacy HTML extraction
         logger.info(
-            "Falling back to HTML extraction for %s/%d", league, year,
+            "Falling back to HTML extraction for %s/%d",
+            league,
+            year,
         )
         html = await self.client.get_league_page(league, year)
         teams, matches = self.parser.parse_league_from_html(html, league, year)
@@ -253,8 +258,16 @@ class UnderstatImporter:
             away_xg = sum(s.xg for s in shots if s.team == away_team)
             home_goals = sum(1 for s in shots if s.team == home_team and s.is_goal)
             away_goals = sum(1 for s in shots if s.team == away_team and s.is_goal)
-            home_sot = sum(1 for s in shots if s.team == home_team and s.result in ("GOAL", "SAVED"))
-            away_sot = sum(1 for s in shots if s.team == away_team and s.result in ("GOAL", "SAVED"))
+            home_sot = sum(
+                1
+                for s in shots
+                if s.team == home_team and s.result in ("GOAL", "SAVED")
+            )
+            away_sot = sum(
+                1
+                for s in shots
+                if s.team == away_team and s.result in ("GOAL", "SAVED")
+            )
 
             return MatchXG(
                 match_id=match_id,
@@ -359,7 +372,10 @@ class UnderstatImporter:
 
             # Step 3: Parse match list
             all_matches = self.parser.parse_league_matches(
-                dates_data_raw, teams_data_raw, league, year,
+                dates_data_raw,
+                teams_data_raw,
+                league,
+                year,
             )
             report.matches_found = len(all_matches)
 
@@ -374,8 +390,11 @@ class UnderstatImporter:
 
             logger.info(
                 "%s %s: %d matches total, %d new, %d already imported",
-                league, year, report.matches_found,
-                report.matches_new, report.matches_skipped,
+                league,
+                year,
+                report.matches_found,
+                report.matches_new,
+                report.matches_skipped,
             )
 
             # Step 5: Fetch shot data for new matches
@@ -389,14 +408,18 @@ class UnderstatImporter:
                 # Mark matches as imported
                 for match in new_matches:
                     self._sync.mark_imported(
-                        league_key, match.match_id, match.date,
+                        league_key,
+                        match.match_id,
+                        match.date,
                     )
 
             else:
                 # Still mark matches as imported (just xG, no shots)
                 for match in new_matches:
                     self._sync.mark_imported(
-                        league_key, match.match_id, match.date,
+                        league_key,
+                        match.match_id,
+                        match.date,
                     )
 
             report.matches_imported = len(new_matches)
@@ -411,8 +434,11 @@ class UnderstatImporter:
         report.duration_seconds = time.perf_counter() - start
         logger.info(
             "%s %s sync complete: %d matches, %d shots in %.1fs",
-            league, year, report.matches_imported,
-            report.shots_imported, report.duration_seconds,
+            league,
+            year,
+            report.matches_imported,
+            report.shots_imported,
+            report.duration_seconds,
         )
         return report
 
@@ -516,7 +542,9 @@ class UnderstatImporter:
         matches = self._sync.imported_matches.get(league_key, {})
         return {int(mid) for mid in matches if mid.isdigit()}
 
-    def reset_sync_state(self, league: str | None = None, year: int | None = None) -> None:
+    def reset_sync_state(
+        self, league: str | None = None, year: int | None = None
+    ) -> None:
         """Reset sync state for a specific league, or all leagues.
 
         Parameters

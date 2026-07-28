@@ -224,7 +224,9 @@ class PoissonModel:
         np.ndarray
             Shape ``(n, 3)``, columns: ``[away, draw, home]``.
         """
-        preds_df = self.predict_matches(df, home_team_col=home_team_col, away_team_col=away_team_col)
+        preds_df = self.predict_matches(
+            df, home_team_col=home_team_col, away_team_col=away_team_col
+        )
         n = len(preds_df)
         probs = np.zeros((n, 3))
         if "away_win_prob" in preds_df.columns:
@@ -285,11 +287,13 @@ class PoissonModel:
             over_under_threshold=over_under_threshold,
         )
 
-        probs = np.column_stack([
-            preds_df["away_win_prob"].values,
-            preds_df["draw_prob"].values,
-            preds_df["home_win_prob"].values,
-        ])
+        probs = np.column_stack(
+            [
+                preds_df["away_win_prob"].values,
+                preds_df["draw_prob"].values,
+                preds_df["home_win_prob"].values,
+            ]
+        )
         pred_labels = np.argmax(probs, axis=1)
 
         # ── 1X2 accuracy ──
@@ -297,6 +301,7 @@ class PoissonModel:
 
         # ── Log loss ──
         from sklearn.metrics import log_loss as sk_log_loss
+
         ll = sk_log_loss(actual_result, probs)
 
         # ── Brier score (multi-class) ──
@@ -311,8 +316,14 @@ class PoissonModel:
         pred_btts_probs = preds_df["btts_prob"].values
         pred_btts = (pred_btts_probs > 0.5).astype(float)
 
-        btts_accuracy = float(np.mean(pred_btts == actual_btts)) if len(actual_btts) > 0 else 0.0
-        btts_brier = float(np.mean((pred_btts_probs - actual_btts) ** 2)) if len(actual_btts) > 0 else 0.0
+        btts_accuracy = (
+            float(np.mean(pred_btts == actual_btts)) if len(actual_btts) > 0 else 0.0
+        )
+        btts_brier = (
+            float(np.mean((pred_btts_probs - actual_btts) ** 2))
+            if len(actual_btts) > 0
+            else 0.0
+        )
 
         # ── Over/Under ──
         actual_total = actual_hg + actual_ag
@@ -321,8 +332,14 @@ class PoissonModel:
         pred_ou_probs = preds_df.get(ou_col, pd.Series([0.5] * len(df_test))).values
         pred_ou = (pred_ou_probs > 0.5).astype(float)
 
-        ou_accuracy = float(np.mean(pred_ou == actual_ou)) if len(actual_ou) > 0 else 0.0
-        ou_brier = float(np.mean((pred_ou_probs - actual_ou) ** 2)) if len(actual_ou) > 0 else 0.0
+        ou_accuracy = (
+            float(np.mean(pred_ou == actual_ou)) if len(actual_ou) > 0 else 0.0
+        )
+        ou_brier = (
+            float(np.mean((pred_ou_probs - actual_ou) ** 2))
+            if len(actual_ou) > 0
+            else 0.0
+        )
         ou_key = f"over_under_{over_under_threshold:.1f}_accuracy".replace(".", "_")
         ou_brier_key = f"over_under_{over_under_threshold:.1f}_brier".replace(".", "_")
 
@@ -372,7 +389,9 @@ class PoissonModel:
         use_decay = self.decay_halflife_days > 0 and "date" in df_sorted.columns
         if use_decay:
             ref_date = pd.Timestamp(df_sorted["date"].iloc[-1]) + pd.Timedelta(days=1)
-            days_ago = (ref_date - pd.to_datetime(df_sorted["date"])).dt.days.values.astype(float)
+            days_ago = (
+                ref_date - pd.to_datetime(df_sorted["date"])
+            ).dt.days.values.astype(float)
             days_ago = np.maximum(days_ago, 0)
             weights = np.exp(-np.log(2) * days_ago / self.decay_halflife_days)
         else:
@@ -386,8 +405,16 @@ class PoissonModel:
         if n_matches > 0:
             if use_decay and weights is not None:
                 w_sum = np.sum(weights)
-                w_home = np.nansum(all_home_goals * weights) / w_sum if w_sum > 0 else np.nanmean(all_home_goals)
-                w_away = np.nansum(all_away_goals * weights) / w_sum if w_sum > 0 else np.nanmean(all_away_goals)
+                w_home = (
+                    np.nansum(all_home_goals * weights) / w_sum
+                    if w_sum > 0
+                    else np.nanmean(all_home_goals)
+                )
+                w_away = (
+                    np.nansum(all_away_goals * weights) / w_sum
+                    if w_sum > 0
+                    else np.nanmean(all_away_goals)
+                )
                 self._league_avg_home = float(w_home)
                 self._league_avg_away = float(w_away)
             else:
@@ -400,15 +427,20 @@ class PoissonModel:
 
         # ── Per-team strengths (weighted) ─────────────────
         self._team_strengths = self._compute_team_strengths(
-            df_sorted, home_team_col, away_team_col,
-            home_goals_col, away_goals_col,
+            df_sorted,
+            home_team_col,
+            away_team_col,
+            home_goals_col,
+            away_goals_col,
             weights=weights,
         )
 
         self._fitted = True
         logger.info(
             "PoissonModel fitted — μ_home=%.3f, μ_away=%.3f, %d teams (decay=%s)",
-            self._league_avg_home, self._league_avg_away, len(self._team_strengths),
+            self._league_avg_home,
+            self._league_avg_away,
+            len(self._team_strengths),
             f"{self.decay_halflife_days}d" if use_decay else "off",
         )
         return self
@@ -543,13 +575,15 @@ class PoissonModel:
         for i in range(max_g + 1):
             for j in range(max_g + 1):
                 prob = self._poisson(i, λ_home) * self._poisson(j, λ_away)
-                records.append({
-                    "home_goals": i,
-                    "away_goals": j,
-                    "probability": prob,
-                    "total_goals": i + j,
-                    "scoreline": f"{i}-{j}",
-                })
+                records.append(
+                    {
+                        "home_goals": i,
+                        "away_goals": j,
+                        "probability": prob,
+                        "total_goals": i + j,
+                        "scoreline": f"{i}-{j}",
+                    }
+                )
 
         table = pd.DataFrame(records)
         # Normalise so probabilities sum to 1.0 (accounts for truncated tail)
@@ -664,7 +698,8 @@ class PoissonModel:
             away = row[away_team_col]
 
             result = self.predict(
-                home, away,
+                home,
+                away,
                 max_goals=max_goals,
                 over_under_threshold=over_under_threshold,
             )
@@ -726,9 +761,9 @@ class PoissonModel:
         # Running exponentially-weighted aggregates for expanding-window computation
         # {team: [scored_weighted_sum, conceded_weighted_sum, weight_sum]}
         team_stats: dict[str, list[float]] = {}
-        home_wsum = 0.0      # weighted sum of home goals
-        away_wsum = 0.0      # weighted sum of away goals
-        match_wsum = 0.0     # sum of weights for league averages
+        home_wsum = 0.0  # weighted sum of home goals
+        away_wsum = 0.0  # weighted sum of away goals
+        match_wsum = 0.0  # sum of weights for league averages
         n = len(df)
 
         # Pre-extract column arrays for fast access
@@ -761,9 +796,9 @@ class PoissonModel:
             # Apply decay to all running aggregates
             for team_key in list(team_stats.keys()):
                 s = team_stats[team_key]
-                s[0] *= decay   # decay weighted scored
-                s[1] *= decay   # decay weighted conceded
-                s[2] *= decay   # decay the weight sum
+                s[0] *= decay  # decay weighted scored
+                s[1] *= decay  # decay weighted conceded
+                s[2] *= decay  # decay the weight sum
 
             home_wsum *= decay
             away_wsum *= decay
@@ -841,7 +876,9 @@ class PoissonModel:
 
         logger.info(
             "Poisson features added — μ_home=%.3f, μ_away=%.3f, %d teams (decay=%s)",
-            self._league_avg_home, self._league_avg_away, len(self._team_strengths),
+            self._league_avg_home,
+            self._league_avg_away,
+            len(self._team_strengths),
             f"{self.decay_halflife_days}d" if use_decay else "off",
         )
 
@@ -870,7 +907,7 @@ class PoissonModel:
         """
         if lam == 0.0:
             return 1.0 if k == 0 else 0.0
-        return (np.exp(-lam) * (lam ** k)) / factorial(k)  # type: ignore[return-value, unused-ignore, no-any-return]
+        return (np.exp(-lam) * (lam**k)) / factorial(k)  # type: ignore[return-value, unused-ignore, no-any-return]
 
     @staticmethod
     def _poisson_cdf(k: int, lam: float) -> float:

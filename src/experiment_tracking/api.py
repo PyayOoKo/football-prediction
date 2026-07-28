@@ -50,6 +50,7 @@ _engine = None
 
 def _get_db_url() -> str:
     import os
+
     return os.environ.get(
         "EXPERIMENT_DB_URL",
         os.environ.get("DATABASE_URL", "sqlite:///experiments.db"),
@@ -472,6 +473,7 @@ def export_experiments_json(
     """Export experiments as JSON."""
     data = export_json(session, experiment_id=experiment_id)
     import json as json_mod
+
     return json_mod.loads(data)  # type: ignore[no-any-return]
 
 

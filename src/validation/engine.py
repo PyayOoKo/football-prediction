@@ -108,19 +108,25 @@ class ValidationEngine:
                     passed=False,
                     total_rows=len(data),
                     violation_count=1,
-                    violations=[{
-                        "row_index": -1,
-                        "field": "engine",
-                        "value": str(exc),
-                        "message": f"Check failed with exception: {exc}",
-                    }],
+                    violations=[
+                        {
+                            "row_index": -1,
+                            "field": "engine",
+                            "value": str(exc),
+                            "message": f"Check failed with exception: {exc}",
+                        }
+                    ],
                 )
 
             result.checks.append(check_result)
 
             if self.verbose:
                 elapsed = time.perf_counter() - start
-                status = "PASS" if check_result.passed else f"FAIL ({check_result.violation_count} violations)"
+                status = (
+                    "PASS"
+                    if check_result.passed
+                    else f"FAIL ({check_result.violation_count} violations)"
+                )
                 logger.info(
                     "  [%s] %s — %s in %.2fs",
                     status,
@@ -161,9 +167,6 @@ class ValidationEngine:
         -------
         ValidationResult
         """
-        selected = [
-            (n, fn, kw) for n, fn, kw in self.checks
-            if n in check_names
-        ]
+        selected = [(n, fn, kw) for n, fn, kw in self.checks if n in check_names]
         engine = ValidationEngine(checks=selected, verbose=self.verbose)
         return engine.run(data, source_name=source_name)

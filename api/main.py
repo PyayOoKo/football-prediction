@@ -46,7 +46,7 @@ from api.models import (
     PredictResponse,
     PredictWithOddsRequest,
 )
-from config import config
+from src.config import config
 
 logger = logging.getLogger(__name__)
 

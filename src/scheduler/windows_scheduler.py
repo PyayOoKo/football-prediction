@@ -83,9 +83,7 @@ class WindowsScheduler:
         venv_python: str | Path | None = None,
     ) -> None:
         self.project_root = Path(project_root or self._find_project_root())
-        self.venv_python = (
-            str(venv_python) if venv_python else self._find_venv_python()
-        )
+        self.venv_python = str(venv_python) if venv_python else self._find_venv_python()
 
     # ── Public API ─────────────────────────────────────
 
@@ -128,42 +126,45 @@ class WindowsScheduler:
             "REM  Create the scheduled task",
             f'schtasks /create /tn "{t.name}" /tr ',
             f'  "{python} {script} {t.args}"',
-            f'  /sc {t.schedule_type}',
+            f"  /sc {t.schedule_type}",
         ]
 
         if t.schedule_type == "daily":
-            lines.append(f'  /st {t.schedule_time}')
+            lines.append(f"  /st {t.schedule_time}")
         elif t.schedule_type == "hourly":
-            lines.append(f'  /mo {t.repeat_interval_minutes}')
+            lines.append(f"  /mo {t.repeat_interval_minutes}")
         elif t.schedule_type == "onstart":
-            lines.append('  /delay 0005:00')  # 5 min delay after startup
+            lines.append("  /delay 0005:00")  # 5 min delay after startup
 
-        lines.extend([
-            '  /ru "%USERNAME%"',
-            '  /rl HIGHEST',
-            '  /f',
-            '  /it',
-            '  /np',
-        ])
+        lines.extend(
+            [
+                '  /ru "%USERNAME%"',
+                "  /rl HIGHEST",
+                "  /f",
+                "  /it",
+                "  /np",
+            ]
+        )
 
         if not t.enabled:
-            lines.append('  /disable')
+            lines.append("  /disable")
 
         # Add task description
-        lines.extend([
-            "",
-            "REM  Set working directory",
-            f'schtasks /change /tn "{t.name}" /tr "{python} {script} {t.args}"',
-            "",
-            "echo.",
-            f"echo  Task '{t.name}' installed successfully.",
-            f"echo  Schedule: {t.schedule_type}" + (
-                f" at {t.schedule_time}" if t.schedule_type == "daily" else ""
-            ),
-            f"echo  Script: {script}",
-            f"echo  Log: {log}",
-            "echo.",
-        ])
+        lines.extend(
+            [
+                "",
+                "REM  Set working directory",
+                f'schtasks /change /tn "{t.name}" /tr "{python} {script} {t.args}"',
+                "",
+                "echo.",
+                f"echo  Task '{t.name}' installed successfully.",
+                f"echo  Schedule: {t.schedule_type}"
+                + (f" at {t.schedule_time}" if t.schedule_type == "daily" else ""),
+                f"echo  Script: {script}",
+                f"echo  Log: {log}",
+                "echo.",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -210,9 +211,14 @@ class WindowsScheduler:
         script_path = self._resolve_script(t.script_path)
 
         cmd = [
-            "schtasks", "/create", "/tn", t.name,
-            "/tr", f'"{python_path}" "{script_path}" {t.args}',
-            "/sc", t.schedule_type,
+            "schtasks",
+            "/create",
+            "/tn",
+            t.name,
+            "/tr",
+            f'"{python_path}" "{script_path}" {t.args}',
+            "/sc",
+            t.schedule_type,
         ]
 
         if t.schedule_type == "daily":
@@ -228,7 +234,8 @@ class WindowsScheduler:
                 logger.info("Task '%s' installed successfully", t.name)
                 return True
             logger.error(
-                "Failed to install task: %s", result.stderr or result.stdout,
+                "Failed to install task: %s",
+                result.stderr or result.stdout,
             )
             return False
         except FileNotFoundError:
@@ -251,13 +258,16 @@ class WindowsScheduler:
         try:
             result = subprocess.run(
                 ["schtasks", "/delete", "/tn", task_name, "/f"],
-                capture_output=True, text=True, check=False,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if result.returncode == 0:
                 logger.info("Task '%s' uninstalled", task_name)
                 return True
             logger.warning(
-                "Failed to uninstall task: %s", result.stderr or result.stdout,
+                "Failed to uninstall task: %s",
+                result.stderr or result.stdout,
             )
             return False
         except FileNotFoundError:
@@ -275,7 +285,9 @@ class WindowsScheduler:
         try:
             result = subprocess.run(
                 ["schtasks", "/query", "/fo", "CSV", "/v"],
-                capture_output=True, text=True, check=False,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if result.returncode != 0:
                 return []
@@ -286,11 +298,15 @@ class WindowsScheduler:
                 if len(parts) >= 3:
                     task_name = parts[0].strip('"')
                     if "Football" in task_name or "Pipeline" in task_name:
-                        tasks.append({
-                            "name": task_name,
-                            "status": parts[1].strip('"') if len(parts) > 1 else "",
-                            "next_run": parts[2].strip('"') if len(parts) > 2 else "",
-                        })
+                        tasks.append(
+                            {
+                                "name": task_name,
+                                "status": parts[1].strip('"') if len(parts) > 1 else "",
+                                "next_run": parts[2].strip('"')
+                                if len(parts) > 2
+                                else "",
+                            }
+                        )
             return tasks
         except FileNotFoundError:
             return []
@@ -307,11 +323,11 @@ class WindowsScheduler:
 chcp 65001 >nul
 
 REM  Auto-Commit Scheduler — commits and pushes changes hourly
-REM  Generated by {__name__} on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+REM  Generated by {__name__} on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
-set PROJECT_DIR={str(self.project_root).replace('/', '\\')}
-set PS_SCRIPT={str(ps_script).replace('/', '\\')}
-set LOG_FILE={str(log_file).replace('/', '\\')}
+set PROJECT_DIR={str(self.project_root).replace("/", "\\")}
+set PS_SCRIPT={str(ps_script).replace("/", "\\")}
+set LOG_FILE={str(log_file).replace("/", "\\")}
 
 REM  Create the scheduled task (hourly)
 schtasks /create /tn "FootballAutoCommit" /tr \\
@@ -342,7 +358,7 @@ if %ERRORLEVEL% equ 0 (
 chcp 65001 >nul
 
 REM  Value Bets Scheduler — runs daily at 7:00 AM
-REM  Generated by {__name__} on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+REM  Generated by {__name__} on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 schtasks /create /tn "FootballValueBets" /tr \\
   "{python} {script} --quiet" \\

@@ -118,7 +118,10 @@ class Monitor:
         # Background collection
         self._bg_thread: threading.Thread | None = None
         self._bg_stop = threading.Event()
-        if auto_collect_system_interval is not None and auto_collect_system_interval > 0:
+        if (
+            auto_collect_system_interval is not None
+            and auto_collect_system_interval > 0
+        ):
             self._start_background_collection(auto_collect_system_interval)
 
     # ── Property-based report generators ──────────────
@@ -164,7 +167,10 @@ class Monitor:
         row_id = self.store.record_etl(metric)
         logger.info(
             "Recorded ETL metric: pipeline=%s duration=%.1fs rows=%d id=%d",
-            metric.pipeline, metric.duration_seconds, metric.rows_imported, row_id,
+            metric.pipeline,
+            metric.duration_seconds,
+            metric.rows_imported,
+            row_id,
         )
         return row_id
 
@@ -199,7 +205,11 @@ class Monitor:
             cache_metric = self.cache_collector.from_cache_manager(self.cache_manager)
             metric.cache_hit_rate = cache_metric.hit_rate
             metric.cache_entries = cache_metric.entries
-            metric.cache_size_mb = cache_metric.size_bytes / (1024 * 1024) if cache_metric.size_bytes > 0 else 0.0
+            metric.cache_size_mb = (
+                cache_metric.size_bytes / (1024 * 1024)
+                if cache_metric.size_bytes > 0
+                else 0.0
+            )
         elif self.fbref_client is not None:
             cache_metric = self.cache_collector.from_fbref_client(self.fbref_client)
             metric.cache_hit_rate = cache_metric.hit_rate
@@ -207,7 +217,10 @@ class Monitor:
         row_id = self.store.record_system(metric)
         logger.debug(
             "Recorded system metric: cpu=%.1f%% mem=%.1f%% db=%.2fMB id=%d",
-            metric.cpu_percent, metric.memory_percent, metric.db_size_mb, row_id,
+            metric.cpu_percent,
+            metric.memory_percent,
+            metric.db_size_mb,
+            row_id,
         )
         return row_id
 
@@ -230,12 +243,22 @@ class Monitor:
         row_id = self.store.record_data_quality(metric)
         logger.info(
             "Recorded data quality: source=%s rows=%d null=%.1f%% dup=%.1f%% id=%d",
-            source, metric.n_rows, metric.null_pct, metric.duplicate_pct, row_id,
+            source,
+            metric.n_rows,
+            metric.null_pct,
+            metric.duplicate_pct,
+            row_id,
         )
         return row_id
 
-    def record_cache(self, hits: int = 0, misses: int = 0, hit_rate: float = 0.0,
-                     entries: int = 0, size_bytes: int = 0) -> int:
+    def record_cache(
+        self,
+        hits: int = 0,
+        misses: int = 0,
+        hit_rate: float = 0.0,
+        entries: int = 0,
+        size_bytes: int = 0,
+    ) -> int:
         """Record a cache metric snapshot.
 
         Parameters
@@ -257,8 +280,11 @@ class Monitor:
             Row ID of the stored metric.
         """
         metric = CacheMetric(
-            hits=hits, misses=misses, hit_rate=hit_rate,
-            entries=entries, size_bytes=size_bytes,
+            hits=hits,
+            misses=misses,
+            hit_rate=hit_rate,
+            entries=entries,
+            size_bytes=size_bytes,
         )
         return self.store.record_cache(metric)
 
@@ -377,8 +403,11 @@ class Monitor:
         interval : float
             Collection interval in seconds.
         """
+
         def _loop() -> None:
-            logger.info("Background system collection started (interval=%.1fs)", interval)
+            logger.info(
+                "Background system collection started (interval=%.1fs)", interval
+            )
             while not self._bg_stop.is_set():
                 try:
                     self.record_system()

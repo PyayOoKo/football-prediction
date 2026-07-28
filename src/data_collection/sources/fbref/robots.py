@@ -279,14 +279,17 @@ class RobotsChecker:
                 allowed_path = allow_match.group(1).strip()
                 # Remove any disallowed prefixes that start with the allowed path
                 policy.disallowed_prefixes = [
-                    p for p in policy.disallowed_prefixes
+                    p
+                    for p in policy.disallowed_prefixes
                     if not p.startswith(allowed_path)
                 ]
                 continue
 
         # Fallback: add known FBref disallowed paths if none found
         if not policy.disallowed_prefixes:
-            logger.info("No disallow rules found in robots.txt — using known FBref paths")
+            logger.info(
+                "No disallow rules found in robots.txt — using known FBref paths"
+            )
             policy.disallowed_prefixes.extend(KNOWN_DISALLOWED_PREFIXES)
 
         return policy

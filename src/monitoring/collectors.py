@@ -47,6 +47,7 @@ class SystemCollector:
 
         try:
             import psutil  # noqa: F401
+
             self._psutil_available = True
         except ImportError:
             logger.info("psutil not available — using stdlib-only system metrics")
@@ -63,6 +64,7 @@ class SystemCollector:
 
         if self._psutil_available:
             import psutil
+
             metric.cpu_percent = psutil.cpu_percent(interval=0.5)
             mem = psutil.virtual_memory()
             metric.memory_percent = mem.percent
@@ -260,10 +262,12 @@ class ETLMetricCollector:
         -------
         ETLMetric
         """
-        duration = result.get("duration_seconds", 0.0) or \
-                   result.get("elapsed", 0.0)
-        rows = result.get("rows", 0) or result.get("new_rows", 0) or \
-               result.get("total_rows", 0)
+        duration = result.get("duration_seconds", 0.0) or result.get("elapsed", 0.0)
+        rows = (
+            result.get("rows", 0)
+            or result.get("new_rows", 0)
+            or result.get("total_rows", 0)
+        )
         error = result.get("error", "")
         success = result.get("success", True)
 
@@ -316,7 +320,8 @@ class DataQualityCollector:
         if not isinstance(df, pd.DataFrame) or df.empty:
             return DataQualityMetric(
                 source=source,
-                n_rows=0, n_columns=0,
+                n_rows=0,
+                n_columns=0,
                 validation_passed=True,
             )
 

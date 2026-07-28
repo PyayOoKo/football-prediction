@@ -110,11 +110,11 @@ _DEFAULT_MAX_MARGIN: int = 5
 # Tier 1 (top leagues like PL, La Liga) get standard K
 # Lower tiers get higher K (more volatile ratings)
 _LEAGUE_STRENGTH: dict[int, float] = {
-    1: 1.0,   # Top division
-    2: 1.1,   # Second division
-    3: 1.2,   # Third division
-    4: 1.3,   # Fourth division
-    5: 1.4,   # Lower divisions
+    1: 1.0,  # Top division
+    2: 1.1,  # Second division
+    3: 1.2,  # Third division
+    4: 1.3,  # Fourth division
+    5: 1.4,  # Lower divisions
 }
 
 # Match importance multipliers: competition type → K multiplier
@@ -174,6 +174,7 @@ class EloMatchRecord:
     away_elo_change : float
         Change in away team's rating.
     """
+
     match_index: int
     home_team: str
     away_team: str
@@ -202,6 +203,7 @@ class EloSnapshot:
     total_matches_processed : int
         Number of matches processed so far.
     """
+
     timestamp: datetime
     ratings: dict[str, float] = field(default_factory=dict)
     total_matches_processed: int = 0
@@ -413,7 +415,9 @@ class EloEngine:
         return 1.0
 
     @staticmethod
-    def _parse_league_strength(league_col: str | None, tier: int | None = None) -> float:
+    def _parse_league_strength(
+        league_col: str | None, tier: int | None = None
+    ) -> float:
         """Map a competition name or tier to a league strength multiplier.
 
         Uses the ``tier`` (level) if provided, otherwise tries to infer
@@ -430,20 +434,51 @@ class EloEngine:
             name = league_col.lower().strip().replace("_", " ")
 
             # Each tier lists keywords that indicate that division level
-            if any(kw in name for kw in ["premier league", "la liga", "serie a",
-                                           "bundesliga", "ligue 1", "primera division",
-                                           "eredivisie", "primeira liga", "super lig",
-                                           "mls", "jupiler", "premiership",
-                                           "first division a",
-                                           "allsvenskan"]):
+            if any(
+                kw in name
+                for kw in [
+                    "premier league",
+                    "la liga",
+                    "serie a",
+                    "bundesliga",
+                    "ligue 1",
+                    "primera division",
+                    "eredivisie",
+                    "primeira liga",
+                    "super lig",
+                    "mls",
+                    "jupiler",
+                    "premiership",
+                    "first division a",
+                    "allsvenskan",
+                ]
+            ):
                 return _LEAGUE_STRENGTH.get(1, 1.0)
-            if any(kw in name for kw in ["championship", "segunda division", "serie b",
-                                           "2. bundesliga", "ligue 2", "league one",
-                                           "second division",
-                                           "superettan", "obos ligaen"]):
+            if any(
+                kw in name
+                for kw in [
+                    "championship",
+                    "segunda division",
+                    "serie b",
+                    "2. bundesliga",
+                    "ligue 2",
+                    "league one",
+                    "second division",
+                    "superettan",
+                    "obos ligaen",
+                ]
+            ):
                 return _LEAGUE_STRENGTH.get(2, 1.1)
-            if any(kw in name for kw in ["league two", "third division", "1. division",
-                                           "ykkösliiga", "ykkonen"]):
+            if any(
+                kw in name
+                for kw in [
+                    "league two",
+                    "third division",
+                    "1. division",
+                    "ykkösliiga",
+                    "ykkonen",
+                ]
+            ):
                 return _LEAGUE_STRENGTH.get(3, 1.2)
 
         return 1.0
@@ -479,7 +514,8 @@ class EloEngine:
                 self._regress_ratings()
                 logger.debug(
                     "Season change: %s → %s — ratings regressed",
-                    self._current_season, season,
+                    self._current_season,
+                    season,
                 )
         self._current_season = season
 
@@ -493,9 +529,9 @@ class EloEngine:
         ratings_arr = np.array(list(self._ratings.values()))
         mean_rating = float(np.mean(ratings_arr))
         for team in self._ratings:
-            self._ratings[team] = mean_rating + (
-                self._ratings[team] - mean_rating
-            ) * (1.0 - self.regression_factor)
+            self._ratings[team] = mean_rating + (self._ratings[team] - mean_rating) * (
+                1.0 - self.regression_factor
+            )
 
     # ── Single match update ─────────────────────────────
 
@@ -560,9 +596,15 @@ class EloEngine:
         S_away = 1.0 - S_home
 
         # K-factor computation
-        goal_margin = self._compute_goal_margin(home_goals, away_goals, home_xg, away_xg)
+        goal_margin = self._compute_goal_margin(
+            home_goals, away_goals, home_xg, away_xg
+        )
         importance_mult = self._parse_importance(league) if self.use_importance else 1.0
-        league_mult = self._parse_league_strength(league, league_tier) if self.use_league_strength else 1.0
+        league_mult = (
+            self._parse_league_strength(league, league_tier)
+            if self.use_league_strength
+            else 1.0
+        )
         K_eff = self._compute_k_factor(goal_margin, importance_mult, league_mult)
 
         # Track seen teams
@@ -726,7 +768,10 @@ class EloEngine:
         n_teams = len(self._known_teams)
         logger.info(
             "Elo: processed %d matches, %d teams, K=%d, H=%d",
-            len(df), n_teams, self.k, self.home_advantage,
+            len(df),
+            n_teams,
+            self.k,
+            self.home_advantage,
         )
 
         return df
@@ -773,29 +818,33 @@ class EloEngine:
         rows: list[dict[str, Any]] = []
         for r in self._history:
             if r.home_team == team:
-                rows.append({
-                    "match_index": r.match_index,
-                    "opponent": r.away_team,
-                    "side": "home",
-                    "elo_before": r.home_elo_before,
-                    "elo_after": r.home_elo_after,
-                    "elo_change": r.home_elo_change,
-                    "expected": r.expected_home,
-                    "actual": r.actual_home,
-                    "k_factor": r.k_factor,
-                })
+                rows.append(
+                    {
+                        "match_index": r.match_index,
+                        "opponent": r.away_team,
+                        "side": "home",
+                        "elo_before": r.home_elo_before,
+                        "elo_after": r.home_elo_after,
+                        "elo_change": r.home_elo_change,
+                        "expected": r.expected_home,
+                        "actual": r.actual_home,
+                        "k_factor": r.k_factor,
+                    }
+                )
             elif r.away_team == team:
-                rows.append({
-                    "match_index": r.match_index,
-                    "opponent": r.home_team,
-                    "side": "away",
-                    "elo_before": r.away_elo_before,
-                    "elo_after": r.away_elo_after,
-                    "elo_change": r.away_elo_change,
-                    "expected": r.expected_away,
-                    "actual": 1.0 - r.actual_home,  # away score = 1 - home score
-                    "k_factor": r.k_factor,
-                })
+                rows.append(
+                    {
+                        "match_index": r.match_index,
+                        "opponent": r.home_team,
+                        "side": "away",
+                        "elo_before": r.away_elo_before,
+                        "elo_after": r.away_elo_after,
+                        "elo_change": r.away_elo_change,
+                        "expected": r.expected_away,
+                        "actual": 1.0 - r.actual_home,  # away score = 1 - home score
+                        "k_factor": r.k_factor,
+                    }
+                )
         return pd.DataFrame(rows).sort_values("match_index")
 
     def current_snapshot(self) -> EloSnapshot:
@@ -835,7 +884,9 @@ class EloEngine:
         try:
             import matplotlib.pyplot as plt
         except ImportError:
-            logger.warning("matplotlib required for plotting. Install: pip install matplotlib")
+            logger.warning(
+                "matplotlib required for plotting. Install: pip install matplotlib"
+            )
             return None
 
         traj = self.team_trajectory(team)
@@ -846,21 +897,38 @@ class EloEngine:
         fig, ax = plt.subplots(figsize=figsize)
 
         ax.plot(
-            traj["match_index"], traj["elo_before"],
-            marker="o", linestyle="-", linewidth=1.5,
-            markersize=3, label=f"{team} Elo",
+            traj["match_index"],
+            traj["elo_before"],
+            marker="o",
+            linestyle="-",
+            linewidth=1.5,
+            markersize=3,
+            label=f"{team} Elo",
         )
-        ax.axhline(y=self.initial_rating, color="gray", linestyle="--",
-                   alpha=0.5, label="Initial rating")
+        ax.axhline(
+            y=self.initial_rating,
+            color="gray",
+            linestyle="--",
+            alpha=0.5,
+            label="Initial rating",
+        )
         ax.fill_between(
-            traj["match_index"], traj["elo_before"], self.initial_rating,
+            traj["match_index"],
+            traj["elo_before"],
+            self.initial_rating,
             where=(traj["elo_before"] >= self.initial_rating),
-            color="green", alpha=0.1, label="Above average",
+            color="green",
+            alpha=0.1,
+            label="Above average",
         )
         ax.fill_between(
-            traj["match_index"], traj["elo_before"], self.initial_rating,
+            traj["match_index"],
+            traj["elo_before"],
+            self.initial_rating,
             where=(traj["elo_before"] < self.initial_rating),
-            color="red", alpha=0.1, label="Below average",
+            color="red",
+            alpha=0.1,
+            label="Below average",
         )
 
         ax.set_title(title or f"Elo Rating Trajectory — {team}")
@@ -901,10 +969,20 @@ class EloEngine:
 
         # Histogram
         ax1.hist(ratings_arr, bins=30, color="steelblue", edgecolor="white", alpha=0.8)
-        ax1.axvline(x=self.initial_rating, color="red", linestyle="--",
-                    alpha=0.7, label=f"Initial ({self.initial_rating})")
-        ax1.axvline(x=float(np.mean(ratings_arr)), color="green", linestyle="--",
-                    alpha=0.7, label=f"Mean ({np.mean(ratings_arr):.0f})")
+        ax1.axvline(
+            x=self.initial_rating,
+            color="red",
+            linestyle="--",
+            alpha=0.7,
+            label=f"Initial ({self.initial_rating})",
+        )
+        ax1.axvline(
+            x=float(np.mean(ratings_arr)),
+            color="green",
+            linestyle="--",
+            alpha=0.7,
+            label=f"Mean ({np.mean(ratings_arr):.0f})",
+        )
         ax1.set_title("Elo Rating Distribution")
         ax1.set_xlabel("Elo Rating")
         ax1.set_ylabel("Number of Teams")
@@ -919,15 +997,25 @@ class EloEngine:
         bars = ax2.barh(range(len(names)), ratings_vals, color="steelblue")
         ax2.set_yticks(range(len(names)))
         ax2.set_yticklabels(names)
-        ax2.axvline(x=self.initial_rating, color="red", linestyle="--",
-                    alpha=0.5, label=f"Initial ({self.initial_rating})")
+        ax2.axvline(
+            x=self.initial_rating,
+            color="red",
+            linestyle="--",
+            alpha=0.5,
+            label=f"Initial ({self.initial_rating})",
+        )
         ax2.set_title("Top 15 Teams by Elo")
         ax2.set_xlabel("Elo Rating")
         ax2.invert_yaxis()
 
         for bar, val in zip(bars, ratings_vals, strict=False):
-            ax2.text(val + 5, bar.get_y() + bar.get_height() / 2,
-                     f"{val:.0f}", va="center", fontsize=8)
+            ax2.text(
+                val + 5,
+                bar.get_y() + bar.get_height() / 2,
+                f"{val:.0f}",
+                va="center",
+                fontsize=8,
+            )
 
         plt.tight_layout()
         return fig
@@ -949,14 +1037,23 @@ class EloEngine:
 
         sorted_teams = sorted(self._ratings.items(), key=lambda x: -x[1])
         print("\n  ELO RATINGS — TOP %d" % min(top_n, len(sorted_teams)))
-        print("  " + '=' * 45)
-        print("  %-6s %-25s %8s" % ('Rank', 'Team', 'Rating'))
-        print("  " + '-' * 45)
+        print("  " + "=" * 45)
+        print("  %-6s %-25s %8s" % ("Rank", "Team", "Rating"))
+        print("  " + "-" * 45)
         for i, (team, rating) in enumerate(sorted_teams[:top_n], 1):
-            arrow = "+" if rating > self.initial_rating else "-" if rating < self.initial_rating else "="
+            arrow = (
+                "+"
+                if rating > self.initial_rating
+                else "-"
+                if rating < self.initial_rating
+                else "="
+            )
             print("  %-6d %-25s %8.1f %s" % (i, team, rating, arrow))
-        print("  " + '=' * 45)
-        print("  Teams: %d  |  Matches: %d  |  K: %d" % (len(self._ratings), self._match_count, self.k))
+        print("  " + "=" * 45)
+        print(
+            "  Teams: %d  |  Matches: %d  |  K: %d"
+            % (len(self._ratings), self._match_count, self.k)
+        )
 
     # ── Benchmark alignment ────────────────────────────
 
@@ -994,9 +1091,7 @@ class EloEngine:
             "regression_factor": self.regression_factor,
         }
 
-        aligned = all(
-            actual[k] == v for k, v in club_elo_params.items()
-        )
+        aligned = all(actual[k] == v for k, v in club_elo_params.items())
 
         return {
             "club_elo_aligned": aligned,
@@ -1055,9 +1150,14 @@ class EloTransformer(FeatureTransformer):
 
     output_columns: list[str] = ["h_elo", "a_elo", "elo_diff"]
 
-    _REQUIRED_COLS: frozenset[str] = frozenset({
-        "date", "home_team", "away_team", "result",
-    })
+    _REQUIRED_COLS: frozenset[str] = frozenset(
+        {
+            "date",
+            "home_team",
+            "away_team",
+            "result",
+        }
+    )
 
     def __init__(self, **params: Any) -> None:
         super().__init__(**params)
@@ -1068,7 +1168,9 @@ class EloTransformer(FeatureTransformer):
             home_advantage=params.get("home_advantage", _DEFAULT_HOME_ADVANTAGE),
             initial_rating=params.get("initial_rating", _DEFAULT_INITIAL_RATING),
             new_team_rating=params.get("new_team_rating", _DEFAULT_NEW_TEAM_RATING),
-            regression_factor=params.get("regression_factor", _DEFAULT_REGRESSION_FACTOR),
+            regression_factor=params.get(
+                "regression_factor", _DEFAULT_REGRESSION_FACTOR
+            ),
             use_goal_margin=params.get("use_goal_margin", True),
             max_margin=params.get("max_margin", _DEFAULT_MAX_MARGIN),
             use_importance=params.get("use_importance", True),
@@ -1154,6 +1256,7 @@ class EloTransformer(FeatureTransformer):
         if host_file:
             import json
             from pathlib import Path
+
             p = Path(host_file)
             if p.exists():
                 with open(p) as f:

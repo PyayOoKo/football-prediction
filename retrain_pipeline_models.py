@@ -42,7 +42,7 @@ def main() -> int:
     print("=" * 72)
 
     # ── 1. Load preprocessed data (same as pipeline) ───────
-    from config import config
+    from src.config import config
     from src.feature_engineering import build_features, train_val_test_split
 
     data_path = config.paths.processed / "results_clean.csv"

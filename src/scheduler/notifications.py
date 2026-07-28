@@ -105,7 +105,9 @@ class NotificationConfig:
         cfg.smtp_port = int(os.environ.get("NOTIFY_SMTP_PORT", "587"))
         cfg.smtp_user = os.environ.get("NOTIFY_SMTP_USER", "")
         cfg.smtp_password = os.environ.get("NOTIFY_SMTP_PASSWORD", "")
-        cfg.email_from = os.environ.get("NOTIFY_EMAIL_FROM", "football-prediction@localhost")
+        cfg.email_from = os.environ.get(
+            "NOTIFY_EMAIL_FROM", "football-prediction@localhost"
+        )
         cfg.email_to = os.environ.get("NOTIFY_EMAIL_TO", "")
         cfg.slack_webhook_url = os.environ.get("NOTIFY_SLACK_WEBHOOK", "")
         cfg.slack_channel = os.environ.get("NOTIFY_SLACK_CHANNEL", "#alerts")
@@ -189,7 +191,9 @@ class Notifier:
 
         return results
 
-    def send_pipeline_report(self, report: dict[str, Any], level: str = "info") -> dict[str, bool]:
+    def send_pipeline_report(
+        self, report: dict[str, Any], level: str = "info"
+    ) -> dict[str, bool]:
         """Send a pipeline run report as a notification.
 
         Parameters
@@ -217,7 +221,9 @@ class Notifier:
             for e in errors[:5]:
                 lines.append(f"  - {e[:200]}")
 
-        return self.send(title=title, message="\n".join(lines), level=level, metadata=report)
+        return self.send(
+            title=title, message="\n".join(lines), level=level, metadata=report
+        )
 
     # ── Channel implementations ────────────────────────
 
@@ -225,7 +231,9 @@ class Notifier:
         """Send notification to console log."""
         emoji = {"info": "ℹ️", "warning": "⚠️", "error": "🚨"}
         e = emoji.get(payload["level"], "ℹ️")
-        msg = f"{e} [{payload['level'].upper()}] {payload['title']}: {payload['message']}"
+        msg = (
+            f"{e} [{payload['level'].upper()}] {payload['title']}: {payload['message']}"
+        )
         if payload["level"] == "error":
             logger.error(msg)
         elif payload["level"] == "warning":
@@ -250,7 +258,9 @@ class Notifier:
                 body += f"\nMetadata:\n{json.dumps(payload['metadata'], indent=2, default=str)}"
 
             msg = MIMEText(body)
-            msg["Subject"] = f"[Football Prediction] {payload['level'].upper()}: {payload['title']}"
+            msg["Subject"] = (
+                f"[Football Prediction] {payload['level'].upper()}: {payload['title']}"
+            )
             msg["From"] = self.config.email_from
             msg["To"] = self.config.email_to
 
@@ -259,7 +269,9 @@ class Notifier:
                 server.starttls(context=context)
                 if self.config.smtp_user:
                     server.login(self.config.smtp_user, self.config.smtp_password)
-                server.sendmail(self.config.email_from, [self.config.email_to], msg.as_string())
+                server.sendmail(
+                    self.config.email_from, [self.config.email_to], msg.as_string()
+                )
 
             logger.info("Email notification sent to %s", self.config.email_to)
             return True
@@ -287,7 +299,10 @@ class Notifier:
                 {
                     "type": "context",
                     "elements": [
-                        {"type": "mrkdwn", "text": f"*Level:* {payload['level']} | *Time:* {payload['timestamp']}"},
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Level:* {payload['level']} | *Time:* {payload['timestamp']}",
+                        },
                     ],
                 },
             ]
@@ -302,10 +317,12 @@ class Notifier:
 
             data = {
                 "channel": self.config.slack_channel,
-                "attachments": [{
-                    "color": color_map.get(payload["level"], "#36a64f"),
-                    "blocks": blocks,
-                }],
+                "attachments": [
+                    {
+                        "color": color_map.get(payload["level"], "#36a64f"),
+                        "blocks": blocks,
+                    }
+                ],
             }
 
             response = requests.post(
@@ -315,7 +332,9 @@ class Notifier:
             )
             success = response.status_code == 200
             if not success:
-                logger.warning("Slack notification failed: HTTP %d", response.status_code)
+                logger.warning(
+                    "Slack notification failed: HTTP %d", response.status_code
+                )
             return success
 
         except ImportError:

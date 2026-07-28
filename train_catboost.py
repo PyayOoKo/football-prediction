@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from catboost import CatBoostClassifier
 
-from config import config
+from src.config import config
 from src.feature_engineering import build_features, train_val_test_split
 
 logging.basicConfig(

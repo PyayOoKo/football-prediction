@@ -123,52 +123,104 @@ logger = logging.getLogger(__name__)
 # Each optional metric maps home-patterns and away-patterns
 _COLUMN_PATTERNS: dict[str, list[str]] = {
     "home_shots": [
-        "home_shots", "h_shots", "hshots", "hs", "shots_home",
+        "home_shots",
+        "h_shots",
+        "hshots",
+        "hs",
+        "shots_home",
     ],
     "away_shots": [
-        "away_shots", "a_shots", "ashots", "as", "shots_away",
+        "away_shots",
+        "a_shots",
+        "ashots",
+        "as",
+        "shots_away",
     ],
     "home_shots_on_target": [
-        "home_shots_on_target", "home_shots_target", "h_sot",
-        "h_sht", "hst", "shots_target_home",
+        "home_shots_on_target",
+        "home_shots_target",
+        "h_sot",
+        "h_sht",
+        "hst",
+        "shots_target_home",
     ],
     "away_shots_on_target": [
-        "away_shots_on_target", "away_shots_target", "a_sot",
-        "a_sht", "ast", "shots_target_away",
+        "away_shots_on_target",
+        "away_shots_target",
+        "a_sot",
+        "a_sht",
+        "ast",
+        "shots_target_away",
     ],
     "home_xg": [
-        "home_xg", "h_xg", "hxg", "xg_home", "expected_goals_home",
+        "home_xg",
+        "h_xg",
+        "hxg",
+        "xg_home",
+        "expected_goals_home",
     ],
     "away_xg": [
-        "away_xg", "a_xg", "axg", "xg_away", "expected_goals_away",
+        "away_xg",
+        "a_xg",
+        "axg",
+        "xg_away",
+        "expected_goals_away",
     ],
     "home_possession": [
-        "home_possession", "h_possession", "hposs", "possession_home",
+        "home_possession",
+        "h_possession",
+        "hposs",
+        "possession_home",
     ],
     "away_possession": [
-        "away_possession", "a_possession", "aposs", "possession_away",
+        "away_possession",
+        "a_possession",
+        "aposs",
+        "possession_away",
     ],
     "home_corners": [
-        "home_corners", "h_corners", "hcorners", "hc",
+        "home_corners",
+        "h_corners",
+        "hcorners",
+        "hc",
     ],
     "away_corners": [
-        "away_corners", "a_corners", "acorners", "ac",
+        "away_corners",
+        "a_corners",
+        "acorners",
+        "ac",
     ],
     "home_yellow_cards": [
-        "home_yellow_cards", "home_yellow", "h_yellow_cards",
-        "h_yellow", "hy", "yellow_cards_home",
+        "home_yellow_cards",
+        "home_yellow",
+        "h_yellow_cards",
+        "h_yellow",
+        "hy",
+        "yellow_cards_home",
     ],
     "away_yellow_cards": [
-        "away_yellow_cards", "away_yellow", "a_yellow_cards",
-        "a_yellow", "ay", "yellow_cards_away",
+        "away_yellow_cards",
+        "away_yellow",
+        "a_yellow_cards",
+        "a_yellow",
+        "ay",
+        "yellow_cards_away",
     ],
     "home_red_cards": [
-        "home_red_cards", "home_red", "h_red_cards",
-        "h_red", "hr", "red_cards_home",
+        "home_red_cards",
+        "home_red",
+        "h_red_cards",
+        "h_red",
+        "hr",
+        "red_cards_home",
     ],
     "away_red_cards": [
-        "away_red_cards", "away_red", "a_red_cards",
-        "a_red", "ar", "red_cards_away",
+        "away_red_cards",
+        "away_red",
+        "a_red_cards",
+        "a_red",
+        "ar",
+        "red_cards_away",
     ],
 }
 
@@ -179,44 +231,92 @@ _COLUMN_PATTERNS: dict[str, list[str]] = {
 # Metrics always available (derived from result + goals).
 # is_binary: True = rolling mean gives decimal rate (e.g. 0.600),
 #            False = rolling mean of raw values (e.g. 1.4 goals).
-_CORE_METRICS: OrderedDict[str, dict[str, Any]] = OrderedDict({
-    "points":       {"is_binary": False, "description": "Points per match (3/1/0)"},
-    "wins":         {"is_binary": True,  "description": "Win rate (proportion)"},
-    "draws":        {"is_binary": True,  "description": "Draw rate (proportion)"},
-    "losses":       {"is_binary": True,  "description": "Loss rate (proportion)"},
-    "goals_scored":  {"is_binary": False, "description": "Average goals scored per match"},
-    "goals_conceded":{"is_binary": False, "description": "Average goals conceded per match"},
-    "goal_diff":    {"is_binary": False, "description": "Average goal difference per match"},
-    "clean_sheets": {"is_binary": True,  "description": "Clean sheet rate (proportion)"},
-    "btts":         {"is_binary": True,  "description": "Both Teams Scored rate"},
-    "over_2.5":     {"is_binary": True,  "description": "Over 2.5 goals rate"},
-    "under_2.5":    {"is_binary": True,  "description": "Under 2.5 goals rate"},
-})
+_CORE_METRICS: OrderedDict[str, dict[str, Any]] = OrderedDict(
+    {
+        "points": {"is_binary": False, "description": "Points per match (3/1/0)"},
+        "wins": {"is_binary": True, "description": "Win rate (proportion)"},
+        "draws": {"is_binary": True, "description": "Draw rate (proportion)"},
+        "losses": {"is_binary": True, "description": "Loss rate (proportion)"},
+        "goals_scored": {
+            "is_binary": False,
+            "description": "Average goals scored per match",
+        },
+        "goals_conceded": {
+            "is_binary": False,
+            "description": "Average goals conceded per match",
+        },
+        "goal_diff": {
+            "is_binary": False,
+            "description": "Average goal difference per match",
+        },
+        "clean_sheets": {
+            "is_binary": True,
+            "description": "Clean sheet rate (proportion)",
+        },
+        "btts": {"is_binary": True, "description": "Both Teams Scored rate"},
+        "over_2.5": {"is_binary": True, "description": "Over 2.5 goals rate"},
+        "under_2.5": {"is_binary": True, "description": "Under 2.5 goals rate"},
+    }
+)
 
 # Optional metrics — only computed when source columns exist
-_OPTIONAL_METRICS: OrderedDict[str, dict[str, Any]] = OrderedDict({
-    "xg":            {"is_binary": False, "description": "Average xG per match",
-                      "source_home": "home_xg", "source_away": "away_xg"},
-    "xga":           {"is_binary": False, "description": "Average xGA conceded per match",
-                      "source_home": "away_xg", "source_away": "home_xg"},
-    "xgd":           {"is_binary": False, "description": "Average xG difference per match",
-                      "depends_on": ["xg", "xga"]},
-    "shots":         {"is_binary": False, "description": "Average shots per match",
-                      "source_home": "home_shots", "source_away": "away_shots"},
-    "shots_on_target":{"is_binary": False, "description": "Average shots on target per match",
-                       "source_home": "home_shots_on_target",
-                       "source_away": "away_shots_on_target"},
-    "possession":    {"is_binary": False, "description": "Average possession % per match",
-                      "source_home": "home_possession", "source_away": "away_possession"},
-    "corners":       {"is_binary": False, "description": "Average corners per match",
-                      "source_home": "home_corners", "source_away": "away_corners"},
-    "yellow_cards":  {"is_binary": False, "description": "Average yellow cards per match",
-                      "source_home": "home_yellow_cards",
-                      "source_away": "away_yellow_cards"},
-    "red_cards":     {"is_binary": False, "description": "Average red cards per match",
-                      "source_home": "home_red_cards",
-                      "source_away": "away_red_cards"},
-})
+_OPTIONAL_METRICS: OrderedDict[str, dict[str, Any]] = OrderedDict(
+    {
+        "xg": {
+            "is_binary": False,
+            "description": "Average xG per match",
+            "source_home": "home_xg",
+            "source_away": "away_xg",
+        },
+        "xga": {
+            "is_binary": False,
+            "description": "Average xGA conceded per match",
+            "source_home": "away_xg",
+            "source_away": "home_xg",
+        },
+        "xgd": {
+            "is_binary": False,
+            "description": "Average xG difference per match",
+            "depends_on": ["xg", "xga"],
+        },
+        "shots": {
+            "is_binary": False,
+            "description": "Average shots per match",
+            "source_home": "home_shots",
+            "source_away": "away_shots",
+        },
+        "shots_on_target": {
+            "is_binary": False,
+            "description": "Average shots on target per match",
+            "source_home": "home_shots_on_target",
+            "source_away": "away_shots_on_target",
+        },
+        "possession": {
+            "is_binary": False,
+            "description": "Average possession % per match",
+            "source_home": "home_possession",
+            "source_away": "away_possession",
+        },
+        "corners": {
+            "is_binary": False,
+            "description": "Average corners per match",
+            "source_home": "home_corners",
+            "source_away": "away_corners",
+        },
+        "yellow_cards": {
+            "is_binary": False,
+            "description": "Average yellow cards per match",
+            "source_home": "home_yellow_cards",
+            "source_away": "away_yellow_cards",
+        },
+        "red_cards": {
+            "is_binary": False,
+            "description": "Average red cards per match",
+            "source_home": "home_red_cards",
+            "source_away": "away_red_cards",
+        },
+    }
+)
 
 # Default params
 _DEFAULT_WINDOWS = (3, 5, 10, 20)
@@ -259,9 +359,16 @@ class TeamFormTransformer(FeatureTransformer):
 
     # ── Required columns ─────────────────────────────────
 
-    _REQUIRED_COLS: frozenset[str] = frozenset({
-        "date", "home_team", "away_team", "home_goals", "away_goals", "result",
-    })
+    _REQUIRED_COLS: frozenset[str] = frozenset(
+        {
+            "date",
+            "home_team",
+            "away_team",
+            "home_goals",
+            "away_goals",
+            "result",
+        }
+    )
 
     def __init__(self, **params: Any) -> None:
         super().__init__(**params)
@@ -285,7 +392,8 @@ class TeamFormTransformer(FeatureTransformer):
         self._initialized = True
         logger.debug(
             "TeamFormTransformer initialized: %d windows, %d contexts, ~%d columns",
-            len(self._resolved_windows), len(self._resolved_contexts),
+            len(self._resolved_windows),
+            len(self._resolved_contexts),
             len(self.output_columns),
         )
 
@@ -384,7 +492,8 @@ class TeamFormTransformer(FeatureTransformer):
 
         for ctx in contexts:
             rolling_df = self._compute_rolling(
-                team_stats, context_name=ctx,
+                team_stats,
+                context_name=ctx,
                 windows=windows,
                 league_specific=league_specific,
             )
@@ -393,15 +502,22 @@ class TeamFormTransformer(FeatureTransformer):
         # ── 5. Merge all context features onto original DF ─
         df = self._merge_features(df, context_dfs, team_stats)
 
-        len([c for c in df.columns if c not in df.columns  # already in original
-                     if c not in (
-                         set(df.columns) - set(self._resolved_outputs))])
+        len(
+            [
+                c
+                for c in df.columns
+                if c not in df.columns  # already in original
+                if c not in (set(df.columns) - set(self._resolved_outputs))
+            ]
+        )
         # Simpler: count how many of our output columns are now in df
         added = [c for c in self._resolved_outputs if c in df.columns]
         logger.debug(
             "TeamForm: added %d / %d possible columns (%d windows, %d contexts)",
-            len(added), len(self._resolved_outputs),
-            len(windows), len(contexts),
+            len(added),
+            len(self._resolved_outputs),
+            len(windows),
+            len(contexts),
         )
 
         return df
@@ -485,7 +601,10 @@ class TeamFormTransformer(FeatureTransformer):
         # Detect via: if "home_xg" and "away_xg" columns exist, xga is available
         if "xg" in available and enabled_xg:
             # Check that xg was found via column detection (not randomly added)
-            if "home_xg" in self._available_optional_cols and "away_xg" in self._available_optional_cols:
+            if (
+                "home_xg" in self._available_optional_cols
+                and "away_xg" in self._available_optional_cols
+            ):
                 available["xga"] = _OPTIONAL_METRICS["xga"]
                 # xgd depends on xg + xga, so it's always available when both are
                 available["xgd"] = _OPTIONAL_METRICS["xgd"]
@@ -521,26 +640,34 @@ class TeamFormTransformer(FeatureTransformer):
             xg, xga, shots, shots_on_target, ... (optional)
         """
         # ── Home team rows ────────────────────────────────
-        home_df = pd.DataFrame({
-            "team": df["home_team"].values,
-            "date": pd.to_datetime(df["date"]).values if "date" in df.columns else pd.NaT,
-            "opponent": df["away_team"].values,
-            "is_home": np.ones(len(df), dtype=np.int8),
-            "match_id": df.index.values,
-            "goals_scored": df["home_goals"].values.astype(float),
-            "goals_conceded": df["away_goals"].values.astype(float),
-        })
+        home_df = pd.DataFrame(
+            {
+                "team": df["home_team"].values,
+                "date": pd.to_datetime(df["date"]).values
+                if "date" in df.columns
+                else pd.NaT,
+                "opponent": df["away_team"].values,
+                "is_home": np.ones(len(df), dtype=np.int8),
+                "match_id": df.index.values,
+                "goals_scored": df["home_goals"].values.astype(float),
+                "goals_conceded": df["away_goals"].values.astype(float),
+            }
+        )
 
         # ── Away team rows ────────────────────────────────
-        away_df = pd.DataFrame({
-            "team": df["away_team"].values,
-            "date": pd.to_datetime(df["date"]).values if "date" in df.columns else pd.NaT,
-            "opponent": df["home_team"].values,
-            "is_home": np.zeros(len(df), dtype=np.int8),
-            "match_id": df.index.values,
-            "goals_scored": df["away_goals"].values.astype(float),
-            "goals_conceded": df["home_goals"].values.astype(float),
-        })
+        away_df = pd.DataFrame(
+            {
+                "team": df["away_team"].values,
+                "date": pd.to_datetime(df["date"]).values
+                if "date" in df.columns
+                else pd.NaT,
+                "opponent": df["home_team"].values,
+                "is_home": np.zeros(len(df), dtype=np.int8),
+                "match_id": df.index.values,
+                "goals_scored": df["away_goals"].values.astype(float),
+                "goals_conceded": df["home_goals"].values.astype(float),
+            }
+        )
 
         # ── Season and league ─────────────────────────────
         for col in ("season", "league"):
@@ -560,9 +687,9 @@ class TeamFormTransformer(FeatureTransformer):
         # Use pandas Series.str for robust NaN handling
         result_series = pd.Series(result)
         result_upper = result_series.astype(str).str.upper().fillna("").values
-        home_is_win = (result_upper == "H")
-        away_is_win = (result_upper == "A")
-        is_draw = (result_upper == "D")
+        home_is_win = result_upper == "H"
+        away_is_win = result_upper == "A"
+        is_draw = result_upper == "D"
 
         h_win = np.concatenate([home_is_win, away_is_win])
         h_draw = np.concatenate([is_draw, is_draw])
@@ -573,8 +700,7 @@ class TeamFormTransformer(FeatureTransformer):
         team_stats["is_loss"] = h_loss.astype(np.int8)
 
         # 3/1/0 points
-        team_stats["points"] = (h_win.astype(float) * 3.0 +
-                                h_draw.astype(float) * 1.0)
+        team_stats["points"] = h_win.astype(float) * 3.0 + h_draw.astype(float) * 1.0
 
         # ── Goal-derived indicators ───────────────────────
         gs = team_stats["goals_scored"].values
@@ -615,14 +741,22 @@ class TeamFormTransformer(FeatureTransformer):
             home_xg_col_actual = optional.get("home_xg")
             away_xg_col_actual = optional.get("away_xg")
             if home_xg_col_actual is not None and away_xg_col_actual is not None:
-                home_xg_vals = pd.to_numeric(df[home_xg_col_actual], errors="coerce").values
-                away_xg_vals = pd.to_numeric(df[away_xg_col_actual], errors="coerce").values
+                home_xg_vals = pd.to_numeric(
+                    df[home_xg_col_actual], errors="coerce"
+                ).values
+                away_xg_vals = pd.to_numeric(
+                    df[away_xg_col_actual], errors="coerce"
+                ).values
                 # Home team xga = away team's xg (goals conceded expected)
                 # Away team xga = home team's xg
                 team_stats["xga"] = np.concatenate([away_xg_vals, home_xg_vals])
 
         # xgd = xg - xga
-        if "xg" in team_stats.columns and "xga" in team_stats.columns and "xgd" in opts_active:
+        if (
+            "xg" in team_stats.columns
+            and "xga" in team_stats.columns
+            and "xgd" in opts_active
+        ):
             team_stats["xgd"] = team_stats["xg"] - team_stats["xga"]
 
         # ── Sort by team then date ────────────────────────
@@ -720,9 +854,7 @@ class TeamFormTransformer(FeatureTransformer):
                 values = grp[src_col]
                 for w in windows:
                     rolling_name = f"{context_name}_{metric_name}_avg{w}"
-                    grp[rolling_name] = (
-                        values.rolling(w, min_periods=1).mean().shift(1)
-                    )
+                    grp[rolling_name] = values.rolling(w, min_periods=1).mean().shift(1)
             return grp
 
         # Use explicit loop instead of groupby.apply to avoid pandas version
@@ -738,9 +870,9 @@ class TeamFormTransformer(FeatureTransformer):
 
         # Keep only match_id + is_home + rolling columns
         rolling_cols = [
-            c for c in result.columns
-            if c in ("match_id", "is_home", "team")
-            or "_avg" in c
+            c
+            for c in result.columns
+            if c in ("match_id", "is_home", "team") or "_avg" in c
         ]
         return result[rolling_cols]
 
@@ -770,9 +902,9 @@ class TeamFormTransformer(FeatureTransformer):
 
             col_prefix = f"{ctx_name}_"
             feat_cols = [
-                c for c in rolling_df.columns
-                if c.startswith(col_prefix)
-                and c not in ("match_id", "is_home", "team")
+                c
+                for c in rolling_df.columns
+                if c.startswith(col_prefix) and c not in ("match_id", "is_home", "team")
             ]
             if not feat_cols:
                 continue

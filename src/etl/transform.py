@@ -187,7 +187,9 @@ class DataTransformer:
             current = data
             for i, transform_fn in enumerate(self.transforms):
                 name = getattr(transform_fn, "__name__", f"transform_{i}")
-                logger.debug("Applying transform %d/%d: %s", i + 1, len(self.transforms), name)
+                logger.debug(
+                    "Applying transform %d/%d: %s", i + 1, len(self.transforms), name
+                )
                 current = transform_fn(current)
 
             result.data = current

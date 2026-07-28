@@ -155,7 +155,9 @@ class BetFilter:
         if n_rejected > 0:
             logger.info(
                 "BetFilter: %d/%d passed, %d rejected (%s)",
-                n_passed, n_total, n_rejected,
+                n_passed,
+                n_total,
+                n_rejected,
                 ", ".join(
                     f"{name}={count}"
                     for name, count in sorted(self._rejection_counts.items())
@@ -216,9 +218,7 @@ class BetFilter:
         prob = bet.get("model_prob")
         if prob is not None:
             if prob < self.min_confidence:
-                return (
-                    f"Confidence too low: {prob:.3f} < {self.min_confidence}"
-                )
+                return f"Confidence too low: {prob:.3f} < {self.min_confidence}"
             return None
         if self.reject_on_missing:
             return "Model probability missing"
@@ -240,9 +240,7 @@ class BetFilter:
         stake_pct = bet.get("bankroll_pct", bet.get("stake_pct"))
         if stake_pct is not None:
             if stake_pct > self.max_stake:
-                return (
-                    f"Stake too high: {stake_pct:.1%} > {self.max_stake:.1%}"
-                )
+                return f"Stake too high: {stake_pct:.1%} > {self.max_stake:.1%}"
             return None
         # No stake data — can't check this filter
         return None

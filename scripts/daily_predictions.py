@@ -35,7 +35,7 @@ import pandas as pd
 
 from src.monitoring import Monitor
 
-from config import config
+from src.config import config
 
 logger = logging.getLogger("daily_predictions")
 

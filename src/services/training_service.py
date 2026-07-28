@@ -33,7 +33,9 @@ class TrainingService:
         global container's ConfigProvider.
     """
 
-    def __init__(self, model_dir: Path | None = None, config: ConfigProvider | None = None) -> None:
+    def __init__(
+        self, model_dir: Path | None = None, config: ConfigProvider | None = None
+    ) -> None:
         self._config = config or get_container().resolve(ConfigProvider)  # type: ignore[type-abstract]
         self._model_dir = model_dir or self._config.paths.models
         self._model_dir.mkdir(parents=True, exist_ok=True)
@@ -99,6 +101,7 @@ class TrainingService:
 
         # ── 2a. Validate data before training ───────────────
         from src.data_collection.cleaners import validate_data
+
         validation = validate_data(df)
         if not validation["is_valid"]:
             warnings_str = " | ".join(validation["warnings"])
@@ -126,6 +129,7 @@ class TrainingService:
         # chronological sort, where N is determined by the same split
         # ratios used later in train_val_test_split).
         from src.features.encoding import SafeTargetEncoder
+
         target_encoder = SafeTargetEncoder(cols=["home_team", "away_team"])
         if "target" in completed.columns:
             # Sort the same way build_features does so X.index aligns
@@ -145,7 +149,9 @@ class TrainingService:
             logger.info(
                 "SafeTargetEncoder fitted on %d training rows (first %.0f%% of %d) "
                 "— prior=%.4f (%d categories)",
-                train_end, train_ratio * 100, len(completed),
+                train_end,
+                train_ratio * 100,
+                len(completed),
                 target_encoder.prior,
                 sum(len(v) for v in target_encoder._category_means.values()),
             )
@@ -154,7 +160,9 @@ class TrainingService:
         from src.feature_engineering import build_features
 
         X, y = build_features(
-            completed, is_training=True, config=cfg,
+            completed,
+            is_training=True,
+            config=cfg,
             encoder=target_encoder,
         )
         logger.info("Feature matrix: %d rows x %d cols", *X.shape)
@@ -180,7 +188,8 @@ class TrainingService:
         _fitted_selector = None
         if cfg.feature_selection.enabled:  # type: ignore[attr-defined]
             X_train_fs, selector = self._apply_feature_selection_post_split(
-                splits["X_train"], splits["y_train"],
+                splits["X_train"],
+                splits["y_train"],
             )
             splits["X_train"] = X_train_fs
             splits["X_val"] = selector.transform(splits["X_val"])
@@ -197,7 +206,8 @@ class TrainingService:
         tuning_report: dict[str, Any] | None = None
         if tune_hyperparams:
             tuning_report = self._run_tuning(
-                splits["X_train"], splits["y_train"],
+                splits["X_train"],
+                splits["y_train"],
                 n_folds=cv_folds,
                 model_type=model_type,
             )
@@ -212,8 +222,10 @@ class TrainingService:
                 cfg.train.model_type = model_type
 
             model, history = train_model(
-                splits["X_train"], splits["y_train"],
-                splits["X_val"], splits["y_val"],
+                splits["X_train"],
+                splits["y_train"],
+                splits["X_val"],
+                splits["y_val"],
                 config=cfg,
             )
         finally:
@@ -233,18 +245,23 @@ class TrainingService:
         _ALL_CLASSES = [0, 1, 2]  # Away Win=0, Draw=1, Home Win=2
         test_accuracy = float(accuracy_score(splits["y_test"], y_pred))
         try:
-            test_log_loss = float(log_loss(
-                splits["y_test"], y_proba,
-                labels=_ALL_CLASSES,
-            ))
+            test_log_loss = float(
+                log_loss(
+                    splits["y_test"],
+                    y_proba,
+                    labels=_ALL_CLASSES,
+                )
+            )
         except (ValueError, Exception):
-            test_log_loss = float('nan')
+            test_log_loss = float("nan")
         cm = confusion_matrix(splits["y_test"], y_pred).tolist()
         class_report = classification_report(
-            splits["y_test"], y_pred,
+            splits["y_test"],
+            y_pred,
             target_names=["Away Win", "Draw", "Home Win"],
             labels=_ALL_CLASSES,
-            output_dict=True, zero_division=0,
+            output_dict=True,
+            zero_division=0,
         )
 
         metrics = {
@@ -267,6 +284,7 @@ class TrainingService:
         )
 
         from datetime import datetime, timezone
+
         artifact_kwargs = {
             "feature_names": all_feature_names,
             "selected_feature_names": selected_feature_names,
@@ -276,7 +294,9 @@ class TrainingService:
         }
 
         artifact_path = save_model(
-            model, config=cfg, **artifact_kwargs,
+            model,
+            config=cfg,
+            **artifact_kwargs,
         )
         logger.info("Model artifact saved to %s", artifact_path)
 
@@ -331,6 +351,7 @@ class TrainingService:
         except FileNotFoundError:
             # Try absolute / explicit path
             import joblib
+
             path = Path(model_path_str)
             if path.exists():
                 model = joblib.load(path)
@@ -347,6 +368,7 @@ class TrainingService:
         completed = df[df["result"].notna()].copy()
 
         from src.feature_engineering import build_features, train_val_test_split
+
         X, y = build_features(completed, is_training=True, config=cfg_eval)
         splits = train_val_test_split(X, y, config=cfg_eval)
         X_test, y_test = splits["X_test"], splits["y_test"]
@@ -370,9 +392,11 @@ class TrainingService:
         ll = float(log_loss(y_test, y_proba))
         cm = confusion_matrix(y_test, y_pred).tolist()
         class_report = classification_report(
-            y_test, y_pred,
+            y_test,
+            y_pred,
             target_names=["Away Win", "Draw", "Home Win"],
-            output_dict=True, zero_division=0,
+            output_dict=True,
+            zero_division=0,
         )
 
         result = {
@@ -407,13 +431,15 @@ class TrainingService:
         models: list[dict[str, Any]] = []
         for fpath in sorted(self._model_dir.glob("*.joblib")):
             stat = fpath.stat()
-            models.append({
-                "file_name": fpath.name,
-                "path": str(fpath.relative_to(self._config.paths.models)),
-                "size_bytes": stat.st_size,
-                "size_mb": round(stat.st_size / (1024 * 1024), 2),
-                "modified": stat.st_mtime,
-            })
+            models.append(
+                {
+                    "file_name": fpath.name,
+                    "path": str(fpath.relative_to(self._config.paths.models)),
+                    "size_bytes": stat.st_size,
+                    "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                    "modified": stat.st_mtime,
+                }
+            )
 
         logger.info("Found %d models in %s", len(models), self._model_dir)
         return models
@@ -441,9 +467,11 @@ class TrainingService:
                 cfg_tune.train.model_type = model_type
 
             best_params = tune_hyperparameters(
-                X_train, y_train,
+                X_train,
+                y_train,
                 n_folds=n_folds or cfg_tune.train.cv_folds,
-                n_iter=50, verbose=False,
+                n_iter=50,
+                verbose=False,
                 config=cfg_tune,
             )
 
@@ -500,6 +528,7 @@ class TrainingService:
     def _build_selector(self, X: pd.DataFrame, y: pd.Series) -> Any:
         """Build a sklearn-compatible selector pipeline (unfitted)."""
         from sklearn.pipeline import Pipeline
+
         fs = self._config.feature_selection  # type: ignore[attr-defined]
         steps: list[tuple[str, Any]] = []
 
@@ -512,7 +541,8 @@ class TrainingService:
                     corr = X.corr().abs()
                     upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
                     to_drop = [
-                        col for col in upper.columns
+                        col
+                        for col in upper.columns
                         if any(upper[col] > fs.correlation_threshold)
                         and col in upper.columns
                     ]
@@ -520,7 +550,10 @@ class TrainingService:
                     return self
 
                 def transform(self, X: pd.DataFrame) -> pd.DataFrame:
-                    return X.drop(columns=[c for c in self.to_drop_ if c in X.columns], errors="ignore")
+                    return X.drop(
+                        columns=[c for c in self.to_drop_ if c in X.columns],
+                        errors="ignore",
+                    )
 
             steps.append(("drop_corr", DropCorrelated()))
 
@@ -528,6 +561,7 @@ class TrainingService:
         method = fs.method
         if method == "mutual_info":
             from sklearn.feature_selection import SelectKBest, mutual_info_classif
+
             n_target = min(fs.n_features, X.shape[1] - 1)
             if n_target > 0:
                 steps.append(("select", SelectKBest(mutual_info_classif, k=n_target)))
@@ -535,22 +569,37 @@ class TrainingService:
         elif method == "l1":
             from sklearn.feature_selection import SelectFromModel
             from sklearn.linear_model import LogisticRegression
+
             l1 = LogisticRegression(
-                penalty="l1", solver="saga", C=0.1,
-                max_iter=2000, random_state=42, n_jobs=1,
+                penalty="l1",
+                solver="saga",
+                C=0.1,
+                max_iter=2000,
+                random_state=42,
+                n_jobs=1,
             )
-            steps.append(("select", SelectFromModel(l1, threshold="mean", max_features=fs.n_features)))
+            steps.append(
+                (
+                    "select",
+                    SelectFromModel(l1, threshold="mean", max_features=fs.n_features),
+                )
+            )
 
         elif method == "rfe":
             from sklearn.feature_selection import RFE
             from sklearn.linear_model import LogisticRegression
+
             estimator = LogisticRegression(
-                solver="lbfgs", max_iter=1000,
-                random_state=42, n_jobs=1,
+                solver="lbfgs",
+                max_iter=1000,
+                random_state=42,
+                n_jobs=1,
             )
             n_target = min(fs.n_features, X.shape[1] - 1)
             if n_target > 0:
-                steps.append(("rfe", RFE(estimator, n_features_to_select=n_target, step=0.2)))
+                steps.append(
+                    ("rfe", RFE(estimator, n_features_to_select=n_target, step=0.2))
+                )
 
         elif method == "threshold":
             from sklearn.base import BaseEstimator, TransformerMixin
@@ -558,9 +607,12 @@ class TrainingService:
             class ThresholdSelector(BaseEstimator, TransformerMixin):  # type: ignore[misc]
                 def fit(self, X: pd.DataFrame, y: Any = None) -> Self:
                     from sklearn.ensemble import RandomForestClassifier
+
                     rf = RandomForestClassifier(
-                        n_estimators=100, max_depth=6,
-                        random_state=42, n_jobs=-1,
+                        n_estimators=100,
+                        max_depth=6,
+                        random_state=42,
+                        n_jobs=-1,
                     )
                     rf.fit(X, y)
                     importances = pd.Series(rf.feature_importances_, index=X.columns)
@@ -585,6 +637,7 @@ class TrainingService:
             class Passthrough(BaseEstimator, TransformerMixin):  # type: ignore[misc]
                 def fit(self, X: pd.DataFrame, y: Any = None) -> Self:
                     return self
+
                 def transform(self, X: pd.DataFrame) -> pd.DataFrame:
                     return X
 
@@ -615,17 +668,27 @@ class TrainingService:
         if fs.drop_redundant_first and fs.correlation_threshold < 1.0:
             try:
                 from src.feature_selection import drop_redundant, find_redundant_pairs
+
                 pairs = find_redundant_pairs(X, threshold=fs.correlation_threshold)
                 if pairs:
                     # Compute MI ranking for tie-breaking
                     from sklearn.feature_selection import mutual_info_classif
+
                     mi = mutual_info_classif(X, y, random_state=42)
-                    ranking = [f for _, f in sorted(zip(mi, feature_names, strict=False), reverse=True)]
+                    ranking = [
+                        f
+                        for _, f in sorted(
+                            zip(mi, feature_names, strict=False), reverse=True
+                        )
+                    ]
                     to_drop = drop_redundant(pairs, ranking)
-                    X = X.drop(columns=[c for c in to_drop if c in X.columns], errors="ignore")
+                    X = X.drop(
+                        columns=[c for c in to_drop if c in X.columns], errors="ignore"
+                    )
                     logger.info(
                         "Dropped %d highly-correlated features (r>%.2f)",
-                        len(to_drop), fs.correlation_threshold,
+                        len(to_drop),
+                        fs.correlation_threshold,
                     )
                     # Update feature_names after dropping columns
                     feature_names = X.columns.tolist()
@@ -640,6 +703,7 @@ class TrainingService:
 
             if fs.method in ("mutual_info",):
                 from sklearn.feature_selection import SelectKBest, mutual_info_classif
+
                 selector = SelectKBest(mutual_info_classif, k=n_target)
                 selector.fit(X, y)
                 mask = selector.get_support()
@@ -651,9 +715,14 @@ class TrainingService:
             elif fs.method == "l1":
                 from sklearn.feature_selection import SelectFromModel
                 from sklearn.linear_model import LogisticRegression
+
                 l1 = LogisticRegression(
-                    penalty="l1", solver="saga", C=0.1,
-                    max_iter=2000, random_state=42, n_jobs=1,
+                    penalty="l1",
+                    solver="saga",
+                    C=0.1,
+                    max_iter=2000,
+                    random_state=42,
+                    n_jobs=1,
                 )
                 selector = SelectFromModel(l1, threshold="mean", max_features=n_target)
                 selector.fit(X, y)
@@ -666,9 +735,12 @@ class TrainingService:
             elif fs.method == "rfe":
                 from sklearn.feature_selection import RFE
                 from sklearn.linear_model import LogisticRegression
+
                 estimator = LogisticRegression(
-                    solver="lbfgs", max_iter=1000,
-                    random_state=42, n_jobs=1,
+                    solver="lbfgs",
+                    max_iter=1000,
+                    random_state=42,
+                    n_jobs=1,
                 )
                 rfe = RFE(estimator, n_features_to_select=n_target, step=0.2)
                 rfe.fit(X, y)
@@ -681,31 +753,41 @@ class TrainingService:
             elif fs.method == "threshold":
                 # Use feature importances from a quick RandomForest
                 from sklearn.ensemble import RandomForestClassifier
+
                 rf = RandomForestClassifier(
-                    n_estimators=100, max_depth=6,
-                    random_state=42, n_jobs=-1,
+                    n_estimators=100,
+                    max_depth=6,
+                    random_state=42,
+                    n_jobs=-1,
                 )
                 rf.fit(X, y)
                 importances = pd.Series(rf.feature_importances_, index=feature_names)
-                keep = importances[importances >= fs.importance_threshold].index.tolist()
+                keep = importances[
+                    importances >= fs.importance_threshold
+                ].index.tolist()
                 keep = [c for c in keep if c in X.columns]
                 if keep:
                     X = X[keep]
 
             logger.info(
                 "Feature selection (%s): %d -> %d features",
-                fs.method, original_n, X.shape[1],
+                fs.method,
+                original_n,
+                X.shape[1],
             )
         except Exception as exc:
             logger.warning(
                 "Feature selection method '%s' failed: %s — using original features",
-                fs.method, exc,
+                fs.method,
+                exc,
             )
 
         return X
 
     @staticmethod
-    def _extract_importances(model: Any, X: pd.DataFrame) -> list[dict[str, Any]] | None:
+    def _extract_importances(
+        model: Any, X: pd.DataFrame
+    ) -> list[dict[str, Any]] | None:
         """Extract top-15 feature importances if the model exposes them."""
         if not hasattr(model, "feature_importances_"):
             return None

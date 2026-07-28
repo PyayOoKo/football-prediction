@@ -135,7 +135,10 @@ class FeatureCache:
         key = self._build_key(definition, match_id, team_id, league_id)
         if key is None:
             return self._store.get(
-                definition.id, match_id=match_id, team_id=team_id, league_id=league_id,
+                definition.id,
+                match_id=match_id,
+                team_id=team_id,
+                league_id=league_id,
             )
 
         # Check cache
@@ -147,17 +150,25 @@ class FeatureCache:
 
         # Cache miss — load from store and populate
         value = self._store.get(
-            definition.id, match_id=match_id, team_id=team_id, league_id=league_id,
+            definition.id,
+            match_id=match_id,
+            team_id=team_id,
+            league_id=league_id,
         )
         if value is not None:
-            tags = {f"feature:{definition.name}", f"category:{definition.category.value}"}
+            tags = {
+                f"feature:{definition.name}",
+                f"category:{definition.category.value}",
+            }
             tags |= self._entity_tags(match_id, team_id, league_id)
-            _run_async(self._cache.set(
-                key,
-                value.to_dict() if hasattr(value, "to_dict") else value,
-                ttl=self.default_ttl,
-                tags=tags,
-            ))
+            _run_async(
+                self._cache.set(
+                    key,
+                    value.to_dict() if hasattr(value, "to_dict") else value,
+                    ttl=self.default_ttl,
+                    tags=tags,
+                )
+            )
         return value
 
     def set(
@@ -198,14 +209,19 @@ class FeatureCache:
         # Populate cache
         key = self._build_key(definition, match_id, team_id, league_id)
         if key is not None:
-            tags = {f"feature:{definition.name}", f"category:{definition.category.value}"}
+            tags = {
+                f"feature:{definition.name}",
+                f"category:{definition.category.value}",
+            }
             tags |= self._entity_tags(match_id, team_id, league_id)
-            _run_async(self._cache.set(
-                key,
-                value.to_dict() if hasattr(value, "to_dict") else value,
-                ttl=self.default_ttl,
-                tags=tags,
-            ))
+            _run_async(
+                self._cache.set(
+                    key,
+                    value.to_dict() if hasattr(value, "to_dict") else value,
+                    ttl=self.default_ttl,
+                    tags=tags,
+                )
+            )
 
         return value
 
@@ -230,7 +246,9 @@ class FeatureCache:
         """
         # Delete from store
         result = self._store.delete(
-            definition.id, match_id=match_id, team_id=team_id,
+            definition.id,
+            match_id=match_id,
+            team_id=team_id,
         )
 
         # Invalidate cache
@@ -269,8 +287,11 @@ class FeatureCache:
                     "attack_strength:team:7": None,
                 }
         """
+
         # Build unique entity-qualified result keys
-        def _result_key(defn: FeatureDefinition, match_id: int | None, team_id: int | None) -> str:
+        def _result_key(
+            defn: FeatureDefinition, match_id: int | None, team_id: int | None
+        ) -> str:
             if match_id is not None:
                 return f"{defn.name}:match:{match_id}"
             if team_id is not None:
@@ -293,7 +314,9 @@ class FeatureCache:
             cached = cached_results.get(key)
             if cached is not None:
                 if isinstance(cached, dict):
-                    results[_result_key(defn, match_id, team_id)] = FeatureValue(**cached)
+                    results[_result_key(defn, match_id, team_id)] = FeatureValue(
+                        **cached
+                    )
                 else:
                     results[_result_key(defn, match_id, team_id)] = cached
             else:
@@ -309,12 +332,14 @@ class FeatureCache:
                 if key:
                     tags = {f"feature:{defn.name}", f"category:{defn.category.value}"}
                     tags |= self._entity_tags(match_id, team_id)
-                    _run_async(self._cache.set(
-                        key,
-                        value.to_dict() if hasattr(value, "to_dict") else value,
-                        ttl=self.default_ttl,
-                        tags=tags,
-                    ))
+                    _run_async(
+                        self._cache.set(
+                            key,
+                            value.to_dict() if hasattr(value, "to_dict") else value,
+                            ttl=self.default_ttl,
+                            tags=tags,
+                        )
+                    )
 
         return results
 
@@ -375,17 +400,22 @@ class FeatureCache:
                     f"category:{definition.category.value}",
                     f"{entity_type}:{eid}",
                 }
-                _run_async(self._cache.set(
-                    key,
-                    value.to_dict() if hasattr(value, "to_dict") else value,
-                    ttl=self.default_ttl,
-                    tags=tags,
-                ))
+                _run_async(
+                    self._cache.set(
+                        key,
+                        value.to_dict() if hasattr(value, "to_dict") else value,
+                        ttl=self.default_ttl,
+                        tags=tags,
+                    )
+                )
                 warmed += 1
 
         logger.info(
             "Warmed %d/%d cache entries for %s (%s)",
-            warmed, len(entity_ids), definition.name, entity_type,
+            warmed,
+            len(entity_ids),
+            definition.name,
+            entity_type,
         )
         return warmed
 
@@ -416,7 +446,9 @@ class FeatureCache:
         """
         key = self._build_key(definition, match_id=match_id, team_id=team_id)
         if key is None:
-            return self._store.get(definition.id, match_id=match_id, team_id=team_id), False
+            return self._store.get(
+                definition.id, match_id=match_id, team_id=team_id
+            ), False
 
         entry = _run_async(self._cache.get_entry(key))
         if entry is not None:
@@ -430,14 +462,19 @@ class FeatureCache:
         # Cache miss — load from store
         value = self._store.get(definition.id, match_id=match_id, team_id=team_id)
         if value is not None:
-            tags = {f"feature:{definition.name}", f"category:{definition.category.value}"}
+            tags = {
+                f"feature:{definition.name}",
+                f"category:{definition.category.value}",
+            }
             tags |= self._entity_tags(match_id, team_id)
-            _run_async(self._cache.set(
-                key,
-                value.to_dict() if hasattr(value, "to_dict") else value,
-                ttl=self.default_ttl,
-                tags=tags,
-            ))
+            _run_async(
+                self._cache.set(
+                    key,
+                    value.to_dict() if hasattr(value, "to_dict") else value,
+                    ttl=self.default_ttl,
+                    tags=tags,
+                )
+            )
         return value, False
 
     # ── Utility ───────────────────────────────────────────

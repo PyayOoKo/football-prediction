@@ -14,7 +14,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from config import config
+from src.config import config
 from dashboard.components import (
     init_theme,
     sidebar_theme_radio,

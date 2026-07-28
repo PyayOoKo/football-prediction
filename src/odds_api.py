@@ -77,21 +77,22 @@ SOCCER_LEAGUES: dict[str, str] = {
 
 LEAGUE_TO_SPORT_KEY: dict[str, str] = {
     # Top 5 European Leagues (The Odds API sport keys)
-    "E0":  "soccer_epl",                # English Premier League
-    "SP1": "soccer_la_liga",            # Spanish La Liga
-    "D1":  "soccer_bundesliga",         # German Bundesliga
-    "I1":  "soccer_serie_a",            # Italian Serie A
-    "F1":  "soccer_ligue_one",          # French Ligue 1
+    "E0": "soccer_epl",  # English Premier League
+    "SP1": "soccer_la_liga",  # Spanish La Liga
+    "D1": "soccer_bundesliga",  # German Bundesliga
+    "I1": "soccer_serie_a",  # Italian Serie A
+    "F1": "soccer_ligue_one",  # French Ligue 1
     # Scandinavian leagues
     "SE1": "soccer_sweden_superettan",  # Sweden Superettan
-    "SWE": "soccer_sweden_allsvenskan", # Sweden Allsvenskan (+20.50% Over ROI)
-    "NOR": "soccer_norway_eliteserien", # Norway Eliteserien (+31.85% Over ROI)
-    "FI":  "soccer_finland_veikkausliiga", # Finland Veikkausliiga
+    "SWE": "soccer_sweden_allsvenskan",  # Sweden Allsvenskan (+20.50% Over ROI)
+    "NOR": "soccer_norway_eliteserien",  # Norway Eliteserien (+31.85% Over ROI)
+    "FI": "soccer_finland_veikkausliiga",  # Finland Veikkausliiga
 }
 
 # ═══════════════════════════════════════════════════════════
 #  Data structures
 # ═══════════════════════════════════════════════════════════
+
 
 @dataclass
 class MatchOdds:
@@ -126,6 +127,7 @@ class OddsAPIConfig:
 #  Main client
 # ═══════════════════════════════════════════════════════════
 
+
 class OddsAPIClient:
     """Client for fetching live odds from The Odds API.
 
@@ -159,9 +161,11 @@ class OddsAPIClient:
         self._cache: dict[str, Any] = {}
         self._cache_loaded = False
         self._session = requests.Session()
-        self._session.headers.update({
-            "Accept": "application/json",
-        })
+        self._session.headers.update(
+            {
+                "Accept": "application/json",
+            }
+        )
 
         if not self.api_key:
             logger.warning(
@@ -360,7 +364,9 @@ class OddsAPIClient:
         if not self.api_key:
             return {}
 
-        matches = self.get_upcoming_odds(sport_key=sport_key, bookmaker=bookmaker, markets="totals")
+        matches = self.get_upcoming_odds(
+            sport_key=sport_key, bookmaker=bookmaker, markets="totals"
+        )
 
         lookup: dict[tuple[str, str], MatchOdds] = {}
         for match in matches:
@@ -492,20 +498,22 @@ class OddsAPIClient:
                                 best_under = price
 
             if best_home > 0 and best_away > 0:
-                results.append(MatchOdds(
-                    home_team=home_team,
-                    away_team=away_team,
-                    match_date=commence_time,
-                    home_odds=best_home,
-                    draw_odds=best_draw,
-                    away_odds=best_away,
-                    bookmaker=best_bookmaker,
-                    sport_key=sport_key,
-                    sport_title=sport_title,
-                    over_odds=best_over,
-                    under_odds=best_under,
-                    totals_point=totals_point,
-                ))
+                results.append(
+                    MatchOdds(
+                        home_team=home_team,
+                        away_team=away_team,
+                        match_date=commence_time,
+                        home_odds=best_home,
+                        draw_odds=best_draw,
+                        away_odds=best_away,
+                        bookmaker=best_bookmaker,
+                        sport_key=sport_key,
+                        sport_title=sport_title,
+                        over_odds=best_over,
+                        under_odds=best_under,
+                        totals_point=totals_point,
+                    )
+                )
 
         return results
 
@@ -571,7 +579,8 @@ class OddsAPIClient:
                 # Remove expired entries
                 now = time.time()
                 expired_keys = [
-                    k for k, v in self._cache.items()
+                    k
+                    for k, v in self._cache.items()
                     if now - v.get("timestamp", 0) > self.cache_ttl
                 ]
                 for k in expired_keys:
@@ -605,6 +614,7 @@ class OddsAPIClient:
 #  Convenience function (single-call entry point)
 # ═══════════════════════════════════════════════════════════
 
+
 def fetch_live_odds(
     team_pairs: list[tuple[str, str]],
     sport_key: str = "soccer_fifa_world_cup",
@@ -628,7 +638,9 @@ def fetch_live_odds(
         Empty dict if API is unavailable.
     """
     client = OddsAPIClient()
-    return client.get_value_bet_odds(team_pairs, sport_key=sport_key, bookmaker=bookmaker)
+    return client.get_value_bet_odds(
+        team_pairs, sport_key=sport_key, bookmaker=bookmaker
+    )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -662,19 +674,29 @@ if __name__ == "__main__":
     if odds:
         print(f"  Found {len(odds)} matches:\n")
         for m in odds:
-            print(f"    {m.home_team:<22} vs {m.away_team:<22}  "
-                  f"{m.home_odds:<6.2f}  {m.draw_odds:<6.2f}  {m.away_odds:<6.2f}  [{m.bookmaker}]")
+            print(
+                f"    {m.home_team:<22} vs {m.away_team:<22}  "
+                f"{m.home_odds:<6.2f}  {m.draw_odds:<6.2f}  {m.away_odds:<6.2f}  [{m.bookmaker}]"
+            )
     else:
         print("  No matches found. The World Cup league key may differ.")
         print("  Trying 'upcoming' sport key ...")
         odds = client.get_upcoming_odds(sport_key="upcoming")
         if odds:
             # Filter to likely World Cup matches
-            wc_matches = [m for m in odds if any(t in m.home_team for t in
-                          ["Brazil", "Mexico", "England", "France", "Argentina"])]
+            wc_matches = [
+                m
+                for m in odds
+                if any(
+                    t in m.home_team
+                    for t in ["Brazil", "Mexico", "England", "France", "Argentina"]
+                )
+            ]
             print(f"  Found {len(wc_matches)} potential World Cup matches:\n")
             for m in wc_matches:
-                print(f"    {m.home_team:<22} vs {m.away_team:<22}  "
-                      f"{m.home_odds:<6.2f}  {m.draw_odds:<6.2f}  {m.away_odds:<6.2f}  [{m.bookmaker}]")
+                print(
+                    f"    {m.home_team:<22} vs {m.away_team:<22}  "
+                    f"{m.home_odds:<6.2f}  {m.draw_odds:<6.2f}  {m.away_odds:<6.2f}  [{m.bookmaker}]"
+                )
         else:
             print("  No matches found via 'upcoming' either.")

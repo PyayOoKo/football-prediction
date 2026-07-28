@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 # Must configure BEFORE importing src modules that read config
-from config import config
+from src.config import config
 
 # ── Configure for World Cup data ─────────────────────────
 # Disable features that don't apply to international tournament data

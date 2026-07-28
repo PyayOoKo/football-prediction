@@ -33,7 +33,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from config import config as _global_config
+from src.config import config as _global_config
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ LEAGUE_NAMES: dict[str, str] = {
     "P1": "Portuguese Primeira Liga",
     "T1": "Turkish Super Lig",
     # Extra leagues — cover currently active competitions (UCL qualifiers, etc.)
-    "IRL": "Irish Premier Division",         # Shamrock Rovers' domestic league
+    "IRL": "Irish Premier Division",  # Shamrock Rovers' domestic league
     "ARG": "Argentine Primera Division",
     "AUT": "Austrian Bundesliga",
     "BRA": "Brazilian Serie A",
@@ -89,7 +89,6 @@ LEAGUE_NAMES: dict[str, str] = {
     "SUI": "Swiss Super League",
     "USA": "Major League Soccer",
 }
-
 
 
 # ── Session ─────────────────────────────────────────────
@@ -241,7 +240,7 @@ def get_available_seasons() -> list[str]:
 
     # Extract all ``<a href="...">`` links containing season folders
     # The capture group is the 4-digit season code itself, e.g. "2425"
-    pattern = re.compile(rf'{MMZ_PATH}/(\d{{4}})')
+    pattern = re.compile(rf"{MMZ_PATH}/(\d{{4}})")
     seasons = sorted(set(pattern.findall(resp.text)))
     logger.info("Found %d available seasons", len(seasons))
     return seasons

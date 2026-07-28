@@ -75,8 +75,10 @@ class DriftResult:
             "prediction_drift_score": round(self.prediction_drift_score, 4),
             "feature_importance_drift": round(self.feature_importance_drift, 4),
             "n_features_analyzed": self.n_features_analyzed,
-            "top_drifted": {k: round(v, 4) for k, v in
-                            sorted(self.drift_scores.items(), key=lambda x: -x[1])[:10]},
+            "top_drifted": {
+                k: round(v, 4)
+                for k, v in sorted(self.drift_scores.items(), key=lambda x: -x[1])[:10]
+            },
             "timestamp": self.timestamp.isoformat(),
         }
 
@@ -171,12 +173,20 @@ class DriftDetector:
 
         # Analyze numerical features
         for feature in ref_data:
-            if feature.startswith("_") or feature in ("prediction", "predicted_outcome", "result"):
+            if feature.startswith("_") or feature in (
+                "prediction",
+                "predicted_outcome",
+                "result",
+            ):
                 continue
             ref_arr = ref_data[feature]
             cur_arr = cur_data.get(feature)
 
-            if cur_arr is None or len(ref_arr) < self.config.min_samples or len(cur_arr) < self.config.min_samples:
+            if (
+                cur_arr is None
+                or len(ref_arr) < self.config.min_samples
+                or len(cur_arr) < self.config.min_samples
+            ):
                 continue
 
             # Determine if numeric
@@ -204,7 +214,10 @@ class DriftDetector:
             try:
                 ref_p = np.asarray(ref_preds, dtype=float)
                 cur_p = np.asarray(cur_preds, dtype=float)
-                if len(ref_p) >= self.config.min_samples and len(cur_p) >= self.config.min_samples:
+                if (
+                    len(ref_p) >= self.config.min_samples
+                    and len(cur_p) >= self.config.min_samples
+                ):
                     pred_drift = self._calculate_psi(ref_p, cur_p)
             except (ValueError, TypeError):
                 # Handle categorical predictions
@@ -235,7 +248,10 @@ class DriftDetector:
         if drift_detected:
             logger.warning(
                 "Drift detected: overall=%.4f, pred_drift=%.4f, %d/%d features drifted",
-                overall_score, pred_drift, len(drifted_features), n_analyzed,
+                overall_score,
+                pred_drift,
+                len(drifted_features),
+                n_analyzed,
             )
 
         return result
@@ -321,8 +337,12 @@ class DriftDetector:
 
         psi = 0.0
         for cat in all_categories:
-            ref_pct = (ref_counts.get(cat, 0) + epsilon) / (ref_total + epsilon * len(all_categories))
-            cur_pct = (cur_counts.get(cat, 0) + epsilon) / (cur_total + epsilon * len(all_categories))
+            ref_pct = (ref_counts.get(cat, 0) + epsilon) / (
+                ref_total + epsilon * len(all_categories)
+            )
+            cur_pct = (cur_counts.get(cat, 0) + epsilon) / (
+                cur_total + epsilon * len(all_categories)
+            )
 
             psi += (cur_pct - ref_pct) * math.log(cur_pct / ref_pct)
 
@@ -365,7 +385,9 @@ class DriftDetector:
 
         try:
             history = json.loads(self._history_path.read_text())
-            cutoff = datetime.now(timezone.utc) - __import__("datetime").timedelta(days=days)
+            cutoff = datetime.now(timezone.utc) - __import__("datetime").timedelta(
+                days=days
+            )
             return [h for h in history if h.get("timestamp", "") > cutoff.isoformat()]
         except Exception:
             return []

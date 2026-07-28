@@ -30,7 +30,9 @@ class EVCalculator:
 
     @staticmethod
     def calculate_ev(
-        model_prob: float, decimal_odds: float, **kwargs: Any,
+        model_prob: float,
+        decimal_odds: float,
+        **kwargs: Any,
     ) -> float:
         """Compute expected value.
 
@@ -52,7 +54,9 @@ class EVCalculator:
 
     @staticmethod
     def calculate_edge(
-        model_prob: float, fair_prob: float, **kwargs: Any,
+        model_prob: float,
+        fair_prob: float,
+        **kwargs: Any,
     ) -> float:
         """Compute probability edge over the market.
 
@@ -90,7 +94,9 @@ class KellyCalculator:
 
     @staticmethod
     def calculate(
-        model_prob: float, decimal_odds: float, **kwargs: Any,
+        model_prob: float,
+        decimal_odds: float,
+        **kwargs: Any,
     ) -> float:
         """Compute the full Kelly fraction.
 

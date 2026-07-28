@@ -97,24 +97,35 @@ _DEFAULT_CONTEXTS: tuple[str, ...] = ("overall", "home", "away")
 
 # Core and optional metrics for pair-level computation
 _H2H_CORE_METRICS: dict[str, dict[str, Any]] = {
-    "wins":           {"type": "binary", "description": "Win rate in H2H meetings"},
-    "draws":          {"type": "binary", "description": "Draw rate in H2H meetings"},
-    "losses":         {"type": "binary", "description": "Loss rate in H2H meetings"},
-    "goals_scored":   {"type": "numeric", "description": "Average goals scored"},
+    "wins": {"type": "binary", "description": "Win rate in H2H meetings"},
+    "draws": {"type": "binary", "description": "Draw rate in H2H meetings"},
+    "losses": {"type": "binary", "description": "Loss rate in H2H meetings"},
+    "goals_scored": {"type": "numeric", "description": "Average goals scored"},
     "goals_conceded": {"type": "numeric", "description": "Average goals conceded"},
-    "goal_diff":      {"type": "numeric", "description": "Average goal difference"},
-    "btts":           {"type": "binary", "description": "Both Teams Scored rate"},
-    "over_2.5":       {"type": "binary", "description": "Over 2.5 goals rate"},
-    "clean_sheets":   {"type": "binary", "description": "Clean sheet rate"},
+    "goal_diff": {"type": "numeric", "description": "Average goal difference"},
+    "btts": {"type": "binary", "description": "Both Teams Scored rate"},
+    "over_2.5": {"type": "binary", "description": "Over 2.5 goals rate"},
+    "clean_sheets": {"type": "binary", "description": "Clean sheet rate"},
 }
 
 _H2H_OPTIONAL_METRICS: dict[str, dict[str, Any]] = {
-    "xg":  {"type": "numeric", "source_home": "home_xg", "source_away": "away_xg",
-            "description": "Average xG in H2H meetings"},
-    "xga": {"type": "numeric", "source_home": "away_xg", "source_away": "home_xg",
-            "description": "Average xGA conceded in H2H meetings"},
-    "xgd": {"type": "numeric", "depends_on": ["xg", "xga"],
-            "description": "Average xG difference in H2H meetings"},
+    "xg": {
+        "type": "numeric",
+        "source_home": "home_xg",
+        "source_away": "away_xg",
+        "description": "Average xG in H2H meetings",
+    },
+    "xga": {
+        "type": "numeric",
+        "source_home": "away_xg",
+        "source_away": "home_xg",
+        "description": "Average xGA conceded in H2H meetings",
+    },
+    "xgd": {
+        "type": "numeric",
+        "depends_on": ["xg", "xga"],
+        "description": "Average xG difference in H2H meetings",
+    },
 }
 
 
@@ -148,9 +159,16 @@ class H2HTransformer(FeatureTransformer):
     # output_columns are computed dynamically in init()
     output_columns: list[str] = []
 
-    _REQUIRED_COLS: frozenset[str] = frozenset({
-        "date", "home_team", "away_team", "home_goals", "away_goals", "result",
-    })
+    _REQUIRED_COLS: frozenset[str] = frozenset(
+        {
+            "date",
+            "home_team",
+            "away_team",
+            "home_goals",
+            "away_goals",
+            "result",
+        }
+    )
 
     def __init__(self, **params: Any) -> None:
         super().__init__(**params)
@@ -168,7 +186,8 @@ class H2HTransformer(FeatureTransformer):
         self._initialized = True
         logger.debug(
             "H2HTransformer initialized: %d windows, %d contexts, ~%d columns",
-            len(self._resolved_windows), len(self._resolved_contexts),
+            len(self._resolved_windows),
+            len(self._resolved_contexts),
             len(self.output_columns),
         )
 
@@ -271,7 +290,8 @@ class H2HTransformer(FeatureTransformer):
         added = [c for c in self._resolved_outputs if c in df.columns]
         logger.debug(
             "H2H: added %d / %d possible columns",
-            len(added), len(self._resolved_outputs),
+            len(added),
+            len(self._resolved_outputs),
         )
 
         return df
@@ -342,26 +362,34 @@ class H2HTransformer(FeatureTransformer):
         n = len(df)
 
         # ── Home perspective ──────────────────────────────
-        home_persp = pd.DataFrame({
-            "team": df["home_team"].values,
-            "opponent": df["away_team"].values,
-            "date": pd.to_datetime(df["date"]).values if "date" in df.columns else pd.NaT,
-            "match_id": df.index.values,
-            "is_home": np.ones(n, dtype=np.int8),
-            "goals_for": df["home_goals"].values.astype(float),
-            "goals_against": df["away_goals"].values.astype(float),
-        })
+        home_persp = pd.DataFrame(
+            {
+                "team": df["home_team"].values,
+                "opponent": df["away_team"].values,
+                "date": pd.to_datetime(df["date"]).values
+                if "date" in df.columns
+                else pd.NaT,
+                "match_id": df.index.values,
+                "is_home": np.ones(n, dtype=np.int8),
+                "goals_for": df["home_goals"].values.astype(float),
+                "goals_against": df["away_goals"].values.astype(float),
+            }
+        )
 
         # ── Away perspective ──────────────────────────────
-        away_persp = pd.DataFrame({
-            "team": df["away_team"].values,
-            "opponent": df["home_team"].values,
-            "date": pd.to_datetime(df["date"]).values if "date" in df.columns else pd.NaT,
-            "match_id": df.index.values,
-            "is_home": np.zeros(n, dtype=np.int8),
-            "goals_for": df["away_goals"].values.astype(float),
-            "goals_against": df["home_goals"].values.astype(float),
-        })
+        away_persp = pd.DataFrame(
+            {
+                "team": df["away_team"].values,
+                "opponent": df["home_team"].values,
+                "date": pd.to_datetime(df["date"]).values
+                if "date" in df.columns
+                else pd.NaT,
+                "match_id": df.index.values,
+                "is_home": np.zeros(n, dtype=np.int8),
+                "goals_for": df["away_goals"].values.astype(float),
+                "goals_against": df["home_goals"].values.astype(float),
+            }
+        )
 
         pair_stats = pd.concat([home_persp, away_persp], ignore_index=True)
 
@@ -369,9 +397,9 @@ class H2HTransformer(FeatureTransformer):
         result = df["result"].values
         result_series = pd.Series(result)
         result_upper = result_series.astype(str).str.upper().fillna("").values
-        home_is_win = (result_upper == "H")
-        away_is_win = (result_upper == "A")
-        is_draw = (result_upper == "D")
+        home_is_win = result_upper == "H"
+        away_is_win = result_upper == "A"
+        is_draw = result_upper == "D"
 
         h_win = np.concatenate([home_is_win, away_is_win])
         h_draw = np.concatenate([is_draw, is_draw])
@@ -410,9 +438,7 @@ class H2HTransformer(FeatureTransformer):
                 extra = load_fn()
                 if extra is not None and not extra.empty:
                     extra["date"] = pd.to_datetime(extra["date"])
-                    pair_stats = pd.concat(
-                        [extra, pair_stats], ignore_index=True
-                    )
+                    pair_stats = pd.concat([extra, pair_stats], ignore_index=True)
                     pair_stats.sort_values(["team", "opponent", "date"], inplace=True)
                     pair_stats.reset_index(drop=True, inplace=True)
             except Exception as exc:
@@ -569,10 +595,7 @@ class H2HTransformer(FeatureTransformer):
         df_result = df.copy()
 
         # Collect all H2H feature columns
-        feat_cols = [
-            c for c in pair_rolling.columns
-            if c.startswith("h2h_")
-        ]
+        feat_cols = [c for c in pair_rolling.columns if c.startswith("h2h_")]
         if not feat_cols:
             return df_result
 

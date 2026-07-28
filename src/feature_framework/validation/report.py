@@ -94,7 +94,10 @@ class ValidationReport:
             "failed_checks": self.failed_checks,
             "total_violations": self.total_violations,
             "check_details": {
-                k: {"passed": v.get("passed"), "n_violations": len(v.get("violations", []))}
+                k: {
+                    "passed": v.get("passed"),
+                    "n_violations": len(v.get("violations", [])),
+                }
                 for k, v in self.checks.items()
             },
         }
@@ -230,7 +233,9 @@ class MissingValueReport:
         ]
         if self.details:
             lines.append("  Top columns by missing rate:")
-            for d in sorted(self.details, key=lambda x: x["missing_rate"], reverse=True)[:10]:
+            for d in sorted(
+                self.details, key=lambda x: x["missing_rate"], reverse=True
+            )[:10]:
                 col = d["column"]
                 n = d["n_missing"]
                 rate = d["missing_rate"] * 100
@@ -306,7 +311,9 @@ class DriftReport:
             drifted = [d for d in self.details if d.get("drifted", False)]
             if drifted:
                 lines.append("  Drifted features:")
-                for d in sorted(drifted, key=lambda x: x.get("psi", 0), reverse=True)[:10]:
+                for d in sorted(drifted, key=lambda x: x.get("psi", 0), reverse=True)[
+                    :10
+                ]:
                     col = d["column"]
                     psi = d["psi"]
                     cur_mean = d.get("current_mean", "?")

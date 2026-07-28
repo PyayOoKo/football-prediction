@@ -22,7 +22,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 def main() -> int:
     # ── Speed up Dixon-Coles further (config now defaults to 2000) ──
-    from config import config
+    from src.config import config
     original_refit = config.dixon_coles.refit_every
     # 2000 → 4000: cuts MLE refits from ~9 to ~4 over 18k rows
     config.dixon_coles.refit_every = 4000

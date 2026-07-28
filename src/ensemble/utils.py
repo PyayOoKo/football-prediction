@@ -44,8 +44,12 @@ def train_ensemble(
 
     # Train & optimise weights
     fit_report = ensemble.fit(
-        X_train, y_train, X_val, y_val,
-        df_train=df_train, df_val=df_val,
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+        df_train=df_train,
+        df_val=df_val,
     )
 
     # Evaluate on test
@@ -60,14 +64,23 @@ def train_ensemble(
         logger.info("  ENSEMBLE TRAINING RESULTS".center(88))
         logger.info("=" * 90)
 
-        logger.info("  Validation log-loss: %.4f", fit_report['val_log_loss'])
-        logger.info("  Test log-loss:       %.4f", test_report['ensemble_log_loss'])
-        logger.info("  Test accuracy:       %.2f%%", test_report['ensemble_accuracy'] * 100)
-        best_model = test_report['best_single_model']
-        logger.info("  Best single model:   %s (%.4f)", best_model, test_report['individual_log_losses'][best_model])
-        logger.info("  Improvement:         Delta = %+.4f", test_report['improvement_over_best_single'])
+        logger.info("  Validation log-loss: %.4f", fit_report["val_log_loss"])
+        logger.info("  Test log-loss:       %.4f", test_report["ensemble_log_loss"])
+        logger.info(
+            "  Test accuracy:       %.2f%%", test_report["ensemble_accuracy"] * 100
+        )
+        best_model = test_report["best_single_model"]
+        logger.info(
+            "  Best single model:   %s (%.4f)",
+            best_model,
+            test_report["individual_log_losses"][best_model],
+        )
+        logger.info(
+            "  Improvement:         Delta = %+.4f",
+            test_report["improvement_over_best_single"],
+        )
         logger.info("  %s", ensemble.weight_summary)
-        logger.info("  %s", '=' * 30 + "  LOG-LOSS BREAKDOWN " + '=' * 30)
+        logger.info("  %s", "=" * 30 + "  LOG-LOSS BREAKDOWN " + "=" * 30)
         best_loss = min(test_report["individual_log_losses"].values())
         for name, loss in sorted(test_report["individual_log_losses"].items()):
             marker = " <- BEST" if abs(loss - best_loss) < 1e-6 else ""

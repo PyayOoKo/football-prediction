@@ -59,7 +59,9 @@ class FeatureBuilder:
             fixture_rows = []
             for fix in fixtures:
                 row = {
-                    "date": pd.Timestamp(fix.get("match_date", datetime.now().strftime("%Y-%m-%d"))),
+                    "date": pd.Timestamp(
+                        fix.get("match_date", datetime.now().strftime("%Y-%m-%d"))
+                    ),
                     "home_team": fix["home_team"],
                     "away_team": fix["away_team"],
                     "result": "H",
@@ -68,7 +70,9 @@ class FeatureBuilder:
                 }
                 for col in historical.columns:
                     if col not in row:
-                        row[col] = historical[col].iloc[-1] if len(historical) > 0 else 0
+                        row[col] = (
+                            historical[col].iloc[-1] if len(historical) > 0 else 0
+                        )
                 fixture_rows.append(row)
 
             df_ext = pd.concat(
