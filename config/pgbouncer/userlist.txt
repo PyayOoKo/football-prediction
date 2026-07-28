@@ -1,0 +1,17 @@
+; ═══════════════════════════════════════════════════════════
+;  PgBouncer User List
+; ═══════════════════════════════════════════════════════════
+;
+; Format: "username" "md5hash"
+; md5hash = MD5(password + username)  (the PostgreSQL md5 format)
+;
+; Generate with: echo -n "passwordusername" | md5sum
+; Then prefix with "md5" + the hash.
+;
+; ⚠ This file is gitignored in production — use Docker secrets
+;    or environment variables instead (see docker-compose.yml).
+;
+; Example (development only — replace passwords in production):
+; "postgres" "md59e0f0b0a0b0c0d0e0f0a0b0c0d0e0f0a"
+;
+; For development with auth_type=trust, this file is not needed.

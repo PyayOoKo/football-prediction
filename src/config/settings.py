@@ -144,8 +144,24 @@ class DatabaseConfig:
 
     @property
     def sa_url(self) -> str:
-        """Return the SQLAlchemy-compatible database URL."""
-        return self.url
+        """Return the SQLAlchemy-compatible database URL.
+
+        When ``USE_PGBOUNCER`` is ``true``, appends query parameters needed
+        for transaction-mode pooling:
+
+        - ``prepared_statement_cache_size=0`` — PgBouncer transaction
+          mode does not support prepared statements across transactions.
+        - ``keepalives=1`` — enable TCP keepalives so PgBouncer notices
+          dead clients sooner.
+        """
+        url = self.url
+        if os.environ.get("USE_PGBOUNCER", "").lower() in ("1", "true", "yes"):
+            if "?" not in url:
+                url += "?"
+            else:
+                url += "&"
+            url += "prepared_statement_cache_size=0&keepalives=1"
+        return url
 
 
 # ── Logging ─────────────────────────────────────────────

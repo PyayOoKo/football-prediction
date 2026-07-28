@@ -10,6 +10,8 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-football_prediction}
+    expose:
+      - "5432"
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
@@ -20,7 +22,38 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Application ──────────────────────────────────────
+  # ── PgBouncer (connection pooler) ────────────────────
+  pgbouncer:
+    image: bitnami/pgbouncer:latest
+    container_name: football-pgbouncer
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PGBOUNCER_PORT:-6432}:6432"
+    environment:
+      PGBOUNCER_DATABASE: ${DB_NAME:-football_prediction}
+      POSTGRESQL_HOST: db
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_USERNAME: ${DB_USER:-postgres}
+      POSTGRESQL_PASSWORD: ${DB_PASSWORD:-postgres}
+      PGBOUNCER_PORT: 6432
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_DEFAULT_POOL_SIZE: 20
+      PGBOUNCER_MAX_CLIENT_CONN: 200
+      PGBOUNCER_MAX_DB_CONNECTIONS: 50
+      PGBOUNCER_SERVER_IDLE_TIMEOUT: 600
+      PGBOUNCER_QUERY_TIMEOUT: 300
+    # Config files at ./config/pgbouncer/ are for reference only -
+    # the bitnami/pgbouncer image is configured entirely via env vars above.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U ${DB_USER:-postgres} -d ${DB_NAME:-football_prediction}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Application (via PgBouncer) ───────────────────────
   app:
     build:
       context: .
@@ -28,12 +61,15 @@ services:
     container_name: football-app
     restart: unless-stopped
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg2://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-football_prediction}
+      # Connect through PgBouncer instead of directly to PostgreSQL
+      DATABASE_URL: postgresql+psycopg2://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@pgbouncer:6432/${DB_NAME:-football_prediction}
       APP_ENV: ${APP_ENV:-production}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # PgBouncer flag — enables pool tuning in src/config/settings.py
+      USE_PGBOUNCER: "true"
     volumes:
       - ./data:/app/data
       - ./models:/app/models
@@ -41,7 +77,7 @@ services:
     command: >
       sh -c "alembic upgrade head && python -m uvicorn api.main:app --host 0.0.0.0 --port 8000"
 
-  # ── Migration runner (one-off) ───────────────────────
+  # ── Migration runner (one-off — direct to PostgreSQL) ─
   migrate:
     build:
       context: .
@@ -51,6 +87,7 @@ services:
       db:
         condition: service_healthy
     environment:
+      # Migrations bypass PgBouncer (ALTER DATABASE requires direct conn)
       DATABASE_URL: postgresql+psycopg2://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-football_prediction}
     command: alembic upgrade head
     profiles:
