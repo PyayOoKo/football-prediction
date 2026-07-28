@@ -44,6 +44,7 @@ def create_engine_from_config() -> Engine:
         pool_size=cfg.pool_size,
         max_overflow=cfg.max_overflow,
         pool_pre_ping=cfg.pool_pre_ping,
+        pool_recycle=cfg.pool_recycle,
         echo=cfg.echo,
         # Use psycopg2 for PostgreSQL; fall back to nullpool for SQLite
         # if the URL is an in-memory / file DB.

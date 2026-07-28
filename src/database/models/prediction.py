@@ -12,11 +12,11 @@ from datetime import datetime
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.database.base import Base
+from src.database.base import Base, SoftDeleteMixin
 from src.database.models.match import Match
 
 
-class Prediction(Base):
+class Prediction(Base, SoftDeleteMixin):
     __tablename__ = "predictions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

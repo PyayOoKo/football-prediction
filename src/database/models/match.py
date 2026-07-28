@@ -25,7 +25,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.database.base import Base
+from src.database.base import Base, SoftDeleteMixin
 
 if TYPE_CHECKING:
     from src.database.models.betting_result import BettingResult
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from src.database.models.weather import Weather
 
 
-class Match(Base):
+class Match(Base, SoftDeleteMixin):
     __tablename__ = "matches"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

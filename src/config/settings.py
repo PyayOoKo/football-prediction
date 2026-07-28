@@ -113,6 +113,10 @@ class DatabaseConfig:
         Connection pool size (default ``10``).
     max_overflow : int
         Maximum overflow connections (default ``20``).
+    pool_recycle : int
+        Recycle connections after this many seconds (default ``3600``).
+        Prevents stale connections from being reused after a server-side
+        timeout. Set to ``-1`` to disable.
     pool_pre_ping : bool
         Verify connections before use (default ``True``).
     echo : bool
@@ -134,6 +138,7 @@ class DatabaseConfig:
     password: str = field(default_factory=lambda: _env_str("DB_PASSWORD", "postgres"))
     pool_size: int = field(default_factory=lambda: _env_int("DB_POOL_SIZE", 10))
     max_overflow: int = field(default_factory=lambda: _env_int("DB_MAX_OVERFLOW", 20))
+    pool_recycle: int = field(default_factory=lambda: _env_int("DB_POOL_RECYCLE", 3600))
     pool_pre_ping: bool = field(default_factory=lambda: _env_bool("DB_POOL_PRE_PING", True))
     echo: bool = field(default_factory=lambda: _env_bool("DB_ECHO", False))
 

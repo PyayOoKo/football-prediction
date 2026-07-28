@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.database.base import Base
+from src.database.base import Base, SoftDeleteMixin
 
 if TYPE_CHECKING:
     from src.database.models.country import Country
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from src.database.models.transfer import Transfer
 
 
-class Team(Base):
+class Team(Base, SoftDeleteMixin):
     __tablename__ = "teams"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
