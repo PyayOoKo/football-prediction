@@ -17,6 +17,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlparse, urlunparse
 
 from dotenv import load_dotenv
 
@@ -146,16 +147,22 @@ class DatabaseConfig:
     def sa_url(self) -> str:
         """Return the SQLAlchemy-compatible database URL.
 
-        When ``USE_PGBOUNCER`` is ``true``, appends query parameters needed
-        for transaction-mode pooling:
+        When ``USE_PGBOUNCER`` is ``true``:
 
-        - ``prepared_statement_cache_size=0`` — PgBouncer transaction
-          mode does not support prepared statements across transactions.
-        - ``keepalives=1`` — enable TCP keepalives so PgBouncer notices
-          dead clients sooner.
+        1. Replaces the port with ``PGBOUNCER_PORT`` (default ``6432``).
+        2. Appends query parameters needed for transaction-mode pooling:
+
+           - ``prepared_statement_cache_size=0`` — PgBouncer transaction
+             mode does not support prepared statements across transactions.
+           - ``keepalives=1`` — enable TCP keepalives so PgBouncer notices
+             dead clients sooner.
         """
         url = self.url
         if os.environ.get("USE_PGBOUNCER", "").lower() in ("1", "true", "yes"):
+            pgbouncer_port = _env_int("PGBOUNCER_PORT", 6432)
+            if pgbouncer_port > 0:
+                url = _replace_url_port(url, pgbouncer_port)
+
             if "?" not in url:
                 url += "?"
             else:
@@ -239,6 +246,42 @@ class AppConfig:
     secret_key: str = field(
         default_factory=lambda: _env_str("SECRET_KEY", "change-me-in-production")
     )
+
+
+# ── URL helpers ─────────────────────────────────────────
+
+
+def _replace_url_port(url: str, new_port: int) -> str:
+    """Replace the port in a database URL with *new_port*.
+
+    Parses the URL with :func:`~urllib.parse.urlparse`, extracts the
+    hostname (and optional user/password), and rebuilds the netloc
+    with the new port number.
+
+    Parameters
+    ----------
+    url : str
+        Database URL such as ``postgresql+psycopg2://user:pass@host:5432/db``.
+    new_port : int
+        Port number to substitute (e.g. ``6432``).
+
+    Returns
+    -------
+    str
+        URL with the port replaced.  If *url* has no explicit port
+        (unusual for database URLs), *new_port* is appended after the
+        hostname.
+    """
+    parsed = urlparse(url)
+    if parsed.hostname is None:
+        return url  # not a host-based URL (e.g. sqlite:///path)
+    new_netloc = f"{parsed.hostname}:{new_port}"
+    if parsed.username:
+        auth = parsed.username
+        if parsed.password:
+            auth = f"{parsed.username}:{parsed.password}"
+        new_netloc = f"{auth}@{new_netloc}"
+    return urlunparse(parsed._replace(netloc=new_netloc))
 
 
 # ── Top-level Config ────────────────────────────────────
