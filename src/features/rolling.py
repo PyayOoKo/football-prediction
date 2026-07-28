@@ -88,8 +88,8 @@ def _compute_team_stats(df: pd.DataFrame) -> pd.DataFrame:
         has_goals = not (np.isnan(hg) or np.isnan(ag))
         if has_goals:
             total_goals_val = hg + ag
-            over_2_5_val = int(total_goals_val > 2.5)
-            btts_val = int(hg > 0 and ag > 0)
+            over_2_5_val: float = float(int(total_goals_val > 2.5))
+            btts_val: float = float(int(hg > 0 and ag > 0))
         else:
             total_goals_val = np.nan
             over_2_5_val = np.nan

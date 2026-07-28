@@ -925,15 +925,6 @@ class ThreeModelBlend:
             logger.warning("Feature alignment failed for %s: %s", type(model).__name__, exc)
             return None
 
-    def _dc_1x2(self, home_team: str, away_team: str) -> np.ndarray:
-        try:
-            if hasattr(self.dc, "predict_proba"):
-                df = pd.DataFrame([{"home_team": home_team, "away_team": away_team}])
-                return cast(np.ndarray, self.dc.predict_proba(df)[0])
-            return np.array([0.33, 0.34, 0.33])
-        except Exception:
-            return np.array([0.33, 0.34, 0.33])
-
     def _resolve_dc_for_fixture(self, home_team: str, away_team: str, league: str | None = None) -> Any:
         """Resolve the best DC model for O/U and BTTS on a single fixture.
 

@@ -801,13 +801,10 @@ class PoissonModel:
                 (home, hg, ag),
                 (away, ag, hg),
             ):
-                s = team_stats.get(team_key)
-                if s is None:
-                    team_stats[team_key] = [scored, conceded, 1.0]
-                else:
-                    s[0] += scored
-                    s[1] += conceded
-                    s[2] += 1.0
+                s = team_stats.setdefault(team_key, [0.0, 0.0, 0.0])
+                s[0] += scored
+                s[1] += conceded
+                s[2] += 1.0
 
             home_wsum += hg
             away_wsum += ag
