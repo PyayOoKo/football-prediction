@@ -602,7 +602,13 @@ def render_footer() -> None:
 #  Convenience exports
 # ═══════════════════════════════════════════════════════════
 
-class Colors:
+class _ColorsMeta(type):
+    """Metaclass that delegates attribute access to the current theme's colour class."""
+    def __getattr__(cls, name: str) -> str:
+        return getattr(get_colors(), name)
+
+
+class Colors(metaclass=_ColorsMeta):
     """Convenience access to the **current theme's** colours.
     
     Usage::
@@ -615,58 +621,7 @@ class Colors:
         each time an attribute is accessed, so it always returns the
         active theme's colour.
     """
-    @classmethod
-    def _get_c(cls) -> Any:
-        return get_colors()
-    
-    @classmethod
-    @property
-    def PRIMARY(cls) -> str: return cls._get_c().PRIMARY
-    @classmethod
-    @property
-    def SUCCESS(cls) -> str: return cls._get_c().SUCCESS
-    @classmethod
-    @property
-    def WARNING(cls) -> str: return cls._get_c().WARNING
-    @classmethod
-    @property
-    def DANGER(cls) -> str: return cls._get_c().DANGER
-    @classmethod
-    @property
-    def INFO(cls) -> str: return cls._get_c().INFO
-    @classmethod
-    @property
-    def ACCENT(cls) -> str: return cls._get_c().ACCENT
-    @classmethod
-    @property
-    def GRADIENT_GREEN(cls) -> str: return cls._get_c().GRADIENT_GREEN
-    @classmethod
-    @property
-    def GRADIENT_BLUE(cls) -> str: return cls._get_c().GRADIENT_BLUE
-    @classmethod
-    @property
-    def GRADIENT_GOLD(cls) -> str: return cls._get_c().GRADIENT_GOLD
-    @classmethod
-    @property
-    def GRADIENT_RED(cls) -> str: return cls._get_c().GRADIENT_RED
-    @classmethod
-    @property
-    def GRADIENT_PURPLE(cls) -> str: return cls._get_c().GRADIENT_PURPLE
-    @classmethod
-    @property
-    def BG_CARD(cls) -> str: return cls._get_c().BG_CARD
-    @classmethod
-    @property
-    def BORDER(cls) -> str: return cls._get_c().BORDER
-    @classmethod
-    @property
-    def TEXT_PRIMARY(cls) -> str: return cls._get_c().TEXT_PRIMARY
-    @classmethod
-    @property
-    def TEXT_SECONDARY(cls) -> str: return cls._get_c().TEXT_SECONDARY
-    @classmethod
-    @property
-    def TEXT_MUTED(cls) -> str: return cls._get_c().TEXT_MUTED
+    pass
 
 
 # ═══════════════════════════════════════════════════════════

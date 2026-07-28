@@ -50,6 +50,9 @@ class TaskEngine:
         from src.scheduler.tasks import (
             backup_database,
             clean_data,
+            collect_odds,
+            collect_team_stats,
+            collect_xg_data,
             daily_data_pipeline,
             daily_feature_computation,
             daily_model_retraining,
@@ -70,6 +73,9 @@ class TaskEngine:
         self.register("daily_feature_computation", daily_feature_computation)
         self.register("daily_model_retraining", daily_model_retraining)
         self.register("daily_predictions", daily_predictions)
+        self.register("collect_odds", collect_odds)
+        self.register("collect_xg_data", collect_xg_data)
+        self.register("collect_team_stats", collect_team_stats)
 
         # Register any custom tasks
         if task_map:
@@ -167,9 +173,10 @@ class TaskEngine:
                 report.succeeded += 1  # WARNING counts as success
 
         report.completed_at = datetime.now(timezone.utc)
-        report.duration_seconds = (
-            report.completed_at - report.started_at
-        ).total_seconds()
+        if report.started_at is not None:
+            report.duration_seconds = (
+                report.completed_at - report.started_at
+            ).total_seconds()
 
         logger.info(
             "Pipeline '%s' complete: %d succeeded, %d failed, %d skipped in %.1fs",

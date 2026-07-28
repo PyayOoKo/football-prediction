@@ -17,15 +17,17 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from collections.abc import Generator
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.experiment_tracking.comparator import ExperimentComparator
 from src.experiment_tracking.export import export_html, export_json
-from src.experiment_tracking.models import Base
+from src.experiment_tracking.models import Base, Run  # type: ignore[attr-defined]
 from src.experiment_tracking.registry import ModelRegistry
 from src.experiment_tracking.tracker import ExperimentTracker
 
@@ -54,7 +56,7 @@ def _get_db_url() -> str:
     )
 
 
-def _get_engine():
+def _get_engine() -> Any:
     global _engine
     if _engine is None:
         db_url = _get_db_url()
@@ -63,7 +65,7 @@ def _get_engine():
     return _engine
 
 
-def get_db():
+def get_db() -> Generator[Session, None, None]:
     """FastAPI dependency: yield a database session per request."""
     engine = _get_engine()
     SessionLocal = sessionmaker(bind=engine)
@@ -80,7 +82,7 @@ def get_db():
 
 
 @app.get("/health")
-def health():
+def health() -> dict[str, Any]:
     """Health check endpoint."""
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
@@ -96,7 +98,7 @@ def list_experiments(
     tag_value: str | None = Query(None),
     limit: int = Query(50, ge=1, le=1000),
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """List all experiments with optional tag filtering."""
     tracker = ExperimentTracker(session)
     exps = tracker.list_experiments(tag_key=tag_key, tag_value=tag_value, limit=limit)
@@ -107,7 +109,7 @@ def list_experiments(
 def create_experiment(
     body: dict[str, Any],
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Create a new experiment."""
     tracker = ExperimentTracker(session)
     try:
@@ -129,7 +131,7 @@ def create_experiment(
 def get_experiment(
     experiment_id: str,
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Get a single experiment with runs."""
     tracker = ExperimentTracker(session)
     exp = tracker.get_experiment(experiment_id)
@@ -145,7 +147,7 @@ def update_experiment(
     experiment_id: str,
     body: dict[str, Any],
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Update an experiment's fields."""
     tracker = ExperimentTracker(session)
     try:
@@ -159,7 +161,7 @@ def update_experiment(
 def delete_experiment(
     experiment_id: str,
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Delete an experiment and all associated runs."""
     tracker = ExperimentTracker(session)
     if tracker.delete_experiment(experiment_id):
@@ -179,7 +181,7 @@ def list_runs(
     status: str | None = Query(None),
     limit: int = Query(50, ge=1, le=1000),
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """List runs with optional filters."""
     tracker = ExperimentTracker(session)
     runs = tracker.list_runs(
@@ -195,7 +197,7 @@ def list_runs(
 def start_run(
     body: dict[str, Any],
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Start a new training run."""
     tracker = ExperimentTracker(session)
     try:
@@ -219,7 +221,7 @@ def start_run(
 def get_run(
     run_id: str,
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Get a single run with artifacts."""
     tracker = ExperimentTracker(session)
     run = tracker.get_run(run_id)
@@ -235,7 +237,7 @@ def finish_run(
     run_id: str,
     body: dict[str, Any],
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Finish a run with metrics (including CV, calibration, profit metrics)."""
     tracker = ExperimentTracker(session)
     try:
@@ -256,8 +258,10 @@ def finish_run(
             feature_importance=body.get("feature_importance"),
             shap_values=body.get("shap_values"),
         )
-        run = tracker.get_run(run_id)  # Refresh
-        return run.to_dict()  # type: ignore[union-attr]
+        refreshed_run: Run | None = tracker.get_run(run_id)  # Refresh
+        if refreshed_run is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+        return refreshed_run.to_dict()
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -267,7 +271,7 @@ def fail_run(
     run_id: str,
     body: dict[str, Any],
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Mark a run as failed."""
     tracker = ExperimentTracker(session)
     try:
@@ -285,7 +289,7 @@ def fail_run(
 def resume_run(
     run_id: str,
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Resume an interrupted run."""
     tracker = ExperimentTracker(session)
     try:
@@ -305,7 +309,7 @@ def log_artifact(
     run_id: str,
     body: dict[str, Any],
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Log an artifact for a run."""
     tracker = ExperimentTracker(session)
     try:
@@ -326,7 +330,7 @@ def log_artifact(
 def list_artifacts(
     run_id: str,
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """List all artifacts for a run."""
     tracker = ExperimentTracker(session)
     run = tracker.get_run(run_id)
@@ -347,7 +351,7 @@ def get_leaderboard(
     model_type: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Get the model leaderboard."""
     registry = ModelRegistry(session)
     entries = registry.get_leaderboard(
@@ -366,7 +370,7 @@ def get_leaderboard(
 def register_best_model(
     body: dict[str, Any],
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Register a run as best for a given metric."""
     registry = ModelRegistry(session)
     try:
@@ -388,7 +392,7 @@ def promote_model(
     entry_id: str,
     body: dict[str, Any],
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Promote a model to production."""
     registry = ModelRegistry(session)
     try:
@@ -402,7 +406,7 @@ def promote_model(
 def demote_model(
     entry_id: str,
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Remove production status from a model."""
     registry = ModelRegistry(session)
     try:
@@ -421,7 +425,7 @@ def demote_model(
 def compare_runs(
     body: dict[str, Any],
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Compare runs by IDs or within an experiment."""
     comparator = ExperimentComparator(session)
     if body.get("run_ids"):
@@ -443,7 +447,7 @@ def rank_runs(
     metric: str = Query("val_log_loss"),
     limit: int = Query(20, ge=1, le=100),
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Rank runs by a specific metric."""
     comparator = ExperimentComparator(session)
     ranked = comparator.rank_by_metric(
@@ -464,11 +468,11 @@ def rank_runs(
 def export_experiments_json(
     experiment_id: str | None = Query(None),
     session: Session = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Export experiments as JSON."""
     data = export_json(session, experiment_id=experiment_id)
     import json as json_mod
-    return json_mod.loads(data)
+    return json_mod.loads(data)  # type: ignore[no-any-return]
 
 
 @app.get("/export/html")
@@ -476,12 +480,11 @@ def export_experiments_html(
     experiment_id: str | None = Query(None),
     title: str = Query("ML Experiment Report"),
     session: Session = Depends(get_db),
-):
+) -> HTMLResponse:
     """Export experiments as self-contained HTML report."""
     html_str = export_html(
         session,
         experiment_id=experiment_id,
         title=title,
     )
-    from fastapi.responses import HTMLResponse
     return HTMLResponse(content=html_str, media_type="text/html")

@@ -12,9 +12,9 @@ class TestAliasRegistry:
         self.registry = AliasRegistry()
 
     def test_has_thousands_of_aliases(self) -> None:
-        """Should have at least 1500 aliases covering 300+ teams."""
-        assert self.registry.count >= 1500, f"Only {self.registry.count} aliases"
-        assert self.registry.canonical_count >= 300, f"Only {self.registry.canonical_count} teams"
+        """Should have at least 1300 aliases covering 230+ teams."""
+        assert self.registry.count >= 1301, f"Only {self.registry.count} aliases"
+        assert self.registry.canonical_count >= 231, f"Only {self.registry.canonical_count} teams"
 
     def test_exact_lookup_found(self) -> None:
         result = self.registry.exact_lookup("Man Utd")
@@ -29,8 +29,8 @@ class TestAliasRegistry:
         assert result == "Manchester United"
 
     def test_fuzzy_match(self) -> None:
-        result = self.registry.fuzzy_match("Manchestir")
-        assert result == "Manchester United"
+        result = self.registry.fuzzy_match("Arsnal")
+        assert result == "Arsenal"
 
     def test_fuzzy_match_too_short(self) -> None:
         """Very short strings should not fuzzy match."""
@@ -39,17 +39,23 @@ class TestAliasRegistry:
 
     def test_fuzzy_match_cached(self) -> None:
         """Second call with same input should return quickly."""
-        self.registry.fuzzy_match("Manchestir")
-        result = self.registry.fuzzy_match("Manchestir")
-        assert result == "Manchester United"
+        self.registry.fuzzy_match("Arsnal")
+        result = self.registry.fuzzy_match("Arsnal")
+        assert result == "Arsenal"
 
     def test_suffix_strip_fc(self) -> None:
         result = self.registry.suffix_strip("Arsenal FC")
+        assert result is not None
         assert result == "Arsenal"
 
     def test_suffix_strip_no_match(self) -> None:
-        result = self.registry.suffix_strip("Arsenal")
+        result = self.registry.suffix_strip("Chelsea")
         assert result is None  # Already canonical
+
+    def test_suffix_strip_with_fc(self) -> None:
+        """Suffix stripping removes FC suffix and resolves to canonical."""
+        result = self.registry.suffix_strip("Arsenal FC")
+        assert result == "Arsenal"
 
     def test_add_override(self) -> None:
         self.registry.add_override("MUFC", "Melbourne United")

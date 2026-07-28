@@ -244,7 +244,7 @@ class FeaturePipeline(FeaturePipelineABC):
                     pd.DataFrame(),  # placeholder — real data passed through report
                     step_name="post_computation",
                 )
-                report.validation = validation_report
+                report.validation = validation_report  # type: ignore[attr-defined]
 
                 if not validation_report["passed"]:
                     n_v = validation_report["total_violations"]
@@ -452,7 +452,7 @@ class FeaturePipeline(FeaturePipelineABC):
 
         computer_registry = ComputerRegistry()
         for name, transformer in transformers.items():
-            computer_registry.add(name, _TransformerComputer(transformer, context))
+            computer_registry.add(name, _TransformerComputer(transformer, context))  # type: ignore[arg-type]
 
         try:
             with get_session() as session:
@@ -578,12 +578,12 @@ class FeaturePipeline(FeaturePipelineABC):
             print("No DAG built yet. Run the pipeline first.")
             return
         print("\n  FEATURE DEPENDENCY DAG")
-        print("  " + "=" * 50)
+        print("  " + '=' * 50)
         for feature, deps in sorted(dag.items()):
             if deps:
-                print(f"  {feature:<35s} depends on: {', '.join(deps)}")
+                print("  %-35s depends on: %s" % (feature, ', '.join(deps)))
             else:
-                print(f"  {feature:<35s} no dependencies (root)")
+                print("  %-35s no dependencies (root)" % feature)
 
     # ── Registration ─────────────────────────────────
 

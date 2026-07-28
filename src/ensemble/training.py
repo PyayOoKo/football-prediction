@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import itertools
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -359,7 +359,7 @@ class EnsembleModel:
         """Get predict_proba from a scikit-learn / XGBoost model with NaN handling."""
         col_means = X.mean().fillna(0)
         X_clean = X.fillna(col_means)
-        return model.predict_proba(X_clean)
+        return cast(np.ndarray, model.predict_proba(X_clean))
 
     def _poisson_predict_proba(
         self, df_raw: pd.DataFrame | None,
@@ -610,7 +610,7 @@ class EnsembleModel:
     def predict(self, X: pd.DataFrame, df_raw: pd.DataFrame | None = None) -> np.ndarray:
         """Predict hard class labels (0=Away, 1=Draw, 2=Home)."""
         probs = self.predict_proba(X, df_raw)
-        return np.argmax(probs, axis=1)
+        return cast(np.ndarray, np.argmax(probs, axis=1))
 
     # -- Evaluation -----------------------------------------
 

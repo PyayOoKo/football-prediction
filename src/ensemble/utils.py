@@ -57,23 +57,25 @@ def train_ensemble(
     ensemble_probs = ensemble.predict_proba(X_test, df_test)
 
     if verbose:
-        print("\n" + "=" * 90)
-        print("  ENSEMBLE TRAINING RESULTS".center(88))
-        print("=" * 90)
+        logger.info("")
+        logger.info("=" * 90)
+        logger.info("  ENSEMBLE TRAINING RESULTS".center(88))
+        logger.info("=" * 90)
 
-        print(f"\n  Validation log-loss: {fit_report['val_log_loss']:.4f}")
-        print(f"  Test log-loss:       {test_report['ensemble_log_loss']:.4f}")
-        print(f"  Test accuracy:       {test_report['ensemble_accuracy']:.2%}")
-        print(f"\n  Best single model:   {test_report['best_single_model']} "
-              f"({test_report['individual_log_losses'][test_report['best_single_model']]:.4f})")
-        print(f"  Improvement:         Delta = {test_report['improvement_over_best_single']:+.4f}")
-        print(f"\n  {ensemble.weight_summary}")
-        print(f"\n  {'=' * 30}  LOG-LOSS BREAKDOWN {'=' * 30}")
+        logger.info("  Validation log-loss: %.4f", fit_report['val_log_loss'])
+        logger.info("  Test log-loss:       %.4f", test_report['ensemble_log_loss'])
+        logger.info("  Test accuracy:       %.2f%%", test_report['ensemble_accuracy'] * 100)
+        best_model = test_report['best_single_model']
+        logger.info("  Best single model:   %s (%.4f)", best_model, test_report['individual_log_losses'][best_model])
+        logger.info("  Improvement:         Delta = %+.4f", test_report['improvement_over_best_single'])
+        logger.info("  %s", ensemble.weight_summary)
+        logger.info("  %s", '=' * 30 + "  LOG-LOSS BREAKDOWN " + '=' * 30)
+        best_loss = min(test_report["individual_log_losses"].values())
         for name, loss in sorted(test_report["individual_log_losses"].items()):
-            marker = " <- BEST" if abs(loss - min(test_report["individual_log_losses"].values())) < 1e-6 else ""
-            print(f"    {name:<30s}  {loss:.4f}{marker}")
-        print("=" * 90)
-        print()
+            marker = " <- BEST" if abs(loss - best_loss) < 1e-6 else ""
+            logger.info("    %-30s  %.4f%s", name, loss, marker)
+        logger.info("=" * 90)
+        logger.info("")
 
     return {
         "ensemble": ensemble,

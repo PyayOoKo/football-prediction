@@ -256,7 +256,7 @@ class ExperimentComparator:
             r for r in runs
             if r.metrics and metric in r.metrics and r.metrics[metric] is not None
         ]
-        scored.sort(key=lambda r: r.metrics[metric], reverse=not ascending)
+        scored.sort(key=lambda r: r.metrics[metric] if r.metrics else 0, reverse=not ascending)
 
         results: list[dict[str, Any]] = []
         for i, run in enumerate(scored[:limit], 1):
@@ -266,7 +266,7 @@ class ExperimentComparator:
                 "experiment_id": run.experiment_id[:8],
                 "run_name": run.run_name,
                 "model_type": run.model_type,
-                "metric_value": run.metrics[metric],
+                "metric_value": run.metrics[metric] if run.metrics else None,
                 "duration_seconds": run.training_duration_seconds,
             })
 

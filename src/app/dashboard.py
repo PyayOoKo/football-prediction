@@ -288,7 +288,7 @@ st.markdown(
     f'<div style="margin-top:0.8rem;font-size:0.8rem;color:#8b8fa3">'
     f'⚡ <strong style="color:#4caf50">BEST BET:</strong> Spain @ 2.38 · '
     f'Kelly Stake: <strong>$41.10</strong> (4.1% of bankroll) · '
-    f'<a href="pages/4_WorldCup.py" target="_self" style="color:#4fc3f7">View Full Analysis →</a>'
+    f'<a href="pages/4_Top5Leagues.py" target="_self" style="color:#4fc3f7">Top 5 Leagues Analysis →</a>'
     f'</div>'
     f'</div>'
     f'</div>'
@@ -416,7 +416,7 @@ with right_col:
         st.page_link("pages/1_Predict.py", label="🔮 Predict a Match", use_container_width=True)
         st.page_link("pages/2_Value_Bets.py", label="💰 Find Value Bets", use_container_width=True)
         st.page_link("pages/3_Backtest.py", label="📊 View Backtest", use_container_width=True)
-        st.page_link("pages/4_WorldCup.py", label="🏆 World Cup 2026", use_container_width=True)
+        st.page_link("pages/4_Top5Leagues.py", label="🏆 Top 5 European Leagues", use_container_width=True)
     else:
         if not model_ok:
             st.error("⚠ No trained model found.")

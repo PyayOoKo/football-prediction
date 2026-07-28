@@ -47,6 +47,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -761,7 +762,6 @@ class CLVTracker:
             json.dump(output, f, indent=2, default=str)
 
         logger.info("Saved CLV tracking to %s", filepath)
-        print(f"[CLVTracker] Saved to {filepath}")
         return filepath
 
     # ── Internal helpers ──────────────────────────────────
@@ -769,7 +769,7 @@ class CLVTracker:
     def _calculate_trend(
         self,
         clv_values: np.ndarray | None = None,
-    ) -> dict[str, str]:
+    ) -> dict[str, str | float]:
         """Determine the CLV trend direction.
 
         Compares the average CLV of the first 40% of bets against the
@@ -784,7 +784,7 @@ class CLVTracker:
 
         Returns
         -------
-        dict[str, str]
+        dict[str, str | float]
             ``{"direction": "Improving" | "Declining" | "Stable",
             "first_avg": ..., "last_avg": ...}``
         """

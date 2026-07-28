@@ -189,7 +189,7 @@ class ETLConfig:
 
     name: str = ""
     source: str = ""
-    stages: dict[PipelineStage, dict] = field(default_factory=dict)
+    stages: dict[PipelineStage, dict[str, Any]] = field(default_factory=dict)
     batch_size: int = 1000
     parallel: bool = False
     max_workers: int = 4

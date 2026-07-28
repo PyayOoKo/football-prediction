@@ -80,15 +80,15 @@ class MonitoringStore:
             try:
                 self._local.conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
             except Exception:
-                pass
+                logger.warning("Failed to checkpoint WAL", exc_info=True)
             try:
                 self._local.conn.execute("PRAGMA journal_mode=DELETE")
             except Exception:
-                pass
+                logger.warning("Failed to set journal_mode", exc_info=True)
             try:
                 self._local.conn.close()
             except Exception:
-                pass
+                logger.warning("Failed to close connection", exc_info=True)
             self._local.conn = None
 
     def _get_conn(self) -> sqlite3.Connection:
@@ -105,7 +105,7 @@ class MonitoringStore:
             conn.execute("PRAGMA cache_size=-8000")  # 8MB
             conn.row_factory = sqlite3.Row
             self._local.conn = conn
-        return self._local.conn
+        return self._local.conn  # type: ignore[return-value, unused-ignore, no-any-return]
 
     def _init_db(self) -> None:
         """Create all monitoring tables if they don't exist."""
@@ -223,7 +223,7 @@ class MonitoringStore:
                 int(metric.success), metric.error_message, ts,
             ),
         )
-        return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        return conn.execute("SELECT last_insert_rowid()").fetchone()[0]  # type: ignore[return-value, unused-ignore, no-any-return]
 
     def record_system(self, metric: SystemMetric) -> int:
         """Store a system metric. Returns the row ID."""
@@ -244,7 +244,7 @@ class MonitoringStore:
                 metric.cache_entries, metric.cache_size_mb, ts,
             ),
         )
-        return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        return conn.execute("SELECT last_insert_rowid()").fetchone()[0]  # type: ignore[return-value, unused-ignore, no-any-return]
 
     def record_data_quality(self, metric: DataQualityMetric) -> int:
         """Store a data quality metric. Returns the row ID."""
@@ -265,7 +265,7 @@ class MonitoringStore:
                 metric.validation_errors, ts,
             ),
         )
-        return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        return conn.execute("SELECT last_insert_rowid()").fetchone()[0]  # type: ignore[return-value, unused-ignore, no-any-return]
 
     def record_cache(self, metric: CacheMetric) -> int:
         """Store a cache metric. Returns the row ID."""
@@ -280,10 +280,10 @@ class MonitoringStore:
             (metric.hits, metric.misses, metric.hit_rate,
              metric.entries, metric.size_bytes, ts),
         )
-        return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        return conn.execute("SELECT last_insert_rowid()").fetchone()[0]  # type: ignore[return-value, unused-ignore, no-any-return]
+
 
     # ── Read methods ───────────────────────────────────
-
     def get_etl_history(
         self,
         days: int = 30,

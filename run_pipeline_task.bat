@@ -4,8 +4,8 @@ REM  run_pipeline_task.bat — Wrapper for scheduled pipeline run.
 REM  Called by Windows Task Scheduler. Handles path quoting correctly.
 REM ============================================================================
 setlocal
-set PYTHON_EXE=C:\Users\dell\AppData\Local\Python\pythoncore-3.14-64\python.exe
+set PYTHON_EXE=%~dp0.venv\Scripts\python.exe
 
 if not exist "%~dp0logs\scheduler\" mkdir "%~dp0logs\scheduler\"
 
-"%PYTHON_EXE%" -u "%~dp0run_pipeline.py" --lightweight >> "%~dp0logs\scheduler\pipeline.log" 2>&1
+"%PYTHON_EXE%" -u "%~dp0run_pipeline.py" --lightweight --skip-value-bets >> "%~dp0logs\scheduler\pipeline.log" 2>&1

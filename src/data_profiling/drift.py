@@ -246,7 +246,7 @@ class DataDriftDetector:
                     return set(data["column"].dropna())
                 return set()
             if isinstance(data, list):
-                return {r.get("column") for r in data if isinstance(r, dict)}
+                return {r.get("column") for r in data if isinstance(r, dict)}  # type: ignore[misc]
             if isinstance(data, dict):
                 cols = data.get("columns", {})
                 if isinstance(cols, dict):

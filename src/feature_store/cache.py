@@ -143,7 +143,7 @@ class FeatureCache:
         if cached is not None:
             if isinstance(cached, dict):
                 return FeatureValue(**cached)
-            return cached  # type: ignore[return-value]
+            return cached  # type: ignore[no-any-return]
 
         # Cache miss — load from store and populate
         value = self._store.get(
@@ -295,7 +295,7 @@ class FeatureCache:
                 if isinstance(cached, dict):
                     results[_result_key(defn, match_id, team_id)] = FeatureValue(**cached)
                 else:
-                    results[_result_key(defn, match_id, team_id)] = cached  # type: ignore
+                    results[_result_key(defn, match_id, team_id)] = cached
             else:
                 uncached.append((defn, match_id, team_id))
 
@@ -322,15 +322,15 @@ class FeatureCache:
 
     def invalidate_feature(self, name: str) -> int:
         """Invalidate all cached values for a feature definition."""
-        return _run_async(self._cache.invalidate_by_tag(f"feature:{name}"))
+        return _run_async(self._cache.invalidate_by_tag(f"feature:{name}"))  # type: ignore[return-value, unused-ignore, no-any-return]
 
     def invalidate_entity(self, entity_type: str, entity_id: int) -> int:
         """Invalidate all cached feature values for an entity."""
-        return _run_async(self._cache.invalidate_by_tag(f"{entity_type}:{entity_id}"))
+        return _run_async(self._cache.invalidate_by_tag(f"{entity_type}:{entity_id}"))  # type: ignore[return-value, unused-ignore, no-any-return]
 
     def invalidate_category(self, category: str) -> int:
         """Invalidate all cached values for a feature category."""
-        return _run_async(self._cache.invalidate_by_tag(f"category:{category}"))
+        return _run_async(self._cache.invalidate_by_tag(f"category:{category}"))  # type: ignore[return-value, unused-ignore, no-any-return]
 
     # ── Cache warming ─────────────────────────────────────
 
@@ -359,7 +359,7 @@ class FeatureCache:
             kwargs: dict[str, int] = (
                 {"match_id": eid} if entity_type == "match" else {"team_id": eid}
             )
-            key = self._build_key(definition, **kwargs)  # type: ignore[arg-type]
+            key = self._build_key(definition, **kwargs)
             if key is None:
                 continue
 
@@ -368,7 +368,7 @@ class FeatureCache:
             if cached is not None:
                 continue
 
-            value = self._store.get(definition.id, **kwargs)  # type: ignore[arg-type]
+            value = self._store.get(definition.id, **kwargs)
             if value is not None:
                 tags = {
                     f"feature:{definition.name}",
@@ -423,9 +423,9 @@ class FeatureCache:
             is_stale = entry.age > self.default_ttl
             # Serve stale but within stale TTL
             if is_stale and entry.age <= (self.default_ttl + 300):
-                return entry.value, True  # type: ignore[return-value]
+                return entry.value, True
             if not is_stale:
-                return entry.value, False  # type: ignore[return-value]
+                return entry.value, False
 
         # Cache miss — load from store
         value = self._store.get(definition.id, match_id=match_id, team_id=team_id)
@@ -459,8 +459,8 @@ class FeatureCache:
 
     def cache_stats(self) -> CacheStats:
         """Return cache statistics from the underlying cache manager."""
-        return _run_async(self._cache.stats())
+        return _run_async(self._cache.stats())  # type: ignore[return-value, unused-ignore, no-any-return]
 
     def clear_cache(self) -> int:
         """Clear ALL cached feature values. Use with caution."""
-        return _run_async(self._cache.clear())
+        return _run_async(self._cache.clear())  # type: ignore[return-value, unused-ignore, no-any-return]

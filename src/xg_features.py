@@ -97,7 +97,7 @@ _XG_HOME_PATTERNS = ["home_xg", "xg_home", "xghome", "h_xg", "hxg"]
 _XG_AWAY_PATTERNS = ["away_xg", "xg_away", "xgaway", "a_xg", "axg"]
 
 # Rolling window labels used as column suffixes
-_ROLLING_WINDOWS = [5, 10]
+_ROLLING_WINDOWS = (5, 10)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -402,19 +402,20 @@ def _merge_xg_features(
     """
     # Home team features
     home_stats = team_rolling[team_rolling["is_home"] == 1].copy()
-    home_stats.rename(
-        columns={c: f"h_{c}" for c in home_stats.columns if c not in ("match_id", "is_home")},
-        inplace=True,
-    )
-    df = df.merge(home_stats, left_index=True, right_on="match_id", how="left")
+    home_cols = {c: f"h_{c}" for c in home_stats.columns if c not in ("match_id", "is_home")}
+    home_stats.rename(columns=home_cols, inplace=True)
+    # Keep match_id to join on; drop the _y duplicate after merge
+    df = df.merge(home_stats, left_index=True, right_on="match_id", how="left", suffixes=("", "_home"))
+    df.drop(columns=[c for c in df.columns if c.endswith("_home") and c != "is_home"],
+            inplace=True, errors="ignore")
 
     # Away team features
     away_stats = team_rolling[team_rolling["is_home"] == 0].copy()
-    away_stats.rename(
-        columns={c: f"a_{c}" for c in away_stats.columns if c not in ("match_id", "is_home")},
-        inplace=True,
-    )
-    df = df.merge(away_stats, left_index=True, right_on="match_id", how="left")
+    away_cols = {c: f"a_{c}" for c in away_stats.columns if c not in ("match_id", "is_home")}
+    away_stats.rename(columns=away_cols, inplace=True)
+    df = df.merge(away_stats, left_index=True, right_on="match_id", how="left", suffixes=("", "_away"))
+    df.drop(columns=[c for c in df.columns if c.endswith("_away") and c != "is_home"],
+            inplace=True, errors="ignore")
 
     # Clean up auxiliary columns
     df.drop(columns=[c for c in df.columns if c.endswith("_match_id") or c == "is_home"],

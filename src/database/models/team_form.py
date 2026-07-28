@@ -87,6 +87,11 @@ class TeamForm(Base):
     )
 
     # ── Constraints & indexes ──────────────────────────
+    # Note: The UniqueConstraint below creates a composite index on
+    # (team_id, match_id) in all major databases, covering the common
+    # query pattern "find form records for a team, ordered by match date"
+    # (match date is resolved via the matches table join on match_id,
+    # which is itself indexed on matches.match_date).
     __table_args__ = (
         UniqueConstraint(
             "team_id", "match_id",

@@ -189,7 +189,7 @@ def list_competitions(
 
     if use_cache and cache_path.exists():
         with open(cache_path) as f:
-            return json.load(f)
+            return json.load(f)  # type: ignore[no-any-return]
 
     logger.info("Fetching competitions list from StatsBomb open-data...")
     sess = _session()
@@ -201,7 +201,7 @@ def list_competitions(
     with open(cache_path, "w") as f:
         json.dump(data, f, indent=2)
 
-    return data
+    return data  # type: ignore[no-any-return]
 
 
 def list_matches(
@@ -295,7 +295,7 @@ def get_match_events(
 
     if use_cache and cache_path.exists():
         with open(cache_path) as f:
-            return json.load(f)
+            return json.load(f)  # type: ignore[no-any-return]
 
     url = EVENTS_URL.format(match_id=match_id)
     sess = _session()
@@ -307,7 +307,7 @@ def get_match_events(
     with open(cache_path, "w") as f:
         json.dump(data, f, indent=2)
 
-    return data
+    return data  # type: ignore[no-any-return]
 
 
 def get_match_lineups(
@@ -332,7 +332,7 @@ def get_match_lineups(
 
     if use_cache and cache_path.exists():
         with open(cache_path) as f:
-            return json.load(f)
+            return json.load(f)  # type: ignore[no-any-return]
 
     url = LINEUPS_URL.format(match_id=match_id)
     sess = _session()
@@ -344,7 +344,7 @@ def get_match_lineups(
     with open(cache_path, "w") as f:
         json.dump(data, f, indent=2)
 
-    return data
+    return data  # type: ignore[no-any-return]
 
 
 # ═══════════════════════════════════════════════════════════

@@ -273,22 +273,22 @@ def _detect_changed_columns(
         return sorted(changed)
 
     # Fallback: just check which non-key columns are present in the delta
-    changed = []
+    changed_items: list[str] = []
     for col in updated.columns:
         if col in exclude:
             continue
         if updated[col].nunique() > 1:
-            changed.append(col)
-    return changed
+            changed_items.append(col)
+    return changed_items
 
 
-def _compare_metadata(old_info: Any, new_info: Any) -> dict[str, tuple]:
+def _compare_metadata(old_info: Any, new_info: Any) -> dict[str, tuple[Any, Any]]:
     """Compare metadata between two versions.
 
     Returns a dict of {field: (old_value, new_value)} for fields
     that differ.
     """
-    changes: dict[str, tuple] = {}
+    changes: dict[str, tuple[Any, Any]] = {}
 
     for field in ["source", "league", "season", "n_rows", "n_columns"]:
         old_val = getattr(old_info, field, None)

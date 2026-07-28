@@ -136,13 +136,21 @@ class TestPredictionService:
     def test_backfill_empty(self, temp_models_dir: Path) -> None:
         """backfill_predictions should return empty list for no data."""
         service = PredictionService(model_dir=temp_models_dir)
+        # Create an empty dummy file so data_path.exists() passes on any platform
+        dummy_path = temp_models_dir / "data.csv"
+        dummy_path.write_text("")
+        empty_df = pd.DataFrame({
+            "date": pd.to_datetime([]),
+            "result": pd.Series([], dtype=str),
+        })
         with patch.object(service, "_load_model", return_value=_DummyModel()):
-            with patch("src.services.prediction_service.load_and_prepare", return_value=pd.DataFrame()):
-                results = service.backfill_predictions(
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 12, 31),
-                )
-                assert results == []
+            with patch("src.services.prediction_service.resolve_data_path", return_value=dummy_path):
+                with patch("src.services.prediction_service.load_and_prepare", return_value=empty_df):
+                    results = service.backfill_predictions(
+                        start_date=date(2024, 1, 1),
+                        end_date=date(2024, 12, 31),
+                    )
+                    assert results == []
 
     def test_save_predictions_csv(self, temp_models_dir: Path) -> None:
         """_save_predictions should save CSV correctly."""

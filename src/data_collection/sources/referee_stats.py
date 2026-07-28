@@ -281,7 +281,8 @@ def _parse_referee_table(
     data_rows: list[dict[str, Any]] = []
 
     for tr in rows:
-        if "class" in tr.attrs and any(c in ["thead", "over_header"] for c in tr.get("class", [])):
+        classes = tr.get("class")
+        if classes and any(c in ["thead", "over_header"] for c in classes):
             continue
 
         cells = tr.find_all(["td", "th"])

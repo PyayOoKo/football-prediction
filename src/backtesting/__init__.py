@@ -224,7 +224,7 @@ class BacktestEngine:
         # Check odds availability
         has_odds = odds_df is not None
         if has_odds:
-            missing_odds = [c for c in odds_cols if c not in odds_df.columns]
+            missing_odds = [c for c in odds_cols if c not in (odds_df or pd.DataFrame()).columns]
             if missing_odds:
                 logger.warning("Odds columns not found in odds_df: %s", missing_odds)
                 has_odds = False
@@ -246,7 +246,7 @@ class BacktestEngine:
             # Build match label
             home_team = ""
             away_team = ""
-            if has_odds:
+            if has_odds and odds_df is not None:
                 if team_cols[0] in odds_df.columns:
                     home_team = str(odds_df.iloc[i].get(team_cols[0], ""))
                 if team_cols[1] in odds_df.columns:
@@ -254,7 +254,7 @@ class BacktestEngine:
             match_label = f"{home_team} vs {away_team}" if home_team and away_team else f"Match {i + 1}"
 
             # Get odds for this match
-            if has_odds:
+            if has_odds and odds_df is not None:
                 raw_odds = [
                     float(odds_df.iloc[i][odds_cols[0]]),  # away
                     float(odds_df.iloc[i][odds_cols[1]]),  # draw
@@ -418,58 +418,59 @@ class BacktestEngine:
 
         m = self._metrics or self.calculate_metrics()
 
-        print("\n" + "=" * 90)
-        print("  BACKTEST RESULTS".center(88))
-        print("=" * 90)
+        logger.info("")
+        logger.info("=" * 90)
+        logger.info("  BACKTEST RESULTS".center(88))
+        logger.info("=" * 90)
 
         if m.total_bets == 0:
-            print("\n  No bets were placed during the backtest period.")
-            print("     Possible causes:")
-            print("     * No odds data available for the test period")
-            print("     * Model found no positive-EV opportunities")
-            print("     * The min_ev threshold may be too high")
-            print(f"\n  Final bankroll: GBP{m.final_bankroll:.2f}")
-            print("=" * 90)
+            logger.info("  No bets were placed during the backtest period.")
+            logger.info("     Possible causes:")
+            logger.info("     * No odds data available for the test period")
+            logger.info("     * Model found no positive-EV opportunities")
+            logger.info("     * The min_ev threshold may be too high")
+            logger.info("  Final bankroll: GBP%.2f", m.final_bankroll)
+            logger.info("=" * 90)
             return
 
         # ── Summary metrics ─────────────────────────────
-        print(f"\n  {'METRIC':<30} {'VALUE':>15}   {'NOTES':<35}")
-        print(f"  {'-' * 82}")
-        print(f"  {'Total bets':<30} {m.total_bets:>10,d}   {'Bets placed during test period':<35}")
-        print(f"  {'Winning bets':<30} {m.winning_bets:>8,d} / {m.total_bets:<8,d}    {'':<35}")
+        logger.info("  %-30s %15s   %-35s", 'METRIC', 'VALUE', 'NOTES')
+        logger.info("  %s", '-' * 82)
+        logger.info("  %-30s %10d   %-35s", 'Total bets', m.total_bets, 'Bets placed during test period')
+        logger.info("  %-30s %8d / %-8d    %-35s", 'Winning bets', m.winning_bets, m.total_bets, '')
         win_rate_str = f"{m.win_rate_pct:.1f}%"
-        print(f"  {'Win rate':<30} {win_rate_str:>15}   {'% of bets that won':<35}")
-        print(f"  {'Total staked':<30} GBP{m.total_staked:>12.2f}   {'Sum of all stakes':<35}")
-        print(f"  {'Total profit / loss':<30} GBP{m.total_profit:>+11.2f}   {'+ = profit, - = loss':<35}")
+        logger.info("  %-30s %15s   %-35s", 'Win rate', win_rate_str, '% of bets that won')
+        logger.info("  %-30s GBP%12.2f   %-35s", 'Total staked', m.total_staked, 'Sum of all stakes')
+        logger.info("  %-30s GBP%+11.2f   %-35s", 'Total profit / loss', m.total_profit, '+ = profit, - = loss')
 
         # ROI
         roi_marker = "+" if m.roi_pct > 0 else "-" if m.roi_pct < 0 else "="
-        print(f"  {'ROI (Return on Investment)':<30} {roi_marker} {m.roi_pct:>+9.2f}%   {'Total return on initial bankroll':<35}")
+        logger.info("  %-30s %s %+9.2f%%   %-35s", 'ROI (Return on Investment)', roi_marker, m.roi_pct, 'Total return on initial bankroll')
 
         # Yield
         yield_marker = "+" if m.yield_pct > 0 else "-" if m.yield_pct < 0 else "="
-        print(f"  {'Yield (profit / staked)':<30} {yield_marker} {m.yield_pct:>+9.2f}%   {'Return per unit staked':<35}")
+        logger.info("  %-30s %s %+9.2f%%   %-35s", 'Yield (profit / staked)', yield_marker, m.yield_pct, 'Return per unit staked')
 
         # Final bankroll
         bankroll_change = m.final_bankroll - m.initial_bankroll
         change_str = f"+GBP{bankroll_change:.2f}" if bankroll_change >= 0 else f"-GBP{abs(bankroll_change):.2f}"
-        print(f"  {'Final bankroll':<30} GBP{m.final_bankroll:>11.2f}   ({change_str} from GBP{m.initial_bankroll:.0f})")
+        logger.info("  %-30s GBP%11.2f   (%s from GBP%.0f)", 'Final bankroll', m.final_bankroll, change_str, m.initial_bankroll)
 
         # Drawdown
-        print(f"  {'Max drawdown':<30} {m.max_drawdown_pct:>12.2f}%   (GBP{m.max_drawdown_amount:.2f} peak-to-trough)")
+        logger.info("  %-30s %12.2f%%   (GBP%.2f peak-to-trough)", 'Max drawdown', m.max_drawdown_pct, m.max_drawdown_amount)
 
         # Other metrics
-        print(f"  {'Average odds':<30} {m.avg_odds:>14.4f}   {'Weighted by stake':<35}")
-        print(f"  {'Average EV':<30} {m.avg_ev:>+14.2%}   {'Expected value per bet':<35}")
-        print(f"  {'Profit factor':<30} {m.profit_factor:>14.2f}   {'Gross profit / gross loss':<35}")
-        print(f"  {'Longest win streak':<30} {m.longest_win_streak:>8d} bets   {'':<35}")
-        print(f"  {'Longest losing streak':<30} {m.longest_lose_streak:>8d} bets   {'':<35}")
+        logger.info("  %-30s %14.4f   %-35s", 'Average odds', m.avg_odds, 'Weighted by stake')
+        logger.info("  %-30s %+14.2f%%   %-35s", 'Average EV', m.avg_ev * 100, 'Expected value per bet')
+        logger.info("  %-30s %14.2f   %-35s", 'Profit factor', m.profit_factor, 'Gross profit / gross loss')
+        logger.info("  %-30s %8d bets   %-35s", 'Longest win streak', m.longest_win_streak, '')
+        logger.info("  %-30s %8d bets   %-35s", 'Longest losing streak', m.longest_lose_streak, '')
 
         # ── Performance assessment ──────────────────────
-        print(f"\n  {'PERFORMANCE ASSESSMENT':-^82}")
+        logger.info("  PERFORMANCE ASSESSMENT")
         assessment = self._assess_performance(m)
-        print(f"  {assessment}")
-        print("=" * 90)
+        logger.info("  %s", assessment)
+        logger.info("=" * 90)
 
     def _assess_performance(self, m: BacktestMetrics) -> str:
         """Return a human-readable performance assessment."""
@@ -576,10 +577,10 @@ class BacktestEngine:
         color = "#2ecc71" if m.roi_pct >= 0 else "#e74c3c"
         ax.plot(x, history, color=color, linewidth=1.5, alpha=0.9)
         ax.fill_between(x, self.initial_bankroll, history,
-                        where=np.array(history) >= self.initial_bankroll,
+                        where=(np.array(history) >= self.initial_bankroll).astype(bool),  # type: ignore[arg-type]
                         color="#2ecc71", alpha=0.1, label="Above starting bankroll")
         ax.fill_between(x, self.initial_bankroll, history,
-                        where=np.array(history) < self.initial_bankroll,
+                        where=(np.array(history) < self.initial_bankroll).astype(bool),  # type: ignore[arg-type]
                         color="#e74c3c", alpha=0.1, label="Below starting bankroll")
 
         # Starting bankroll line
@@ -679,10 +680,12 @@ class BacktestEngine:
                     color=color, linewidth=1.5, alpha=0.8)
 
         ax.fill_between(x, 0, cumulative,
-                        where=cumulative >= 0, color="#2ecc71", alpha=0.08,
+                        where=(cumulative >= 0).astype(bool),  # type: ignore[arg-type]
+                        color="#2ecc71", alpha=0.08,
                         label="Profit")
         ax.fill_between(x, 0, cumulative,
-                        where=cumulative < 0, color="#e74c3c", alpha=0.08,
+                        where=(cumulative < 0).astype(bool),  # type: ignore[arg-type]
+                        color="#e74c3c", alpha=0.08,
                         label="Loss")
         ax.axhline(0, color="#555555", linestyle="-", linewidth=0.6, alpha=0.5)
 

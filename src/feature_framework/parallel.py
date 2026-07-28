@@ -105,6 +105,7 @@ class ParallelComputer:
             return []
 
         # Choose executor
+        pool_cls: type[ProcessPoolExecutor | ThreadPoolExecutor]
         if self.executor_type == "process":
             pool_cls = ProcessPoolExecutor
         else:

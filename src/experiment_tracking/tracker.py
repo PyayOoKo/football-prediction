@@ -708,13 +708,14 @@ class _RunContext:
         return self.run
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        if self.run is None:
+        run = self.run
+        if run is None:
             return
         if exc_type is not None:
             try:
                 self._tracker.fail_run(
-                    self.run.id,
+                    run.id,
                     error=f"{exc_type.__name__}: {exc_val}",
                 )
             except Exception:
-                pass
+                logger.warning("Failed to mark run %s as failed", run.id, exc_info=True)

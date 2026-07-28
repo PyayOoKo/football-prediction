@@ -159,7 +159,7 @@ class EloSystem:
         home team is expected to perform better than its raw rating would
         suggest against an equal opponent.
         """
-        return 1.0 / (
+        return 1.0 / (  # type: ignore[return-value, unused-ignore, no-any-return]
             1.0
             + 10.0
             ** ((rating_away - rating_home - self.home_advantage) / 400.0)
@@ -214,13 +214,13 @@ class EloSystem:
         # Prefer xG-margin when available (more predictive, less noisy)
         if xg_margin is not None and xg_margin > 0:
             capped = min(xg_margin, float(self.max_goal_margin))
-            return float(self.k) * np.log1p(capped)
+            return float(self.k) * np.log1p(capped)  # type: ignore[return-value, unused-ignore, no-any-return]
 
         # Fall back to actual goal margin
         if margin <= 0:
             return float(self.k)
         capped = min(margin, self.max_goal_margin)
-        return float(self.k) * np.log1p(float(capped))
+        return float(self.k) * np.log1p(float(capped))  # type: ignore[return-value, unused-ignore, no-any-return]
 
     def update_ratings(
         self,
@@ -427,7 +427,7 @@ class EloSystem:
             away = getattr(row, away_col)
             result = getattr(row, result_col, None)
 
-            if has_season:
+            if has_season and season_col is not None:
                 _check_season(str(getattr(row, season_col)))
 
             R_home = _get_rating(home)
@@ -437,13 +437,13 @@ class EloSystem:
             if result is not None and result in ("H", "D", "A"):
                 home_g = getattr(row, home_goals_col, None)
                 away_g = getattr(row, away_goals_col, None)
-                home_xg = float(getattr(row, home_xg_col, 0) or 0) if has_xg else None
-                away_xg = float(getattr(row, away_xg_col, 0) or 0) if has_xg else None
+                home_xg = float(getattr(row, str(home_xg_col), 0) or 0) if has_xg else None
+                away_xg = float(getattr(row, str(away_xg_col), 0) or 0) if has_xg else None
 
                 is_host = False
-                if has_hosts and has_season:
+                if host_nations is not None and has_season and season_col is not None:
                     season_val = getattr(row, season_col, None)
-                    season_int = int(season_val) if season_val is not None else 0
+                    season_int = int(str(season_val).split('/')[0][:4]) if season_val is not None else 0
                     host_team = host_nations.get(season_int)
                     if host_team and home == host_team:
                         is_host = True

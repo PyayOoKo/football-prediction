@@ -104,18 +104,18 @@ class TestFBrefTableParser:
         table = tables[0]
         assert table.category == StatCategory.SHOOTING
 
-        # Check xG is parsed as float
-        assert table.rows[0]["xG"] == 28.4
-        assert table.rows[0]["shots_total"] == 89
+        # Check xG is parsed as float (data-stat="expected")
+        assert table.rows[0]["expected"] == 28.4
+        # "sh_total" is the data-stat attribute name (not renamed by _COLUMN_RENAME)
+        assert table.rows[0]["sh_total"] == 89
 
     def test_parse_empty_table(self) -> None:
         """Empty tables return no rows."""
         parser = FBrefTableParser()
         tables = parser.parse_page(_EMPTY_TABLE_HTML)
 
-        assert len(tables) == 1
-        table = tables[0]
-        assert len(table.rows) == 0
+        # Parser skips tables with no data rows
+        assert len(tables) == 0
 
     def test_parse_multi_header(self) -> None:
         """Multi-level headers use the last (most granular) row."""

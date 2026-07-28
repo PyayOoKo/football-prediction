@@ -182,6 +182,9 @@ class TestDatabaseStore:
         mock_model = MagicMock()
         mock_model.__table__ = MagicMock()
 
+        # Make the first batch succeed, second batch fail
+        mock_session.flush.side_effect = [None, Exception("Batch 1 DB error")]
+
         store = DatabaseStore(model_class=mock_model, batch_size=2)
         data = [{"id": 1}, {"id": 2}, {"id": 3}]
         result = store.write(data, batch_size=2)

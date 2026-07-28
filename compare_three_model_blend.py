@@ -220,12 +220,12 @@ def setup_three_model_blend(
     optimized_weights_path: str | Path | None = None,
 ) -> Any | None:
     """Set up the ThreeModelBlend with fitted models and optimised weights."""
-    from src.poisson_model import PoissonModel
+    from src.dixon_coles import DixonColesModel
     from src.elo import EloSystem
 
-    logger.info("Fitting Poisson on %d training matches...", len(train_df))
-    poisson = PoissonModel(min_matches=0)
-    poisson.fit(train_df)
+    logger.info("Fitting Dixon-Coles on %d training matches...", len(train_df))
+    dc = DixonColesModel(decay_halflife_days=1460)
+    dc.fit(train_df)
 
     logger.info("Processing Elo on %d training matches...", len(train_df))
     elo = EloSystem()
@@ -258,7 +258,7 @@ def setup_three_model_blend(
     from src.models.three_model_blend import ThreeModelBlend
 
     blend = ThreeModelBlend(
-        poisson_model=poisson,
+        dc_model=dc,
         elo_model=elo,
         xgb_model=xgb,
         weights=weights,

@@ -178,7 +178,7 @@ def import_from_mlflow(
 
     mlflow_exp = mlflow.get_experiment_by_name(mlflow_experiment_name)
     if mlflow_exp is None:
-        raise ValueError(f"MLflow experiment '{mlflow_experiment_name}' not found.")
+        raise ValueError(f"MLflow experiment '{mlflow_experiment_name}' not found.")  # type: ignore[misc, unused-ignore]
 
     tracker = ExperimentTracker(session)
     local_name = local_experiment_name or mlflow_experiment_name

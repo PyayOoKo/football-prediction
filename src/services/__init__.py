@@ -33,6 +33,7 @@ __all__ = [
     "TrainingService",
     "DataCollectionService",
     "BacktestingService",
+    "ValueBettingService",
     "resolve_data_path",
     "add_target_col",
     "load_and_prepare",
@@ -77,12 +78,12 @@ def resolve_data_path(
     Path
         The first existing path found, or a default candidate if none exist.
     """
-    cfg = config or get_container().resolve(ConfigProvider)
+    cfg = config or get_container().resolve(ConfigProvider)  # type: ignore[type-abstract]
     if hint is not None:
         return Path(hint)
 
     candidates = [
-        cfg.paths.raw / cfg.data.results_file,
+        cfg.paths.raw / cfg.data.results_file,  # type: ignore[attr-defined]
         cfg.paths.raw / "worldcup_all.csv",
         cfg.paths.raw / "results.csv",
         Path(cfg.worldcup.data_path),
@@ -95,7 +96,7 @@ def resolve_data_path(
             if resolved.exists():
                 return resolved
 
-    return candidates[0]
+    return candidates[0]  # type: ignore[no-any-return]
 
 
 def load_and_prepare(
@@ -125,7 +126,7 @@ def load_and_prepare(
     pd.DataFrame
         Cleaned, preprocessed DataFrame with ``target`` column present.
     """
-    cfg = config or get_container().resolve(ConfigProvider)
+    cfg = config or get_container().resolve(ConfigProvider)  # type: ignore[type-abstract]
     from src.data import DataCleaner, DataLoader, DataPreprocessor
 
     resolved = resolve_data_path(data_path, config=cfg)
@@ -154,3 +155,4 @@ from src.services.prediction_service import PredictionService  # noqa: E402
 from src.services.training_service import TrainingService  # noqa: E402
 from src.services.data_collection_service import DataCollectionService  # noqa: E402
 from src.services.backtesting_service import BacktestingService  # noqa: E402
+from src.services.betting_service import ValueBettingService  # noqa: E402

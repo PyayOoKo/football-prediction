@@ -673,7 +673,7 @@ class TemperatureScalingCalibrator:
         scaled = X / self.temperature_
         scaled = scaled - scaled.max(axis=1, keepdims=True)
         exp_s = np.exp(scaled)
-        return exp_s / exp_s.sum(axis=1, keepdims=True)
+        return exp_s / exp_s.sum(axis=1, keepdims=True)  # type: ignore[no-any-return]
 
     # ── Evaluate ──────────────────────────────────────────
 
@@ -711,4 +711,4 @@ class TemperatureScalingCalibrator:
         """Compute softmax along axis=1 with numerical stability."""
         X = X - X.max(axis=1, keepdims=True)
         exp_X = np.exp(X)
-        return exp_X / exp_X.sum(axis=1, keepdims=True)
+        return exp_X / exp_X.sum(axis=1, keepdims=True)  # type: ignore[no-any-return]

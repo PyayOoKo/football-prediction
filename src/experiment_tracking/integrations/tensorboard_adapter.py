@@ -56,7 +56,7 @@ def export_to_tensorboard(
         from torch.utils.tensorboard import SummaryWriter
     except ImportError:
         try:
-            from tensorboardX import SummaryWriter
+            from tensorboardX import SummaryWriter  # type: ignore[no-redef]
         except ImportError:
             raise ImportError(
                 "TensorBoard integration requires 'torch' or 'tensorboardX'. "

@@ -24,6 +24,14 @@ class DatabaseError(FootballPredictionError):
     """Raised on database connection or query failures."""
 
 
+class DataIntegrityError(FootballPredictionError):
+    """Raised when data fails integrity or consistency checks."""
+
+
+class DataSourceError(FootballPredictionError):
+    """Raised when an external data source is unreachable or returns unexpected data."""
+
+
 # ── Model layer ─────────────────────────────────────────
 
 class ModelNotFoundError(FootballPredictionError):
@@ -34,12 +42,44 @@ class ModelNotFoundError(FootballPredictionError):
         super().__init__(message or f"Model not found: {model_name}")
 
 
+class ModelNotTrainedError(FootballPredictionError):
+    """Raised when attempting to predict with an untrained model."""
+
+
+class ModelIncompatibleError(FootballPredictionError):
+    """Raised when a loaded model is incompatible with the expected interface."""
+
+
 class TrainingError(FootballPredictionError):
     """Raised when model training fails."""
 
 
 class PredictionError(FootballPredictionError):
     """Raised when prediction generation fails."""
+
+
+class CalibrationError(FootballPredictionError):
+    """Raised when probability calibration fails."""
+
+
+# ── Feature / engineering layer ─────────────────────────
+
+class FeatureEngineeringError(FootballPredictionError):
+    """Raised when feature engineering or extraction fails."""
+
+
+# ── Betting layer ───────────────────────────────────────
+
+class BettingError(FootballPredictionError):
+    """Raised on betting calculation errors."""
+
+
+class StakingError(FootballPredictionError):
+    """Raised when stake calculation fails."""
+
+
+class OddsError(FootballPredictionError):
+    """Raised when odds data is invalid or missing."""
 
 
 # ── Scraper layer ───────────────────────────────────────
@@ -68,3 +108,17 @@ class ConfigurationError(FootballPredictionError):
 
 class ValidationError(FootballPredictionError):
     """Raised when data fails validation checks."""
+
+
+# ── Pipeline / orchestration layer ──────────────────────
+
+class PipelineError(FootballPredictionError):
+    """Raised when a data pipeline step fails."""
+
+
+class CacheError(FootballPredictionError):
+    """Raised on caching failures."""
+
+
+class ExperimentError(FootballPredictionError):
+    """Raised when experiment tracking fails."""

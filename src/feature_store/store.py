@@ -12,6 +12,7 @@ Provides:
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -293,7 +294,7 @@ class FeatureStore:
             return True
         return False
 
-    def delete_all_for_definition(self, definition_id: uuid.UUID) -> int:
+    def delete_all_for_definition(self, definition_id: str) -> int:
         """Delete all values for a feature definition.
 
         Parameters
@@ -388,7 +389,7 @@ class FeatureStore:
         )
         return batch
 
-    def get_batch(self, batch_id: uuid.UUID) -> FeatureComputationBatch | None:
+    def get_batch(self, batch_id: str) -> FeatureComputationBatch | None:
         """Get a computation batch by ID."""
         return self._session.get(FeatureComputationBatch, batch_id)
 

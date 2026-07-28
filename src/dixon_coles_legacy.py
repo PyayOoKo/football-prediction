@@ -1,4 +1,7 @@
+# type: ignore
 """
+DEPRECATED — Use ``from src.dixon_coles import ...`` (the ``src/dixon_coles/`` package) instead.
+
 Dixon-Coles MLE Model — Maximum Likelihood Estimation for football match prediction.
 
 This model extends the standard independent Poisson model with three key innovations:
@@ -85,6 +88,7 @@ Usage
 
 from __future__ import annotations
 
+import warnings
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -94,6 +98,12 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 from scipy.stats import poisson
+
+warnings.warn(
+    "src/dixon_coles.py is deprecated. Use 'from src.dixon_coles import ...' (the package) instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 logger = logging.getLogger(__name__)
 

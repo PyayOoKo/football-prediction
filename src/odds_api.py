@@ -71,6 +71,24 @@ SOCCER_LEAGUES: dict[str, str] = {
     "soccer_fifa_world_cup": "FIFA World Cup",
     "soccer_euro_cup": "UEFA Euro",
     "soccer_copa_america": "Copa America",
+    "soccer_sweden_superettan": "Superettan - Sweden",
+    "soccer_sweden_allsvenskan": "Allsvenskan - Sweden",
+    "soccer_norway_eliteserien": "Eliteserien - Norway",
+    "soccer_finland_veikkausliiga": "Veikkausliiga - Finland",
+}
+
+LEAGUE_TO_SPORT_KEY: dict[str, str] = {
+    # Top 5 European Leagues (The Odds API sport keys)
+    "E0":  "soccer_epl",                # English Premier League
+    "SP1": "soccer_la_liga",            # Spanish La Liga
+    "D1":  "soccer_bundesliga",         # German Bundesliga
+    "I1":  "soccer_serie_a",            # Italian Serie A
+    "F1":  "soccer_ligue_one",          # French Ligue 1
+    # Scandinavian leagues
+    "SE1": "soccer_sweden_superettan",  # Sweden Superettan
+    "SWE": "soccer_sweden_allsvenskan", # Sweden Allsvenskan (+20.50% Over ROI)
+    "NOR": "soccer_norway_eliteserien", # Norway Eliteserien (+31.85% Over ROI)
+    "FI":  "soccer_finland_veikkausliiga", # Finland Veikkausliiga
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -90,6 +108,9 @@ class MatchOdds:
     bookmaker: str
     sport_key: str = ""
     sport_title: str = ""
+    over_odds: float = 0.0
+    under_odds: float = 0.0
+    totals_point: float = 2.5
 
 
 @dataclass
@@ -165,12 +186,13 @@ class OddsAPIClient:
             return []
 
         url = f"{API_BASE_URL}/sports"
-        return self._get(url)
+        return self._get(url)  # type: ignore[no-any-return]
 
     def get_upcoming_odds(
         self,
         sport_key: str = "upcoming",
         bookmaker: str | None = None,
+        markets: str | None = None,
     ) -> list[MatchOdds]:
         """Fetch upcoming match odds for a sport.
 
@@ -194,7 +216,7 @@ class OddsAPIClient:
         url = f"{API_BASE_URL}/sports/{sport_key}/odds"
         params = {
             "regions": self.regions,
-            "markets": self.markets,
+            "markets": markets or self.markets,
         }
         data = self._get(url, params=params)
 
@@ -209,7 +231,7 @@ class OddsAPIClient:
         away_team: str,
         sport_key: str = "soccer_fifa_world_cup",
         bookmaker: str | None = None,
-    ) -> dict[str, float] | None:
+    ) -> dict[str, Any] | None:
         """Get odds for a specific match by team names.
 
         Parameters
@@ -257,7 +279,7 @@ class OddsAPIClient:
         team_pairs: list[tuple[str, str]],
         sport_key: str = "soccer_fifa_world_cup",
         bookmaker: str | None = None,
-    ) -> dict[tuple[str, str], dict[str, float]]:
+    ) -> dict[tuple[str, str], dict[str, Any]]:
         """Get odds for multiple matches in bulk.
 
         This is the primary entry point for the value betting pipeline.
@@ -284,34 +306,82 @@ class OddsAPIClient:
         matches = self.get_upcoming_odds(sport_key=sport_key, bookmaker=bookmaker)
 
         # Build a lookup by team name (case-insensitive)
-        lookup: dict[str, MatchOdds] = {}
-        for m in matches:
-            lookup[(m.home_team.lower(), m.away_team.lower())] = m
+        lookup: dict[tuple[str, str], MatchOdds] = {}
+        for match in matches:
+            lookup[(match.home_team.lower(), match.away_team.lower())] = match
 
-        results: dict[tuple[str, str], dict[str, float]] = {}
+        results: dict[tuple[str, str], dict[str, Any]] = {}
         for h, a in team_pairs:
             key = (h.lower(), a.lower())
-            m = lookup.get(key)
-            if m is None:
+            odds = lookup.get(key)
+            if odds is None:
                 # Try swapped
-                m = lookup.get((a.lower(), h.lower()))
-                if m is not None:
+                odds = lookup.get((a.lower(), h.lower()))
+                if odds is not None:
                     results[(h, a)] = {
-                        "home_odds": m.away_odds,
-                        "draw_odds": m.draw_odds,
-                        "away_odds": m.home_odds,
-                        "bookmaker": m.bookmaker,
-                        "match_date": m.match_date,
+                        "home_odds": odds.away_odds,
+                        "draw_odds": odds.draw_odds,
+                        "away_odds": odds.home_odds,
+                        "bookmaker": odds.bookmaker,
+                        "match_date": odds.match_date,
                     }
-                continue
-            results[(h, a)] = {
-                "home_odds": m.home_odds,
-                "draw_odds": m.draw_odds,
-                "away_odds": m.away_odds,
-                "bookmaker": m.bookmaker,
-                "match_date": m.match_date,
-            }
+                    continue
+            if odds is not None:
+                results[(h, a)] = {
+                    "home_odds": odds.home_odds,
+                    "draw_odds": odds.draw_odds,
+                    "away_odds": odds.away_odds,
+                    "bookmaker": odds.bookmaker,
+                    "match_date": odds.match_date,
+                }
 
+        return results
+
+    def get_over_under_odds(
+        self,
+        team_pairs: list[tuple[str, str]],
+        sport_key: str = "upcoming",
+        bookmaker: str | None = None,
+    ) -> dict[tuple[str, str], dict[str, Any]]:
+        """Fetch over/under (totals) odds for multiple matches.
+
+        Parameters
+        ----------
+        team_pairs : list[tuple[str, str]]
+            List of ``(home_team, away_team)`` tuples.
+        sport_key : str
+            Sport key.
+        bookmaker : str, optional
+            Specific bookmaker.
+
+        Returns
+        -------
+        dict[tuple[str, str], dict[str, float]]
+            Mapping of ``(home_team, away_team) → {over_odds, under_odds, totals_point}``.
+        """
+        if not self.api_key:
+            return {}
+
+        matches = self.get_upcoming_odds(sport_key=sport_key, bookmaker=bookmaker, markets="totals")
+
+        lookup: dict[tuple[str, str], MatchOdds] = {}
+        for match in matches:
+            lookup[(match.home_team.lower(), match.away_team.lower())] = match
+
+        results: dict[tuple[str, str], dict[str, Any]] = {}
+        for h, a in team_pairs:
+            key = (h.lower(), a.lower())
+            odds = lookup.get(key)
+            if odds is None:
+                odds = lookup.get((a.lower(), h.lower()))
+            if odds is not None and odds.over_odds > 0:
+                results[(h, a)] = {
+                    "over_odds": odds.over_odds,
+                    "under_odds": odds.under_odds,
+                    "totals_point": odds.totals_point,
+                    "bookmaker": odds.bookmaker,
+                    "match_date": odds.match_date,
+                }
         return results
 
     # ── Internal helpers ────────────────────────────────
@@ -320,7 +390,7 @@ class OddsAPIClient:
         self,
         url: str,
         params: dict[str, str] | None = None,
-    ) -> list[dict[str, Any]] | dict[str, Any]:
+    ) -> Any:
         """Make a GET request with caching."""
         # Check cache first
         cached = self._load_cache(url, params)
@@ -361,11 +431,7 @@ class OddsAPIClient:
         data: list[dict[str, Any]],
         bookmaker: str | None = None,
     ) -> list[MatchOdds]:
-        """Parse the API response into ``MatchOdds`` objects.
-
-        For each event, extracts the best available odds across all
-        bookmakers (or from a specified bookmaker).
-        """
+        """Parse the API response into ``MatchOdds`` objects."""
         results: list[MatchOdds] = []
 
         for event in data:
@@ -382,6 +448,9 @@ class OddsAPIClient:
             best_home = 0.0
             best_draw = 0.0
             best_away = 0.0
+            best_over = 0.0
+            best_under = 0.0
+            totals_point = 2.5
             best_bookmaker = ""
 
             for bk in bookmakers:
@@ -393,30 +462,36 @@ class OddsAPIClient:
                     continue
 
                 for market in markets:
-                    if market.get("key") != "h2h":
-                        continue
-                    outcomes = market.get("outcomes", [])
-                    odds_map: dict[str, float] = {}
-                    for outcome in outcomes:
-                        odds_map[outcome["name"]] = outcome["price"]
+                    if market.get("key") == "h2h":
+                        outcomes = market.get("outcomes", [])
+                        odds_map: dict[str, float] = {}
+                        for outcome in outcomes:
+                            odds_map[outcome["name"]] = outcome["price"]
 
-                    # Map outcomes to home/draw/away
-                    home_odds = odds_map.get(home_team, 0.0)
-                    draw_odds = odds_map.get("Draw", 0.0)
-                    away_odds = odds_map.get(away_team, 0.0)
+                        home_odds = odds_map.get(home_team, 0.0)
+                        draw_odds = odds_map.get("Draw", 0.0)
+                        away_odds = odds_map.get(away_team, 0.0)
 
-                    # Track best odds independently per outcome
-                    # (the best home_odds, draw_odds, and away_odds may come
-                    # from different bookmakers)
-                    if home_odds > best_home:
-                        best_home = home_odds
-                    if draw_odds > best_draw:
-                        best_draw = draw_odds
-                    if away_odds > best_away:
-                        best_away = away_odds
-                    # Track which bookmaker provided the best home odds
-                    if home_odds >= best_home:
-                        best_bookmaker = bk_title
+                        if home_odds > best_home:
+                            best_home = home_odds
+                        if draw_odds > best_draw:
+                            best_draw = draw_odds
+                        if away_odds > best_away:
+                            best_away = away_odds
+                        if home_odds >= best_home:
+                            best_bookmaker = bk_title
+
+                    elif market.get("key") == "totals":
+                        outcomes = market.get("outcomes", [])
+                        for outcome in outcomes:
+                            name = outcome.get("name", "")
+                            price = outcome.get("price", 0.0)
+                            pt = outcome.get("point", 2.5)
+                            if name.lower() == "over" and price > best_over:
+                                best_over = price
+                                totals_point = pt
+                            elif name.lower() == "under" and price > best_under:
+                                best_under = price
 
             if best_home > 0 and best_away > 0:
                 results.append(MatchOdds(
@@ -429,6 +504,9 @@ class OddsAPIClient:
                     bookmaker=best_bookmaker,
                     sport_key=sport_key,
                     sport_title=sport_title,
+                    over_odds=best_over,
+                    under_odds=best_under,
+                    totals_point=totals_point,
                 ))
 
         return results
@@ -439,7 +517,7 @@ class OddsAPIClient:
         self,
         url: str,
         params: dict[str, str] | None = None,
-    ) -> list[dict[str, Any]] | dict[str, Any] | None:
+    ) -> Any:
         """Load a cached response if it's still fresh."""
         if not self._cache_loaded:
             self._load_cache_file()
@@ -466,7 +544,6 @@ class OddsAPIClient:
         params: dict[str, str] | None,
         data: list[dict[str, Any]] | dict[str, Any],
     ) -> None:
-        """Save a response to the cache."""
         if not self._cache_loaded:
             self._load_cache_file()
 
@@ -534,7 +611,7 @@ def fetch_live_odds(
     team_pairs: list[tuple[str, str]],
     sport_key: str = "soccer_fifa_world_cup",
     bookmaker: str | None = None,
-) -> dict[tuple[str, str], dict[str, float]]:
+) -> dict[tuple[str, str], dict[str, Any]]:
     """One-shot convenience function to fetch live odds for a set of matches.
 
     Parameters

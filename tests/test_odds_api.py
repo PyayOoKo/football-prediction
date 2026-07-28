@@ -154,7 +154,8 @@ def client_with_key(mock_api_key: str) -> OddsAPIClient:
 @pytest.fixture
 def client_no_key() -> OddsAPIClient:
     """OddsAPIClient without any API key."""
-    return OddsAPIClient(api_key="")
+    with patch.dict(os.environ, {}, clear=True):
+        return OddsAPIClient(api_key="")
 
 
 # ═══════════════════════════════════════════════════════════
@@ -214,7 +215,7 @@ class TestInit:
         """OddsAPIConfig dataclass has expected defaults."""
         cfg = OddsAPIConfig()
         assert cfg.api_key == ""
-        assert cfg.regions == "uk,ie,eu"
+        assert cfg.regions == "us,uk,eu"
         assert cfg.markets == "h2h"
         assert cfg.cache_ttl == 3600
         assert cfg.timeout == 15
@@ -473,7 +474,7 @@ class TestGetUpcomingOdds:
                 bookmaker="bet365",
             )
             expected_url = f"{API_BASE_URL}/sports/soccer_fifa_world_cup/odds"
-            mock.assert_called_once_with(expected_url, params={"regions": "uk,ie,eu", "markets": "h2h"})
+            mock.assert_called_once_with(expected_url, params={"regions": "us,uk,eu", "markets": "h2h"})
 
     def test_empty_response(self, client_with_key: OddsAPIClient,
                             sample_empty_odds_response: list[dict[str, Any]]) -> None:

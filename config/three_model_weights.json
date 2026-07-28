@@ -1,59 +1,51 @@
 {
-  "generated": "2026-07-19 10:10:03",
-  "training_config": {
-    "data_sources": [
-      "EPL",
-      "La_Liga",
-      "Bundesliga",
-      "Serie_A",
-      "Ligue_1",
-      "WorldCup"
-    ],
-    "n_seasons": 5,
-    "total_preprocessed": 9189
+  "generated": "2026-07-26",
+  "method": "Research-validated per-market model selection (Jul 25 report — DC-only beats trees for O/U & BTTS)",
+  "config": {
+    "1X2": "5-Model (dc + elo + xgb + lgb + cat) — tree models dominate on league data",
+    "Over2.5": "DC-only (research verified: DC OU Brier=0.2488 vs trees 0.2545, DC yield +1.18% vs -11.06%)",
+    "Over3.5": "DC-only (trees degrade performance on binary markets)",
+    "BTTS": "DC-only (research verified: DC BTTS Brier=0.2487 vs trees 0.2523, trees -12.24pp yield)"
   },
   "weights": {
     "1X2": {
-      "poisson": 0.51,
-      "elo": 0.43,
-      "xgb": 0.06
+      "dc": 0.35,
+      "elo": 0.25,
+      "xgb": 0.15,
+      "lgb": 0.15,
+      "cat": 0.10
     },
     "Over2.5": {
-      "poisson": 0.38,
-      "elo": 0.48,
-      "xgb": 0.14
+      "dc": 1.00
     },
     "Over3.5": {
-      "poisson": 0.5,
-      "elo": 0.0,
-      "xgb": 0.5
+      "dc": 1.00
     },
     "BTTS": {
-      "poisson": 0.29,
-      "elo": 0.16,
-      "xgb": 0.55
+      "dc": 1.00
     }
   },
-  "metrics": {
-    "1X2": {
-      "brier_score": 0.6375,
-      "log_loss": 1.0568,
-      "accuracy": 0.4699
-    },
-    "Over2.5": {
-      "brier_score": 0.2487,
-      "log_loss": 0.6905,
-      "accuracy": 0.512
-    },
-    "BTTS": {
-      "brier_score": 0.2501,
-      "log_loss": 0.6934,
-      "accuracy": 0.5076
-    },
-    "Over3.5": {
-      "brier_score": 0.3083,
-      "log_loss": 0.8117,
-      "accuracy": 0.2712
+  "tree_model_benchmark": {
+    "data": "results_clean.csv (league)",
+    "n_train": 338,
+    "n_val": 73,
+    "n_test": 73,
+    "models": {
+      "Elo": {"brier": 0.62767, "log_loss": 1.03971, "accuracy": 0.4521},
+      "XGBoost": {"brier": 0.46023, "log_loss": 0.80899, "accuracy": 0.7260},
+      "LightGBM": {"brier": 0.53371, "log_loss": 0.91463, "accuracy": 0.6986},
+      "CatBoost": {"brier": 0.47397, "log_loss": 0.83091, "accuracy": 0.7123}
     }
+  },
+  "binary_market_verdict": {
+    "date": "2026-07-25",
+    "method": "DC-only vs DC+Market Trees comparison on F1 (387 test matches)",
+    "conclusion": "DC-only strictly dominates trees for O/U and BTTS. Trees worsen every metric.",
+    "ou_brier_delta": +0.0057,
+    "ou_accuracy_delta": -5.68,
+    "btts_brier_delta": +0.0036,
+    "btts_accuracy_delta": -7.49,
+    "yield_delta": -12.24,
+    "recommendation": "DC-only for all binary markets. Reserve trees for 1X2 only."
   }
 }

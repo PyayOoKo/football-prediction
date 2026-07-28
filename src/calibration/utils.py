@@ -55,7 +55,7 @@ def renormalise_probs(probs: np.ndarray) -> np.ndarray:
         probs[zero_mask] = 1.0 / probs.shape[1]
         row_sums = row_sums.copy()
         row_sums[zero_mask] = 1.0
-    return probs / row_sums[:, np.newaxis]
+    return probs / row_sums[:, np.newaxis]  # type: ignore[no-any-return]
 
 
 # Legacy aliases for backward compatibility

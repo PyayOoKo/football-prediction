@@ -58,11 +58,33 @@ if IS_PRODUCTION:
 class DataCollectionConfig:
     """Settings for the data collection pipeline."""
 
-    # League codes to collect (E0 = Premier League, E1 = Championship, etc.)
-    leagues: tuple[str, ...] = ("E0",)
+    # League codes to collect for broad coverage.
+    # Covers Top 5 European leagues, English lower tiers, plus Irish league:
+    #   E0 = Premier League, E1 = Championship, E2 = League One, E3 = League Two
+    #   SC0 = Scottish Premiership, SC1 = Scottish Championship
+    #   D1 = German Bundesliga, D2 = German 2. Bundesliga
+    #   I1 = Italian Serie A, I2 = Italian Serie B
+    #   SP1 = Spanish La Liga, SP2 = Spanish La Liga 2
+    #   F1 = French Ligue 1, F2 = French Ligue 2
+    #   N1 = Dutch Eredivisie
+    #   B1 = Belgian Pro League
+    #   P1 = Portuguese Primeira Liga
+    #   T1 = Turkish Süper Lig
+    #   G1 = Greek Super League
+    #   IRL = Irish Premier Division (Shamrock Rovers' domestic league)
+    leagues: tuple[str, ...] = (
+        "E0", "E1", "E2", "E3",
+        "SC0", "SC1",
+        "D1", "D2",
+        "I1", "I2",
+        "SP1", "SP2",
+        "F1", "F2",
+        "N1", "B1", "P1", "T1", "G1",
+        "IRL",
+    )
 
-    # Number of most-recent seasons to download
-    max_seasons: int = 10
+    # Number of most-recent seasons to download (8 covers ~8 years of history)
+    max_seasons: int = 8
 
     # Strategy for handling missing values
     missing_strategy: Literal["drop", "fill_zero", "fill_median"] = "fill_zero"
@@ -71,7 +93,9 @@ class DataCollectionConfig:
     output_file: str = "results.csv"
 
     # Max missing percentage before a column is dropped
-    max_missing_pct: float = 50.0
+    # Set to 90 to retain enriched bookmaker odds columns (which are ~75%
+    # sparse since they only cover 5 of 14 leagues).  Default was 50.
+    max_missing_pct: float = 90.0
 
 
 # ── Preprocessing ───────────────────────────────────────
@@ -182,7 +206,8 @@ class FeatureConfig:
     # Time decay halflife for rolling features (None = equal weight)
     # Set to a positive integer (e.g. 5 or 10) to give recent matches
     # exponentially more weight than older ones.
-    time_decay_halflife: int | None = None
+    # Enabled by default with halflife=5 (5-match equivalent halflife)
+    time_decay_halflife: int | None = 5
 
     # Whether to reset rolling features per season boundary
     # (avoids pre-season including stats from previous seasons)
@@ -202,6 +227,11 @@ class TrainConfig:
         "lightgbm",
         "neural_network",
     ] = "lightgbm"
+
+    # Time-decay halflife for sample weights during training.
+    # A match this many days ago gets 50% weight. Set to 0 to disable.
+    # Default 730 (~2 years) — recent form matters more.
+    sample_weight_halflife_days: float = 730.0
 
     # Logistic Regression
     C: float = 1.0
@@ -335,8 +365,14 @@ class OddsConfig:
         Log a warning when odds columns not found (default True).
     """
 
-    opening_odds_cols: tuple[str, str, str] = ("BbMxH", "BbMxD", "BbMxA")
-    closing_odds_cols: tuple[str, str, str] = ("BbAvH", "BbAvD", "BbAvA")
+    opening_odds_cols: tuple[str, str, str] = ("maxh", "maxd", "maxa")
+    closing_odds_cols: tuple[str, str, str] = ("avgh", "avgd", "avga")
+
+    # NOTE: The odds column resolver (in odds_processing.py and
+    # betting_market.py) performs **case-insensitive** matching and also
+    # falls back to the standard football-data.co.uk naming convention
+    # (BbMxH/BbMxD/BbMxA and BbAvH/BbAvD/BbAvA) when the lowercase names
+    # are not found.  So both naming conventions work transparently.
     compute_consensus: bool = True
     warn_missing: bool = True
 
@@ -361,7 +397,7 @@ class PlayerInfoConfig:
         Log a warning when no player data is provided (default True).
     """
 
-    enabled: bool = False
+    enabled: bool = True
     default_age: float = 25.0
     placeholder_value: float = 0.0
     warn_missing: bool = True
@@ -421,10 +457,14 @@ class PoissonConfig:
         Teams with fewer matches default to league average (strength = 1.0).
     max_goals : int
         Maximum goals per team to consider in the probability table (0–*n*).
+    decay_halflife_days : float
+        Exponential time-decay halflife in days. A match this many days ago gets
+        50% weight. Set to 0 to disable time weighting (default 1460 = 4 years).
     """
 
     min_matches: int = 0
     max_goals: int = 8
+    decay_halflife_days: float = 1460.0
 
 
 # ── Elo Rating System ──────────────────────────────────
@@ -453,6 +493,11 @@ class EloConfig:
         Manual Elo adjustments per team (e.g. ``{"Morocco": 100}`` subtracts 100
         from Morocco's rating after computation). Useful for applying domain
         knowledge or skepticism about a team's performance.
+    per_league : dict[str, dict[str, int]]
+        Per-league overrides keyed by league code, each containing ``k`` and
+        ``home_advantage`` values.  Second-tier leagues like SE1 should use
+        higher K (more volatility) and lower home advantage.
+        Example: ``{"SE1": {"k": 48, "home_advantage": 70}}``
     """
 
     k: int = 32
@@ -463,6 +508,11 @@ class EloConfig:
     use_goal_margin: bool = True
     max_goal_margin: int = 5
     adjustments: dict[str, int] = field(default_factory=dict)
+    per_league: dict[str, dict[str, int]] = field(default_factory=lambda: {
+        "SE1": {"k": 48, "home_advantage": 70},
+        "NO2": {"k": 48, "home_advantage": 70},
+        "FI2": {"k": 48, "home_advantage": 70},
+    })
 
 
 # ── Hyper-parameter Tuning ───────────────────────────
@@ -639,7 +689,7 @@ class WeatherConfig:
 class RefereeConfig:
     """Settings for referee-based features."""
 
-    enabled: bool = False
+    enabled: bool = True
     window: int = 20
     placeholder_value: float = 0.0
     warn_missing: bool = True
@@ -755,14 +805,30 @@ class DixonColesConfig:
         Only estimate home advantage and rho (default False).
     """
 
-    enabled: bool = False
-    refit_every: int = 500
+    enabled: bool = True
+    refit_every: int = 2000
     decay_halflife_days: float = 1460.0
     use_importance: bool = True
     rho_fixed: float | None = None
     regress_prior: bool = True
     prior_strength: float = 0.01
     fit_intercept_only: bool = False
+
+    # Per-league overrides for DC model parameters.
+    # Keyed by league code (e.g. "SE1", "D2"), each can contain:
+    #   - decay_halflife_days: recency halflife override (lower = more responsive)
+    #   - rho_fixed: fix the tau-correction parameter for this league
+    #   - home_advantage_prior: prior for gamma initialisation (overrides log-ratio)
+    # For second-tier leagues with fewer teams, a shorter halflife and fixed rho
+    # can prevent overfitting. Example:
+    #   {"SE1": {"decay_halflife_days": 730, "rho_fixed": -0.05}}
+    per_league: dict[str, dict[str, float]] = field(default_factory=lambda: {
+        # Second-tier / smaller leagues: faster decay, mild rho correction
+        "SE1": {"decay_halflife_days": 730, "rho_fixed": -0.05},
+        "NO2": {"decay_halflife_days": 730, "rho_fixed": -0.05},
+        "FI2": {"decay_halflife_days": 730, "rho_fixed": -0.05},
+        "IRL": {"decay_halflife_days": 730, "rho_fixed": -0.05},
+    })
 
 
 # ── Feature Selection ────────────────────────────

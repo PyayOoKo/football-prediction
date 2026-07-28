@@ -665,7 +665,7 @@ class LeagueStrengthEngine:
             raise ValueError(f"Missing required columns: {missing}")
 
         # Group teams by season and league
-        teams_by_season_league: dict[tuple, set[str]] = {}
+        teams_by_season_league: dict[tuple[str, str], set[str]] = {}
         for _, row in df.iterrows():
             key = (str(row[season_col]), str(row[league_col]))
             if key not in teams_by_season_league:
@@ -711,7 +711,7 @@ class LeagueStrengthEngine:
 
     def _detect_within_group(
         self,
-        teams_by_season_league: dict[tuple, set[str]],
+        teams_by_season_league: dict[tuple[str, str], set[str]],
         seasons: list[str],
         group_leagues: list[str],
     ) -> None:

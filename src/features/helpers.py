@@ -32,6 +32,9 @@ def _get_target_columns(df: pd.DataFrame) -> list[str]:
         "league",
         "source",
         "downloaded_at",
+        "home_odds",
+        "draw_odds",
+        "away_odds",
     ]
     # Also drop any match_id auxiliary columns
     drop_cols.extend([c for c in df.columns if c.endswith("_match_id")])

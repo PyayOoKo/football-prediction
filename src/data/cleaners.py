@@ -183,7 +183,7 @@ class DataCleaner:
 
         # ── 1. Rename columns ───────────────────────────
         renamed: dict[str, str] = {}
-        col_types: dict[str, type] = {}
+        col_types: dict[str, type | str] = {}
         for raw_col, (std_name, dtype) in _FOOTBALL_DATA_COLUMNS.items():
             if raw_col in df.columns:
                 renamed[raw_col] = std_name

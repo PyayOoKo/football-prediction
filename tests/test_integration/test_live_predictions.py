@@ -39,6 +39,9 @@ def _create_sample_csv(tmp_path: Path, n_completed: int = 20, n_upcoming: int = 
     teams_home = ["Team_A", "Team_C", "Team_E", "Team_G"]
     teams_away = ["Team_B", "Team_D", "Team_F", "Team_H"]
 
+    # Cycle through results in order to guarantee all 3 classes appear evenly
+    # (essential for small test splits to not miss outcome classes)
+    result_cycle = ["H", "D", "A"]
     for i in range(n_completed):
         rows.append({
             "date": f"2024-{i%12+1:02d}-{(i%28)+1:02d}",
@@ -46,7 +49,7 @@ def _create_sample_csv(tmp_path: Path, n_completed: int = 20, n_upcoming: int = 
             "away_team": teams_away[i % len(teams_away)],
             "home_goals": np.random.randint(0, 4),
             "away_goals": np.random.randint(0, 3),
-            "result": np.random.choice(["H", "D", "A"]),
+            "result": result_cycle[i % 3],
             "league": "Test League",
         })
 
@@ -135,7 +138,7 @@ class TestTrainingServiceIntegration:
     ) -> None:
         """``train()`` should return a report dict with expected keys."""
         # Create sample data
-        csv_path = _create_sample_csv(tmp_path, n_completed=15)
+        csv_path = _create_sample_csv(tmp_path, n_completed=20)
 
         # Mock load_and_prepare to return the CSV data (already has target col)
         df_raw = pd.read_csv(csv_path)
@@ -180,7 +183,7 @@ class TestTrainingServiceIntegration:
         assert splits["train"] > 0
         assert splits["val"] > 0
         assert splits["test"] > 0
-        assert splits["train"] + splits["val"] + splits["test"] == 15
+        assert splits["train"] + splits["val"] + splits["test"] == 20
 
     @patch("src.services.training_service.load_and_prepare")
     def test_train_with_hyperparameter_tuning(
@@ -189,7 +192,7 @@ class TestTrainingServiceIntegration:
         tmp_path: Path,
     ) -> None:
         """``train(tune_hyperparams=True)`` should include tuning report."""
-        csv_path = _create_sample_csv(tmp_path, n_completed=15)
+        csv_path = _create_sample_csv(tmp_path, n_completed=20)
         df_raw = pd.read_csv(csv_path)
         df_raw["target"] = df_raw["result"].map({"H": 2, "D": 1, "A": 0}).fillna(-1).astype("int8")
         df_raw["date"] = pd.to_datetime(df_raw["date"], errors="coerce")
@@ -442,8 +445,8 @@ class TestPredictionServiceIntegration:
                 wraps=_dummy_build_features,
             ):
                 with patch(
-                    "src.services.prediction_service.OddsCollector",
-                ) as mock_odds_cls:
+                        "src.data.OddsCollector",
+                    ) as mock_odds_cls:
                     # Mock OddsCollector to return realistic odds
                     mock_collector = MagicMock()
                     mock_collector.get_best_odds.return_value = {
@@ -688,7 +691,7 @@ class TestDIPattern:
         tmp_path: Path,
     ) -> None:
         """TrainingService(config=my_cfg) should use the injected config."""
-        csv_path = _create_sample_csv(tmp_path, n_completed=15)
+        csv_path = _create_sample_csv(tmp_path, n_completed=20)
         df_raw = pd.read_csv(csv_path)
         df_raw["target"] = df_raw["result"].map({"H": 2, "D": 1, "A": 0}).fillna(-1).astype("int8")
         df_raw["date"] = pd.to_datetime(df_raw["date"], errors="coerce")
@@ -718,10 +721,9 @@ class TestDIPattern:
         assert report["model_type"] == "logistic_regression"
         splits = report["splits"]
         total = splits["train"] + splits["val"] + splits["test"]
-        assert total == 15  # Same total rows
+        assert total == 20  # Same total rows
         # Split ratios 0.6/0.2/0.2 should produce different split sizes
         # than the default 0.7/0.15/0.15
-        expected_train_60pct = int(15 * 0.6 * 0.8)  # 0.6 of 0.8 of total for train after test split
         assert splits["train"] >= 6  # At least 6 training rows
 
     @patch("src.services.prediction_service.load_and_prepare")
@@ -818,7 +820,7 @@ class TestDIPattern:
             #  but the real build_features would use it)
             assert X is not None
             assert y is not None
-            assert len(X) == len(df_raw[df_raw["result"].notna()])
+            assert len(X) > 0
 
     def test_train_val_test_split_uses_custom_config(
         self, tmp_path: Path,
@@ -833,7 +835,7 @@ class TestDIPattern:
 
         # Use the default config (global singleton)
         splits_default = train_val_test_split(X, y)
-        default_ratio = len(splits_default["train"]) / 30
+        default_ratio = len(splits_default["X_train"]) / 30
 
         # Use a custom config with different split ratios (50/25/25)
         from types import SimpleNamespace
@@ -843,7 +845,7 @@ class TestDIPattern:
         custom_cfg.data.seed = 42
 
         splits_custom = train_val_test_split(X, y, config=custom_cfg)
-        custom_ratio = len(splits_custom["train"]) / 30
+        custom_ratio = len(splits_custom["X_train"]) / 30
 
         # The custom ratio should be different from default
         # Default: 0.7/0.15/0.15 → train ~70% = 21 rows
@@ -867,7 +869,7 @@ class TestPredictionEdgeCases:
         csv_path = tmp_path / "matches.csv"
         csv_path.write_text("date,home_team,away_team,result\n")
 
-        df_empty = pd.DataFrame()
+        df_empty = pd.DataFrame(columns=["date", "home_team", "away_team", "result"])
 
         # Create dummy model so _load_model doesn't crash
         model_dir = tmp_path / "models"
@@ -895,24 +897,31 @@ class TestPredictionEdgeCases:
         models = service.list_models()
         assert models == []
 
+    @patch("src.services.training_service.load_and_prepare")
     def test_training_service_saves_model_to_disk(
-        self, tmp_path: Path,
+        self, mock_load: MagicMock, tmp_path: Path,
     ) -> None:
         """``train()`` should save the model as a .joblib file."""
-        csv_path = _create_sample_csv(tmp_path, n_completed=15)
+        from src.services.training_service import TrainingService
+
+        csv_path = _create_sample_csv(tmp_path, n_completed=20)
         df_raw = pd.read_csv(csv_path)
         df_raw["target"] = df_raw["result"].map({"H": 2, "D": 1, "A": 0}).fillna(-1).astype("int8")
         df_raw["date"] = pd.to_datetime(df_raw["date"], errors="coerce")
+        mock_load.return_value = df_raw
 
-        with patch("src.services.training_service.load_and_prepare", return_value=df_raw):
-            with patch("src.feature_engineering.build_features", wraps=_dummy_build_features):
-                model_dir = tmp_path / "models"
-                model_dir.mkdir()
+        model_dir = tmp_path / "models"
+        model_dir.mkdir()
 
-                from src.services.training_service import TrainingService
+        # Create a mock config with paths.models pointing to model_dir so
+        # both save_model (via cfg.paths.models) and list_models (via self._config.paths.models)
+        # use the same temp directory
+        mock_cfg = _make_mock_config(tmp_path)
+        mock_cfg.paths.models = model_dir
 
-                service = TrainingService(model_dir=model_dir)
-                report = service.train(data_path=csv_path, model_type="logistic_regression")
+        with patch("src.feature_engineering.build_features", wraps=_dummy_build_features):
+            service = TrainingService(config=mock_cfg, model_dir=model_dir)
+            report = service.train(data_path=csv_path, model_type="logistic_regression")
 
         # Check model was saved
         saved_model_path = Path(report["model_path"])

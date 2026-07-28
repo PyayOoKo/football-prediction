@@ -29,7 +29,7 @@ class DataCollectionService:
     """
 
     def __init__(self, config: ConfigProvider | None = None) -> None:
-        self._config = config or get_container().resolve(ConfigProvider)
+        self._config = config or get_container().resolve(ConfigProvider)  # type: ignore[type-abstract]
         self._data_dir = self._config.paths.raw
         self._data_dir.mkdir(parents=True, exist_ok=True)
 

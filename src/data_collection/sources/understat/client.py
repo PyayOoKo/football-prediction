@@ -41,7 +41,7 @@ _VAR_PLAYERS_DATA = r"var\s+playersData\s*=\s*JSON\.parse\s*\(\s*'"
 _VAR_DATES_DATA = r"var\s+datesData\s*=\s*JSON\.parse\s*\(\s*'"
 
 # Regex patterns for each variable
-_VAR_PATTERNS: dict[str, re.Pattern] = {
+_VAR_PATTERNS: dict[str, re.Pattern[str]] = {
     "teamsData": re.compile(_VAR_TEAMS_DATA + r"(.*?)'\s*\)\s*;", re.DOTALL),
     "shotsData": re.compile(_VAR_SHOTS_DATA + r"(.*?)'\s*\)\s*;", re.DOTALL),
     "playersData": re.compile(_VAR_PLAYERS_DATA + r"(.*?)'\s*\)\s*;", re.DOTALL),
@@ -181,6 +181,68 @@ class UnderstatClient:
         html = await self.get_league_page(league, year)
         return self._extract_json(html, "teamsData")
 
+    async def get_league_data_json(
+        self, league: str, year: int,
+    ) -> dict[str, Any]:
+        """Fetch league data from the Understat JSON API endpoint.
+
+        Understat now loads data dynamically via client-side JavaScript.
+        The API endpoint ``/getLeagueData/{league}/{year}`` returns JSON
+        directly with keys ``teams``, ``players``, ``dates``.
+
+        This method:
+        1. First visits the league page to establish a session (cookies)
+        2. Then calls the API endpoint with the same session
+        3. Returns the parsed JSON
+
+        Parameters
+        ----------
+        league : str
+            League code (e.g. ``EPL``, ``La_liga``).
+        year : int
+            Season starting year (e.g. ``2024``).
+
+        Returns
+        -------
+        dict
+            Parsed JSON with keys ``teams``, ``players``, ``dates``.
+            Empty dict on failure.
+        """
+        api_url = f"{self.base_url}/getLeagueData/{league}/{year}"
+
+        # Use httpx directly for session management (cookies needed)
+        headers = {
+            "User-Agent": _HEADERS["User-Agent"],
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-GB,en;q=0.9",
+            "Referer": f"{self.base_url}/league/{league}/{year}",
+            "X-Requested-With": "XMLHttpRequest",
+        }
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=self.request_timeout,
+                follow_redirects=True,
+            ) as api_client:
+                # Step 1: Visit league page to get session cookies
+                await api_client.get(
+                    f"{self.base_url}/league/{league}/{year}",
+                    headers={"User-Agent": _HEADERS["User-Agent"]},
+                )
+
+                # Step 2: Call API endpoint with cookies
+                resp = await api_client.get(api_url, headers=headers)
+                resp.raise_for_status()
+
+                return resp.json()  # type: ignore[no-any-return]
+
+        except Exception as exc:
+            logger.warning(
+                "Failed to fetch league data from API %s: %s",
+                api_url, exc,
+            )
+            return {}
+
     async def get_match_data(
         self, match_id: int,
     ) -> dict[str, Any]:
@@ -259,14 +321,14 @@ class UnderstatClient:
 
         # Try direct JSON parse first (fast path for clean JSON)
         try:
-            return json.loads(raw)
+            return json.loads(raw)  # type: ignore[no-any-return]
         except json.JSONDecodeError:
             pass
 
         # Fallback: decode JavaScript/Unicode escapes then retry
         try:
             decoded = raw.encode().decode("unicode_escape", errors="replace")
-            return json.loads(decoded)
+            return json.loads(decoded)  # type: ignore[no-any-return]
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             logger.error(
                 "Could not parse %s from page: %s", var_name, exc,

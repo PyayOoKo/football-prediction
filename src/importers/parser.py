@@ -471,9 +471,9 @@ class CSVParser:
         try:
             ts = pd.to_datetime(value, dayfirst=True, errors="coerce")
             if pd.notna(ts):
-                return ts.date()
+                return ts.date()  # type: ignore[no-any-return]
         except Exception:
-            pass
+            logger.warning("Failed to parse date with pandas fallback", exc_info=True)
 
         return None
 

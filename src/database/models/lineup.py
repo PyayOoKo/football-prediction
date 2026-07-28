@@ -10,6 +10,7 @@ since lineup data sources vary in what they provide.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     CheckConstraint,
@@ -46,11 +47,11 @@ class Lineup(Base):
     formation: Mapped[str | None] = mapped_column(
         String(8), nullable=True, comment="e.g. 4-3-3, 4-4-2, 3-5-2"
     )
-    starting_xi: Mapped[dict | None] = mapped_column(
+    starting_xi: Mapped[dict[str, Any] | None] = mapped_column(
         JSON, nullable=True,
         comment="List of {player_id, name, position, shirt_number}",
     )
-    substitutes: Mapped[dict | None] = mapped_column(
+    substitutes: Mapped[dict[str, Any] | None] = mapped_column(
         JSON, nullable=True,
         comment="List of {player_id, name, minute_on}",
     )

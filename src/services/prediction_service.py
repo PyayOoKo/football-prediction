@@ -35,7 +35,7 @@ class PredictionService:
     """
 
     def __init__(self, model_dir: Path | None = None, config: ConfigProvider | None = None) -> None:
-        self._config = config or get_container().resolve(ConfigProvider)
+        self._config = config or get_container().resolve(ConfigProvider)  # type: ignore[type-abstract]
         self._model_dir = model_dir or self._config.paths.models
         self._model_dir.mkdir(parents=True, exist_ok=True)
         self._encoder: Any = None  # SafeTargetEncoder instance loaded from artifact
@@ -48,7 +48,7 @@ class PredictionService:
         model_name: str | None = None,
         limit: int = 10,
         output_path: str | Path | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Generate predictions for upcoming (unplayed) matches.
 
         Loads the most recent trained model and the fixture data,
@@ -193,7 +193,7 @@ class PredictionService:
         logger.info("Predicted %d upcoming matches", len(results))
         return results
 
-    def predict_match(self, match_id: int, data_path: str | Path | None = None) -> dict | None:
+    def predict_match(self, match_id: int, data_path: str | Path | None = None    ) -> dict[str, Any] | None:
         """Generate a prediction for a single match.
 
         Looks up the match by its row index in the raw data, builds
@@ -278,7 +278,7 @@ class PredictionService:
         logger.info(
             "Match %d: %s vs %s → %s (%.1f%%)",
             match_id, result["home_team"], result["away_team"],
-            result["prediction"], result["confidence"] * 100,
+            result["prediction"], result["confidence"] * 100,  # type: ignore[operator]
         )
         return result
 
@@ -287,10 +287,8 @@ class PredictionService:
         start_date: date,
         end_date: date,
         data_path: str | Path | None = None,
-    ) -> list[dict]:
-        """Generate predictions for historical matches (semi-walk-forward).
-
-        .. caution::
+    ) -> list[dict[str, Any]]:
+        """.. caution::
 
             **Semi-walk-forward approach.**  The model is loaded once and
             remains fixed for all predictions, which means it may have been
@@ -351,7 +349,7 @@ class PredictionService:
         # ── 3. Iterative walk-forward prediction ────────────
         from src.feature_engineering import build_features
 
-        results: list[dict] = []
+        results: list[dict[str, Any]] = []
         all_sorted = df.sort_values(["date", "home_team"]).reset_index(drop=True)
 
         label_map = {"H": "Home Win", "D": "Draw", "A": "Away Win"}
@@ -508,7 +506,7 @@ class PredictionService:
         model_name: str | None = None,
         limit: int = 10,
         output_path: str | Path | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Generate predictions enriched with live odds and value-bet analysis.
 
         Wraps :meth:`predict_upcoming` and enriches each prediction with
@@ -615,7 +613,7 @@ class PredictionService:
         )
         return enriched
 
-    def _save_predictions(self, results: list[dict], output_path: str | Path) -> None:
+    def _save_predictions(self,         results: list[dict[str, Any]], output_path: str | Path) -> None:
         """Save prediction results to CSV or JSON."""
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -172,11 +172,11 @@ class ReportGenerator:
             try:
                 if len(renderer) == 2:
                     name, fn = renderer
-                    html = fn()
+                    html = fn()  # type: ignore[operator, call-arg]
                 else:
                     name, fn, attr = renderer
-                    section = getattr(self.report, attr)
-                    html = fn(section)
+                    section = getattr(self.report, attr)  # type: ignore[arg-type]
+                    html = fn(section)  # type: ignore[operator, call-arg]
 
                 if html:
                     sections.append(f'<div class="section"><h2>{name}</h2>{html}</div>')

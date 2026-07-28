@@ -646,7 +646,7 @@ class PortfolioStaking(StakingStrategy):
         if index < 0 or index >= n_actual:
             return 0.0
 
-        return round(bankroll * (weights[index] / weight_sum), 2)
+        return round(bankroll * (weights[index] / weight_sum), 2)  # type: ignore[no-any-return]
 
     def calculate_stake(
         self,

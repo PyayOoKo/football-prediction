@@ -37,6 +37,7 @@ import sys
 import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 
 from src.monitoring.monitor import Monitor

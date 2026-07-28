@@ -561,7 +561,7 @@ class DailySummaryReport(ReportGenerator):
                     lines.append(f"  {icon} {t.metric_name}: {t.change_pct:+.1f}%")
                 lines.append("")
         except Exception:
-            pass
+            logger.warning("Failed to fetch 7-day trends", exc_info=True)
 
         lines.append(f"  Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
 

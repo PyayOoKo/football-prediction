@@ -17,7 +17,7 @@ from scipy.stats import poisson
 from src.dixon_coles.tau import dixon_coles_tau
 
 if TYPE_CHECKING:
-    from src.dixon_coles.model import DixonColesModel
+    from src.dixon_coles.model import DixonColesModel, DixonColesResult
 
 logger = logging.getLogger(__name__)
 
@@ -213,10 +213,10 @@ def fit_dixon_coles_model(
         method="L-BFGS-B",
         bounds=bounds,
         options={
-            "maxiter": 5000,
+            "maxiter": 20000,
             "ftol": 1e-8,
             "gtol": 1e-6,
-            "maxfun": 25000,
+            "maxfun": 100000,
         },
     )
 
@@ -284,3 +284,46 @@ def fit_dixon_coles_predict(
     )
     model = fit_dixon_coles_model(model, df_train)
     return model.predict(home_team, away_team)
+
+
+def _fill_dc_row(
+    df: pd.DataFrame,
+    model: "DixonColesModel",
+    i: int,
+    home_team_col: str,
+    away_team_col: str,
+    exp_home: np.ndarray,
+    exp_away: np.ndarray,
+    home_attack: np.ndarray,
+    home_def: np.ndarray,
+    away_attack: np.ndarray,
+    away_def: np.ndarray,
+    hw_prob: np.ndarray,
+    d_prob: np.ndarray,
+    aw_prob: np.ndarray,
+    rho_vals: np.ndarray,
+) -> None:
+    """Fill DC feature arrays for a single row using a fitted model."""
+    try:
+        home = df.iloc[i][home_team_col]
+        away = df.iloc[i][away_team_col]
+        lam, mu = model.expected_goals(home, away)
+        result = model.predict(home, away)
+        exp_home[i] = lam
+        exp_away[i] = mu
+        home_attack[i] = model._alpha.get(home, 0.0)
+        home_def[i] = model._beta.get(home, 0.0)
+        away_attack[i] = model._alpha.get(away, 0.0)
+        away_def[i] = model._beta.get(away, 0.0)
+        hw_prob[i] = result.home_win_prob
+        d_prob[i] = result.draw_prob
+        aw_prob[i] = result.away_win_prob
+        rho_vals[i] = model._rho
+    except Exception as e:
+        logger.warning("DC fill failed for row %d (%s vs %s): %s", i,
+                       df.iloc[i][home_team_col], df.iloc[i][away_team_col], e)
+        exp_home[i] = 1.0
+        exp_away[i] = 1.0
+        hw_prob[i] = 0.45
+        d_prob[i] = 0.25
+        aw_prob[i] = 0.30

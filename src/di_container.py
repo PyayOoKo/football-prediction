@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Protocol, TypeVar
+from typing import Any, Callable, Protocol, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -104,10 +104,10 @@ class Container:
     
     def __init__(self) -> None:
         self._services: dict[type, Any] = {}
-        self._factories: dict[type, callable] = {}
+        self._factories: dict[type, Callable[..., Any]] = {}
         self._instances: dict[type, Any] = {}
     
-    def register(self, interface: type[T], factory: callable, singleton: bool = True) -> None:
+    def register(self, interface: type[T], factory: Callable[..., Any], singleton: bool = True) -> None:
         """Register a service factory.
         
         Parameters
@@ -164,7 +164,7 @@ class Container:
             If the interface is not registered.
         """
         if interface in self._instances:
-            return self._instances[interface]
+            return self._instances[interface]  # type: ignore[no-any-return]
         
         if interface not in self._services:
             raise ValueError(f"No registration found for {interface.__name__}")
@@ -172,7 +172,7 @@ class Container:
         service_info = self._services[interface]
         
         if service_info['singleton'] and service_info['instance'] is not None:
-            return service_info['instance']
+            return service_info['instance']  # type: ignore[no-any-return]
         
         factory = service_info['factory']
         if factory is None:
@@ -183,7 +183,7 @@ class Container:
         if service_info['singleton']:
             service_info['instance'] = instance
         
-        return instance
+        return instance  # type: ignore[no-any-return]
     
     def clear(self) -> None:
         """Clear all registered services and instances.

@@ -1,69 +1,52 @@
 """
-Three-Model Blend — Market-specific ensemble of Poisson + Elo + XGBoost.
+Multi-Model Blend — Market-specific ensemble of Dixon-Coles + Elo + XGBoost + LightGBM + CatBoost.
 
-Combines predictions from three fundamentally different model types, each
-contributing where it excels, with weights optimised per market via
-exhaustive grid search on 9,189 top-league + World Cup matches:
+Combines predictions from five fundamentally different model types, each
+contributing where it excels, with weights optimised per market:
 
-- **Poisson** (statistical scoring distribution) → exact goal-line, BTTS & O/U
-- **Elo** (dynamic team strength ratings) → stable long-term prior, dominates Over2.5
-- **XGBoost** (gradient-boosted ML, 146 features) → complex feature interactions,
-  dominates BTTS
-
-Market-specific optimised weights
----------------------------------
-
-+----------+----------+------+--------+
-| Market   | Poisson  | Elo  | XGBoost |
-+==========+==========+======+========+
-| 1X2      | 0.51     | 0.43 | 0.06    |  ← Poisson+Elo dominate
-| Over2.5  | 0.38     | 0.48 | 0.14    |  ← Elo dominates (surprising!)
-| Over3.5  | 0.50     | 0.00 | 0.50    |  ← Poisson+XGB equally
-| BTTS     | 0.29     | 0.16 | 0.55    |  ← XGBoost dominates
-+----------+----------+------+--------+
+- **Dixon-Coles** (MLE with tau-correction, recency + importance weighting)
+  → exact scoreline distribution, BTTS & O/U — replaces independent Poisson
+- **Elo** (dynamic team strength ratings) → stable long-term prior
+- **XGBoost** (gradient-boosted trees, 146 features) → complex interactions
+- **LightGBM** (gradient-boosted trees, leaf-wise) → different tree structure,
+  better categorical handling
+- **CatBoost** (gradient-boosted trees, ordered boosting) → native categorical,
+  robust to noisy features
 
 Key design decisions
 --------------------
 1. **Direct Poisson BTTS formula** — P(BTTS) = 1 - e^{-λ_home} - e^{-λ_away}
-   + e^{-(λ_home + λ_away)} is used for all three models, NOT conditional
-   rates or simple weighted averages.
-2. **Poisson CDF for XGBoost O/U** — XGBoost 1X2 probs → expected total
-   goals → Poisson CDF P(X ≤ t) to get P(Over), rather than deriving
-   O/U directly from 1X2.
-3. **ConditionalRates** — fallback mechanism for converting any model's
-   1X2 predictions into BTTS/O/U probabilities when direct methods are
-   unavailable.
-4. **Feature pipeline** — `_FeatureBuilder` appends fixture rows to
-   historical data and runs the full ``build_features()`` pipeline,
-   ensuring XGBoost receives the same 146 features it was trained on.
-5. **Pre-compute cache** — `precompute()` runs all models once for a
-   dataset and caches results for fast weight grid search.
-6. **Elo excluded from Over3.5** — weight fixed at 0.00 (Elo does not
-   predict the rare-event tail well).
-
-Profitability findings
-----------------------
-Backtested on 9,189 real matches (5 seasons × 5 leagues + 7 World Cups):
-
-- **Over2.5 market**: +5.45% ROI (203 bets)  ✅ PROFITABLE
-- **1X2 market**: No edge found (efficient market absorbs model edge)
-- **BTTS market**: No value bets triggered (conservative thresholds)
+   + e^{-(λ_home + λ_away)} for DC/Elo, and 1X2 → expected goals → BTTS for
+   tree models.
+2. **Poisson CDF for tree model O/U** — 1X2 probs → expected total goals →
+   Poisson CDF P(X ≤ t) to get P(Over).
+3. **ConditionalRates** — fallback for converting any model's 1X2 predictions
+   into BTTS/O/U probabilities when direct methods are unavailable.
+4. **Feature pipeline** — `_FeatureBuilder` appends fixture rows to historical
+   data and runs the full ``build_features()`` pipeline.
+5. **Pre-compute cache** — `precompute()` runs all models once for a dataset
+   and caches results for fast weight grid search.
+6. **Models are optional** — pass only the models you have; blend skips
+   missing models gracefully.
 
 Usage
 -----
 ::
 
     from src.models.three_model_blend import ThreeModelBlend
-    from src.poisson_model import PoissonModel
+    from src.dixon_coles import DixonColesModel
     from src.elo import EloSystem
     import joblib
 
-    poisson = PoissonModel().fit(df_train)
+    dc = DixonColesModel().fit(df_train)
     elo = EloSystem()
     elo.process_matches(df_train)
     xgb = joblib.load("models/xgboost_model.joblib")
+    lgb = joblib.load("models/lightgbm_model.joblib")
+    cat = joblib.load("models/catboost_model.joblib")
 
-    blend = ThreeModelBlend(poisson, elo, xgb)
+    blend = ThreeModelBlend(dc_model=dc, elo_model=elo, xgb_model=xgb,
+                            lgb_model=lgb, cat_model=cat)
 
     # Predict a single fixture (all markets)
     result = blend.predict("France", "England")
@@ -94,7 +77,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -107,51 +90,50 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════
 
 DEFAULT_WEIGHTS: dict[str, dict[str, float]] = {
-    # --- Optimised via exhaustive grid search on All Top 5 Leagues + World Cup ---
-    # 5 seasons each for EPL, La Liga, Bundesliga, Serie A, Ligue 1 (2016-2024),
-    # plus 7 World Cups (2002-2026). Total: 9,189 preprocessed matches.
-    # See config/three_model_weights_league_wc_*.json for full optimisation results.
+    # ═══════════════════════════════════════════════════════════════
+    #  Per-Market Model Selection (research-validated 2026-07-25)
+    # ═══════════════════════════════════════════════════════════════
     #
-    # Key insights from Top 5 league retraining:
-    # - 1X2: Poisson increased (0.51), XGBoost minimal (0.06) for broad league coverage
-    # - Over2.5: Elo dominates (0.48) with more league data -- stable ratings help totals
-    # - BTTS: XGBoost stable (0.55) -- ML features consistently best for BTTS
-    # - Over3.5: Poisson + XGBoost equal (0.50/0.50) -- stable across all league mixtures
-    "1X2": {"poisson": 0.51, "elo": 0.43, "xgb": 0.06},
-    # Over/Under: Elo weight increased to 0.48 with Top 5 data.
-    # More league data strengthens Elo's contribution to totals.
-    "Over2.5": {"poisson": 0.38, "elo": 0.48, "xgb": 0.14},
-    # Over3.5: Stable result across all runs -- Poisson and XGBoost equally contribute.
-    "Over3.5": {"poisson": 0.50, "elo": 0.00, "xgb": 0.50},
-    # BTTS: XGBoost weight stable at 0.55 across all retraining runs.
-    # This is the most consistent finding -- XGBoost dominates BTTS.
-    "BTTS": {"poisson": 0.29, "elo": 0.16, "xgb": 0.55},
+    # 1X2: 5-model blend (DC + Elo + XGB + LGB + Cat)
+    #   → Tree models dominate on league data (XGB Brier=0.460, 72.6% acc)
+    #
+    # Over2.5 / Over3.5 / BTTS: DC-only
+    #   → DC-only comparison vs DC+Market Trees on F1 (387 test matches):
+    #     OU Brier:   DC 0.2488 vs Trees 0.2545 (trees worse)
+    #     OU Acc:     DC 54.52% vs Trees 48.84% (trees -5.68pp)
+    #     BTTS Brier: DC 0.2487 vs Trees 0.2523 (trees worse)
+    #     BTTS Acc:   DC 54.78% vs Trees 47.29% (trees -7.49pp)
+    #     Yield:      DC +1.18% vs Trees -11.06% (trees -12.24pp)
+    #   → Conclusion: DC-only strictly dominates trees for binary markets.
+    #     Trees are reserved for 1X2 only.
+    #
+    # Weights are initial defaults; grid-search optimisation via optimise_weights()
+    # will find the optimal blend for each dataset.
+    "1X2": {"dc": 0.35, "elo": 0.25, "xgb": 0.15, "lgb": 0.15, "cat": 0.10},
+    "Over2.5": {"dc": 1.00},
+    "Over3.5": {"dc": 1.00},
+    "BTTS": {"dc": 1.00},
 }
 
 WEIGHT_SEARCH_RANGES: dict[str, dict[str, tuple[float, float]]] = {
+    # All markets: per-market model selection based on research
+    # 1X2: full 5-model search
+    # Binary markets: DC-only (no tree search — research shows trees degrade performance)
     "1X2": {
-        "poisson": (0.30, 0.70),
-        "elo": (0.15, 0.50),
-        "xgb": (0.05, 0.30),
+        "dc": (0.15, 0.50),
+        "elo": (0.10, 0.40),
+        "xgb": (0.05, 0.25),
+        "lgb": (0.05, 0.25),
+        "cat": (0.05, 0.20),
     },
     "Over2.5": {
-        # Elo excluded from totals (weight fixed at 0)
-        "poisson": (0.20, 0.70),
-        "elo": (0.00, 0.00),
-        "xgb": (0.30, 0.80),
+        "dc": (1.00, 1.00),
     },
     "Over3.5": {
-        # Rare event (37.6% base rate XGBoost base rate ~28%); Elo excluded
-        # Search widened for XGBoost based on deep-dive finding that XGBoost
-        # alone (Brier 0.2106) outperforms the old 50/50 blend (0.2606).
-        "poisson": (0.10, 0.50),
-        "elo": (0.00, 0.00),
-        "xgb": (0.50, 0.90),
+        "dc": (1.00, 1.00),
     },
     "BTTS": {
-        "poisson": (0.20, 0.60),
-        "elo": (0.15, 0.40),
-        "xgb": (0.15, 0.45),
+        "dc": (1.00, 1.00),
     },
 }
 
@@ -269,9 +251,11 @@ class _FeatureBuilder:
                     # Null result/goals prevent pollution of rolling features.
                     # The fixture is appended AFTER all historical matches, so
                     # rolling stats for the fixture look backward at real data.
-                    "result": None,
-                    "home_goals": None,
-                    "away_goals": None,
+                    # Use np.nan instead of None to avoid ufunc 'isnan' errors
+                    # when numpy tries to process these values in feature pipeline.
+                    "result": np.nan,
+                    "home_goals": np.nan,
+                    "away_goals": np.nan,
                 }
                 # Carry forward essential context columns (static identifiers).
                 # These affect encoding (e.g. league-specific target encoding)
@@ -306,24 +290,28 @@ class _FeatureBuilder:
 class PerModelPredictions:
     """Pre-computed predictions from each individual model."""
 
-    pois_1x2: np.ndarray  # (n, 3) [away, draw, home]
+    dc_1x2: np.ndarray  # (n, 3) [away, draw, home]
     elo_1x2: np.ndarray  # (n, 3)
     xgb_1x2: np.ndarray  # (n, 3)
+    lgb_1x2: np.ndarray  # (n, 3)
+    cat_1x2: np.ndarray  # (n, 3)
 
-    # Poisson-specific binary market predictions (most accurate source)
-    pois_btts: np.ndarray  # (n,)
-    elo_btts: np.ndarray  # (n,)  — direct Poisson BTTS from Elo-derived expected goals
-    xgb_btts: np.ndarray  # (n,)  — Poisson BTTS from XGBoost 1X2 → expected goals
-    pois_over_25: np.ndarray  # (n,)
-    pois_over_35: np.ndarray  # (n,)
-    pois_exp_home: np.ndarray  # (n,)
-    pois_exp_away: np.ndarray  # (n,)
+    # Dixon-Coles binary market predictions
+    dc_btts: np.ndarray  # (n,)
+    elo_btts: np.ndarray  # (n,)  — direct BTTS from Elo-derived expected goals
+    xgb_btts: np.ndarray  # (n,)  — BTTS from XGBoost 1X2 → expected goals
+    lgb_btts: np.ndarray  # (n,)  — BTTS from LightGBM 1X2 → expected goals
+    cat_btts: np.ndarray  # (n,)  — BTTS from CatBoost 1X2 → expected goals
+    dc_over_25: np.ndarray  # (n,)
+    dc_over_35: np.ndarray  # (n,)
+    dc_exp_home: np.ndarray  # (n,)
+    dc_exp_away: np.ndarray  # (n,)
 
     n: int
 
     @property
-    def pois_total_goals(self) -> np.ndarray:
-        return self.pois_exp_home + self.pois_exp_away
+    def dc_total_goals(self) -> np.ndarray:
+        return cast(np.ndarray, self.dc_exp_home + self.dc_exp_away)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -332,41 +320,202 @@ class PerModelPredictions:
 
 
 class ThreeModelBlend:
-    """Market-specific blend of Poisson + Elo + XGBoost.
+    """Market-specific blend of Dixon-Coles + Elo + XGBoost + LightGBM + CatBoost.
 
     Parameters
     ----------
-    poisson_model : PoissonModel
-        Fitted Poisson model.
-    elo_system : EloSystem
+    dc_model : DixonColesModel, optional
+        Fitted Dixon-Coles model (replaces PoissonModel). If not provided,
+        falls back to ``poisson_model`` for backward compatibility.
+    elo_model : EloSystem
         Processed Elo system.
-    xgb_model : Any
+    xgb_model : Any, optional
         Fitted XGBoost/sklearn classifier with ``predict_proba(X)``.
+    lgb_model : Any, optional
+        Fitted LightGBM classifier with ``predict_proba(X)``.
+    cat_model : Any, optional
+        Fitted CatBoost classifier with ``predict_proba(X)``.
+    poisson_model : Any, optional
+        Deprecated — use ``dc_model`` instead. Falls back if ``dc_model``
+        is not provided.
     weights : dict, optional
         Per-market weights. Falls back to ``DEFAULT_WEIGHTS``.
     conditional_rates : ConditionalRates, optional
         Pre-computed conditional rates.
     historical_df : pd.DataFrame, optional
-        Historical data for XGBoost feature building.
+        Historical data for ML model feature building.
     """
 
     def __init__(
         self,
-        poisson_model: Any,
-        elo_model: Any,
-        xgb_model: Any,
+        dc_model: Any = None,
+        elo_model: Any = None,
+        xgb_model: Any = None,
+        lgb_model: Any = None,
+        cat_model: Any = None,
+        poisson_model: Any = None,
         weights: dict[str, dict[str, float]] | None = None,
         conditional_rates: ConditionalRates | None = None,
         historical_df: pd.DataFrame | None = None,
+        away_fix_enabled: bool = False,
+        away_fix_elo_threshold: float = -100.0,
+        draw_fix_enabled: bool = False,
+        draw_fix_max_elo_diff: float = 100.0,
+        draw_fix_min_prob: float = 0.20,
     ):
-        self.poisson = poisson_model
+        # Dixon-Coles (or Poisson fallback for backward compat)
+        self.dc = dc_model or poisson_model
         self.elo = elo_model
         self.xgb = xgb_model
+        self.lgb = lgb_model
+        self.cat = cat_model
         self.weights = weights or {k: dict(v) for k, v in DEFAULT_WEIGHTS.items()}
         self.cond_rates = conditional_rates or ConditionalRates()
         self._feature_builder = _FeatureBuilder(historical_df)
         self._cache: dict[str, PerModelPredictions] = {}
         self._calibrator: Any = None
+
+        # Market-specific tree models for O/U and BTTS (trained directly on those targets)
+        # Keyed by model type: {"xgb": model, "lgb": model, "cat": model}
+        # When loaded, these replace the derived-from-1X2 approach in predict_over_under/predict_btts
+        self.ou_models: dict[str, Any] = {}
+        self.btts_models: dict[str, Any] = {}
+        self.form_adjuster: Any = None  # RecentFormAdjuster instance
+
+        # Per-league Dixon-Coles models for league-specific O/U and BTTS predictions.
+        # Keyed by league code (e.g. "E0", "SE1"), each is a fitted DixonColesModel.
+        # When a per-league model covers both teams in a fixture, it is preferred
+        # over the global ``self.dc`` model for O/U and BTTS (1X2 still uses global).
+        # Fitted in ``run_pipeline.py`` via ``fit_per_league_dc_models()``.
+        self.per_league_dc: dict[str, Any] = {}
+        # Away-fix: override blend to predict Away when Elo strongly favours away team
+        self.away_fix_enabled = away_fix_enabled
+        self.away_fix_elo_threshold = away_fix_elo_threshold  # e.g. -100 means diff < -100 triggers fix
+        self.away_fix_applied: int = 0  # debug counter
+        # Draw-fix: ensure a minimum draw probability when Elo gap is small
+        self.draw_fix_enabled = draw_fix_enabled
+        self.draw_fix_max_elo_diff = draw_fix_max_elo_diff  # max absolute Elo diff to trigger fix
+        self.draw_fix_min_prob = draw_fix_min_prob  # minimum draw probability to enforce
+        self.draw_fix_applied: int = 0  # debug counter
+
+    # ── Away Fix Logic ─────────────────────────────────────
+
+    def _away_fix(self, probs: dict[str, float], home_team: str, away_team: str) -> dict[str, float]:
+        """Override 1X2 probabilities to predict Away when Elo strongly favours the away team.
+
+        This compensates for a known calibration issue where the blend systematically
+        underestimates away win probabilities (most pronounced in lower-division leagues
+        like SE1 where the model almost never predicts away wins).
+
+        The override only triggers when ``away_fix_enabled`` is ``True`` and the Elo
+        difference (home Elo - away Elo) is below ``away_fix_elo_threshold``.
+
+        Parameters
+        ----------
+        probs : dict
+            Current 1X2 probabilities ``{'H': ..., 'D': ..., 'A': ...}``
+        home_team : str
+        away_team : str
+
+        Returns
+        -------
+        dict
+            Updated probabilities (may be unchanged if Elo diff is above threshold).
+        """
+        if not self.away_fix_enabled or self.elo is None:
+            return probs
+
+        try:
+            R_h = self.elo._ratings.get(home_team, 1500.0)
+            R_a = self.elo._ratings.get(away_team, 1500.0)
+            elo_diff = R_h - R_a
+        except Exception:
+            return probs
+
+        if elo_diff >= self.away_fix_elo_threshold:
+            return probs
+
+        self.away_fix_applied += 1
+
+        # Override probabilities based on how extreme the Elo gap is
+        p = np.array([probs["A"], probs["D"], probs["H"]])
+        if elo_diff < self.away_fix_elo_threshold * 1.5:
+            # Strong away favourite: give away 55%, draw 25%, home 20%
+            p[0] = 0.55
+            p[1] = 0.25
+            p[2] = 0.20
+        else:
+            # Moderate away favourite: give away 50%, draw 28%, home 22%
+            p[0] = 0.50
+            p[1] = 0.28
+            p[2] = 0.22
+        # Renormalise
+        total = p.sum()
+        if total > 0:
+            p /= total
+
+        return {"H": float(p[2]), "D": float(p[1]), "A": float(p[0])}
+
+    # ── Draw Fix Logic ────────────────────────────────────
+
+    def _draw_fix(self, probs: dict[str, float], home_team: str, away_team: str) -> dict[str, float]:
+        """Ensure a minimum draw probability when the Elo gap between teams is small.
+
+        This compensates for a known calibration issue where the blend systematically
+        underestimates draw probabilities in top-tier leagues (most pronounced in D1
+        Bundesliga where the model predicts 0% draws despite an actual rate of ~25%).
+
+        The override only triggers when ``draw_fix_enabled`` is ``True`` and the
+        absolute Elo difference between home and away is below ``draw_fix_max_elo_diff``.
+        When triggered, the draw probability is raised to at least ``draw_fix_min_prob``,
+        with the excess taken from home and away proportionally.
+
+        Parameters
+        ----------
+        probs : dict
+            Current 1X2 probabilities ``{'H': ..., 'D': ..., 'A': ...}``
+        home_team : str
+        away_team : str
+
+        Returns
+        -------
+        dict
+            Updated probabilities (may be unchanged if Elo diff is above threshold).
+        """
+        if not self.draw_fix_enabled or self.elo is None:
+            return probs
+
+        try:
+            R_h = self.elo._ratings.get(home_team, 1500.0)
+            R_a = self.elo._ratings.get(away_team, 1500.0)
+            elo_diff = abs(R_h - R_a)
+        except Exception:
+            return probs
+
+        if elo_diff >= self.draw_fix_max_elo_diff:
+            return probs
+
+        p_h = probs["H"]
+        p_d = probs["D"]
+        p_a = probs["A"]
+
+        if p_d >= self.draw_fix_min_prob:
+            return probs  # draw already meets minimum
+
+        self.draw_fix_applied += 1
+
+        # Raise draw to min probability, reducing home and away proportionally
+        new_d = self.draw_fix_min_prob
+        remaining = 1.0 - new_d
+        total_ha = p_h + p_a
+        if total_ha > 0:
+            new_h = remaining * (p_h / total_ha)
+            new_a = remaining * (p_a / total_ha)
+        else:
+            new_h = remaining * 0.5
+            new_a = remaining * 0.5
+
+        return {"H": new_h, "D": new_d, "A": new_a}
 
     # ── Properties ────────────────────────────────────────
 
@@ -376,14 +525,64 @@ class ThreeModelBlend:
 
     @property
     def fitted(self) -> bool:
-        poisson_ok = hasattr(self.poisson, "_fitted") and self.poisson._fitted
+        dc_ok = False
+        if self.dc is not None:
+            if hasattr(self.dc, "_fitted"):
+                dc_ok = self.dc._fitted
+            elif hasattr(self.dc, "fitted"):
+                dc_ok = self.dc.fitted if callable(self.dc.fitted) else self.dc.fitted
         elo_ok = hasattr(self.elo, "_ratings") and len(self.elo._ratings) > 0
-        return poisson_ok and elo_ok and self.xgb is not None
+        return dc_ok and elo_ok
 
     @property
     def calibrated(self) -> bool:
         """Whether a probability calibrator is loaded and will be applied."""
         return self._calibrator is not None
+
+    # ── Per-League DC Resolution ───────────────────────────
+
+    def _resolve_dc(self, home_team: str, away_team: str, league: str | None = None) -> Any:
+        """Resolve the best DC model for a given fixture.
+
+        Priority:
+        1. If ``league`` is provided and exists in ``per_league_dc``, use it.
+        2. Scan all per_league_dc models for one that has BOTH teams in its
+           ``_team_list`` (teams only play in one league).
+        3. Fall back to the global ``self.dc`` model.
+
+        Parameters
+        ----------
+        home_team : str
+        away_team : str
+        league : str or None
+            League code, if known (e.g. from a ``league`` column in the
+            fixtures DataFrame).
+
+        Returns
+        -------
+        DixonColesModel or None
+            The best DC model for this fixture, or ``None`` if no DC model
+            is available.
+        """
+        # Priority 1: league parameter provided
+        if league and league in self.per_league_dc:
+            dc = self.per_league_dc[league]
+            if hasattr(dc, "_fitted") and dc._fitted:
+                return dc
+
+        # Priority 2: scan per-league models by team membership
+        if self.per_league_dc:
+            for league_code, dc in self.per_league_dc.items():
+                if not hasattr(dc, "_fitted") or not dc._fitted:
+                    continue
+                if not hasattr(dc, "_team_list"):
+                    continue
+                teams = set(dc._team_list)
+                if home_team in teams and away_team in teams:
+                    return dc
+
+        # Priority 3: fall back to global DC
+        return self.dc
 
     # ── Calibrator Loading ────────────────────────────────
 
@@ -428,7 +627,7 @@ class ThreeModelBlend:
     # ── Single Fixture Prediction ─────────────────────────
 
     def predict(self, home_team: str, away_team: str) -> dict[str, Any]:
-        """Predict all markets for a single fixture using the 3-model blend.
+        """Predict all markets for a single fixture using the multi-model blend.
 
         When a probability calibrator is loaded (via ``load_calibrator()``),
         the 1X2 predictions are automatically calibrated.  Over/Under and
@@ -448,14 +647,23 @@ class ThreeModelBlend:
                 }
             except Exception as exc:
                 logger.warning("1X2 calibration failed: %s — using raw blend", exc)
+
+        # Away fix applied AFTER calibration so it sticks (not overwritten by calibrator)
+        if self.away_fix_enabled:
+            probs_1x2 = self._away_fix(probs_1x2, home_team, away_team)
+
+        # Draw fix applied after away fix so they compose correctly
+        if self.draw_fix_enabled:
+            probs_1x2 = self._draw_fix(probs_1x2, home_team, away_team)
+
         over_under = self.predict_over_under(home_team, away_team, 2.5)
         over_35 = self.predict_over_under(home_team, away_team, 3.5)
         btts = self.predict_btts(home_team, away_team)
 
         expectations = {}
-        if hasattr(self.poisson, "expected_goals"):
+        if self.dc is not None and hasattr(self.dc, "expected_goals"):
             try:
-                λ_h, λ_a = self.poisson.expected_goals(home_team, away_team)
+                λ_h, λ_a = self.dc.expected_goals(home_team, away_team)
                 expectations = {
                     "expected_home_goals": round(λ_h, 4),
                     "expected_away_goals": round(λ_a, 4),
@@ -476,9 +684,9 @@ class ThreeModelBlend:
     # ── 1X2 Market ────────────────────────────────────────
 
     def predict_1x2(self, home_team: str, away_team: str) -> dict[str, float]:
-        """Predict match outcome probabilities (1X2) using the 3-model blend.
+        """Predict match outcome probabilities (1X2) using the multi-model blend.
 
-        Gets predictions from all 3 models via their ``predict_proba()``
+        Gets predictions from all available models via their ``predict_proba()``
         interfaces, blends them using market-specific weights for '1X2',
         and renormalises so probabilities sum to 1.0.
 
@@ -496,23 +704,42 @@ class ThreeModelBlend:
         """
         w = self.weights.get("1X2", DEFAULT_WEIGHTS["1X2"])
 
-        # Get individual model predictions (each as np array [away, draw, home])
-        p_pois = self._poisson_1x2(home_team, away_team)  # [away, draw, home]
-        p_elo = self._elo_1x2(home_team, away_team)       # [away, draw, home]
-        p_xgb = self._xgb_1x2(home_team, away_team)       # [away, draw, home]
+        models = {
+            "dc": self._dc_1x2(home_team, away_team) if self.dc else None,
+            "elo": self._elo_1x2(home_team, away_team),
+            "xgb": self._xgb_1x2(home_team, away_team) if self.xgb else None,
+            "lgb": self._lgb_1x2(home_team, away_team) if self.lgb else None,
+            "cat": self._cat_1x2(home_team, away_team) if self.cat else None,
+        }
 
-        # Weighted blend
-        p_h = w["poisson"] * p_pois[2] + w["elo"] * p_elo[2] + w["xgb"] * p_xgb[2]
-        p_d = w["poisson"] * p_pois[1] + w["elo"] * p_elo[1] + w["xgb"] * p_xgb[1]
-        p_a = w["poisson"] * p_pois[0] + w["elo"] * p_elo[0] + w["xgb"] * p_xgb[0]
+        p_h = 0.0
+        p_d = 0.0
+        p_a = 0.0
+        total_w = 0.0
 
-        # Renormalise to ensure sum = 1.0
-        total = p_h + p_d + p_a
-        if total > 0:
-            p_h /= total
-            p_d /= total
-            p_a /= total
+        for key, probs in models.items():
+            if probs is not None and key in w:
+                weight = w.get(key, 0.0)
+                if weight > 0:
+                    p_h += weight * probs[2]
+                    p_d += weight * probs[1]
+                    p_a += weight * probs[0]
+                    total_w += weight
 
+        if total_w > 0:
+            p_h /= total_w
+            p_d /= total_w
+            p_a /= total_w
+        else:
+            total = p_h + p_d + p_a
+            if total > 0:
+                p_h /= total
+                p_d /= total
+                p_a /= total
+
+        # Note: away fix is NOT applied here. It's applied in `predict()` AFTER
+        # calibration so the calibrator sees unfixed probabilities.
+        # Direct callers of predict_1x2 (backtesting scripts) apply the fix themselves.
         return {"H": p_h, "D": p_d, "A": p_a}
 
     # ── Over/Under Market ─────────────────────────────────
@@ -520,9 +747,9 @@ class ThreeModelBlend:
     def predict_over_under(self, home_team: str, away_team: str, threshold: float = 2.5) -> dict[str, float]:
         """Predict Over/Under probabilities for a given goal threshold.
 
-        Uses the 3-model blend with Elo excluded (weight = 0 for totals):
-        - **Poisson**: exact P(Over) from scoreline probability table
-        - **XGBoost**: expected total goals → Poisson CDF conversion
+        Blends all available models:
+        - **Dixon-Coles**: exact P(Over) from scoreline probability table
+        - **XGBoost/LightGBM/CatBoost**: expected total goals → Poisson CDF
 
         Parameters
         ----------
@@ -538,23 +765,28 @@ class ThreeModelBlend:
         dict[str, float]
             ``{'Over': over_prob, 'Under': under_prob}`` (sums to 1.0).
         """
-        # Build the market key matching the DEFAULT_WEIGHTS convention (e.g. "Over3.5")
         market_key = f"Over{threshold:.1f}"
         w = self.weights.get(market_key, self.weights.get("Over2.5", DEFAULT_WEIGHTS["Over2.5"]))
 
-        # Poisson: exact P(Over) from scoreline table
-        over_pois = self._poisson_over(home_team, away_team, threshold)
+        models = {
+            "dc": self._dc_over(home_team, away_team, threshold) if self.dc else None,
+            "xgb": self._xgb_over(home_team, away_team, threshold) if self.xgb else None,
+            "lgb": self._lgb_over(home_team, away_team, threshold) if self.lgb else None,
+            "cat": self._cat_over(home_team, away_team, threshold) if self.cat else None,
+        }
 
-        # XGBoost: expected total goals → Poisson CDF
-        over_xgb = self._xgb_over(home_team, away_team, threshold)
+        over_blend = 0.0
+        total_w = 0.0
 
-        # Elo: NOT used for totals (weight fixed at 0)
-        # Blend only Poisson + XGBoost
-        wp = w.get("poisson", 0)
-        wx = w.get("xgb", 0)
-        total_w = wp + wx
+        for key, prob in models.items():
+            if prob is not None and key in w:
+                weight = w.get(key, 0.0)
+                if weight > 0:
+                    over_blend += weight * prob
+                    total_w += weight
+
         if total_w > 0:
-            over_blend = (wp * over_pois + wx * over_xgb) / total_w
+            over_blend /= total_w
         else:
             over_blend = 0.5
 
@@ -563,17 +795,15 @@ class ThreeModelBlend:
     # ── BTTS Market ───────────────────────────────────────
 
     def predict_btts(self, home_team: str, away_team: str) -> dict[str, float]:
-        """Predict Both Teams To Score probability using the 3-model blend.
+        """Predict Both Teams To Score probability using the multi-model blend.
 
         Uses **direct** BTTS modelling for each model:
-        - **Poisson**: exact BTTS from scoreline probability table
-        - **Elo**: Poisson BTTS formula from Elo-derived expected goals
-        - **XGBoost**: Poisson BTTS formula from XGBoost 1X2 → expected goals → Poisson CDF
+        - **Dixon-Coles**: exact BTTS from scoreline probability table
+        - **Elo**: BTTS formula from Elo-derived expected goals
+        - **XGBoost/LightGBM/CatBoost**: BTTS formula from 1X2 → expected goals
 
-        All three models now compute BTTS via the Poisson formula:
+        All models compute BTTS via the Poisson formula:
             P(BTTS) = 1 - e^{-λ_home} - e^{-λ_away} + e^{-(λ_home + λ_away)}
-
-        The old conditional-rate fallback has been fully replaced.
 
         Parameters
         ----------
@@ -589,42 +819,32 @@ class ThreeModelBlend:
         """
         w = self.weights.get("BTTS", DEFAULT_WEIGHTS["BTTS"])
 
-        # Poisson: exact BTTS from scoreline table
-        btts_pois = self._poisson_btts(home_team, away_team)
+        models = {
+            "dc": self._dc_btts(home_team, away_team) if self.dc else None,
+            "elo": self._elo_btts(home_team, away_team),
+            "xgb": self._xgb_btts(home_team, away_team) if self.xgb else None,
+            "lgb": self._lgb_btts(home_team, away_team) if self.lgb else None,
+            "cat": self._cat_btts(home_team, away_team) if self.cat else None,
+        }
 
-        # Elo: direct BTTS from Elo-derived expected goals
-        btts_elo = self._elo_btts(home_team, away_team)
+        btts_blend = 0.0
+        total_w = 0.0
 
-        # XGBoost: Poisson BTTS from XGBoost 1X2 → expected goals
-        btts_xgb = self._xgb_btts(home_team, away_team)
-
-        # Blend with graceful skip: if a model returned None, redistribute
-        wp = w.get("poisson", 0)
-        we = w.get("elo", 0) if btts_elo is not None else 0.0
-        wx = w.get("xgb", 0) if btts_xgb is not None else 0.0
-        total_w = wp + we + wx
+        for key, prob in models.items():
+            if prob is not None and key in w:
+                weight = w.get(key, 0.0)
+                if weight > 0:
+                    btts_blend += weight * prob
+                    total_w += weight
 
         if total_w > 0:
-            btts_blend = (
-                wp * btts_pois
-                + (we * btts_elo if btts_elo is not None else 0.0)
-                + (wx * btts_xgb if btts_xgb is not None else 0.0)
-            ) / total_w
+            btts_blend /= total_w
         else:
-            btts_blend = btts_pois  # Fallback to Poisson alone
+            btts_blend = 0.5
 
         return {"BTTS": btts_blend, "No BTTS": 1.0 - btts_blend}
 
     def _elo_btts(self, home_team: str, away_team: str) -> float | None:
-        """Get Elo's BTTS probability using direct Poisson BTTS formula.
-
-        Uses Elo's dedicated ``predict_btts()`` method which computes
-        expected goals from the Elo rating difference, then applies
-        the Poisson BTTS formula:
-            P(BTTS) = 1 - e^{-λ_home} - e^{-λ_away} + e^{-(λ_home + λ_away)}
-
-        This replaced the old conditional-rate fallback.
-        """
         try:
             if hasattr(self.elo, "predict_btts") and callable(self.elo.predict_btts):
                 result = self.elo.predict_btts(home_team, away_team)
@@ -634,63 +854,51 @@ class ThreeModelBlend:
             pass
         return None
 
-    def _xgb_btts(self, home_team: str, away_team: str) -> float | None:
-        """Get XGBoost's BTTS probability via 1X2 → expected goals → Poisson formula.
-
-        Strategy (replaces old conditional-rate approach):
-        1. Get XGBoost's 1X2 probabilities from ``predict_proba()``.
-        2. Compute expected total goals from outcome-conditional mean totals.
-        3. Estimate home/away goal split (55/45 default).
-        4. Apply Poisson BTTS formula:
-           P(BTTS) = 1 - e^{-λ_home} - e^{-λ_away} + e^{-(λ_home + λ_away)}
-
-        This is more principled than the old conditional-rate approach because
-        it models the explicit goal distribution via Poisson.
-        """
+    def _ml_btts(self, probs_1x2: np.ndarray) -> float | None:
+        """Compute BTTS from a tree model's 1X2 probs → expected goals → Poisson."""
         try:
-            xgb_1x2 = self._xgb_1x2(home_team, away_team)  # [away, draw, home]
             cr = self.cond_rates
-            # Expected total goals from XGBoost's outcome distribution
             exp_total = (
-                xgb_1x2[2] * cr.mean_total_given_home_win
-                + xgb_1x2[1] * cr.mean_total_given_draw
-                + xgb_1x2[0] * cr.mean_total_given_away_win
+                probs_1x2[2] * cr.mean_total_given_home_win
+                + probs_1x2[1] * cr.mean_total_given_draw
+                + probs_1x2[0] * cr.mean_total_given_away_win
             )
             if exp_total <= 0:
                 return 0.50
-            # Split expected total into home/away (~55/45 home advantage split)
             exp_home = exp_total * 0.55
             exp_away = exp_total * 0.45
-            # Poisson BTTS formula
             p_h0 = np.exp(-exp_home)
             p_a0 = np.exp(-exp_away)
-            btts_prob = 1.0 - p_h0 - p_a0 + (p_h0 * p_a0)
-            return float(np.clip(btts_prob, 0.0, 1.0))
+            return float(np.clip(1.0 - p_h0 - p_a0 + (p_h0 * p_a0), 0.0, 1.0))
+        except Exception:
+            return 0.50
+
+    def _ml_over(self, probs_1x2: np.ndarray, threshold: float) -> float:
+        """Compute P(Over) from a tree model's 1X2 probs → exp. total → Poisson CDF."""
+        try:
+            cr = self.cond_rates
+            exp_total = (
+                probs_1x2[2] * cr.mean_total_given_home_win
+                + probs_1x2[1] * cr.mean_total_given_draw
+                + probs_1x2[0] * cr.mean_total_given_away_win
+            )
+            if exp_total <= 0:
+                return 0.50
+            return 1.0 - _poisson_cdf(threshold, exp_total)
         except Exception:
             return 0.50
 
     # ── Individual Model Proxies ──────────────────────────
 
-    def _align_xgb_features(self, X: pd.DataFrame) -> pd.DataFrame | None:
-        """Align feature columns to match what the XGBoost model expects.
-
-        The XGBoost model was trained with a specific feature set (146 features
-        for the current model).  ``build_features()`` may produce a different
-        number of columns when processing fixture rows (e.g. 140 with null
-        results).  This method:
-
-        1. Adds any missing columns filled with 0.
-        2. Drops any extra columns.
-        3. Reorders columns to match the model's training-time schema.
-
-        Uses ``feature_names_in_`` from the underlying XGBoost booster
-        (the authoritative source — the ``ModelArtifact`` wrapper's
-        ``feature_names`` may be empty if saved without them).
+    def _align_features(self, X: pd.DataFrame, model: Any) -> pd.DataFrame | None:
+        """Align feature columns to match what a tree model expects.
 
         Parameters
         ----------
         X : pd.DataFrame
             Feature matrix from ``_FeatureBuilder.build()``.
+        model : Any
+            Fitted model with ``feature_names_in_`` or ``feature_name_``.
 
         Returns
         -------
@@ -700,128 +908,623 @@ class ThreeModelBlend:
         if X is None or len(X) == 0:
             return None
         try:
-            # Always prefer the underlying XGBoost model's feature_names_in_
-            # because that's the authoritative column set the model was
-            # trained with.  ModelArtifact.select_columns() may fail if
-            # the artifact was saved with empty feature_names.
-            if hasattr(self.xgb, "feature_names_in_"):
-                expected = list(self.xgb.feature_names_in_)
-                missing = set(expected) - set(X.columns)
-                for col in missing:
-                    # Use NaN so XGBoost applies its built-in missing-value
-                    # handling (learned during training) instead of forcing
-                    # a semantically-meaningless value like 0.0 for date-
-                    # derived features (year, month, week_of_season, ...).
-                    X[col] = np.nan
-                return X[expected]
-            # Fallback: ModelArtifact.select_columns() (may have empty names)
-            if hasattr(self.xgb, "select_columns"):
-                return self.xgb.select_columns(X)
-            # No alignment needed (unlikely for trained XGBoost models)
-            return X
+            expected = None
+            if hasattr(model, "feature_names_in_"):
+                expected = list(model.feature_names_in_)
+            elif hasattr(model, "feature_name_"):
+                expected = list(model.feature_name_)
+            elif hasattr(model, "feature_names_"):
+                expected = list(model.feature_names_)
+            if expected is None:
+                return X
+            missing = set(expected) - set(X.columns)
+            for col in missing:
+                X[col] = np.nan
+            return X[expected]
         except Exception as exc:
-            logger.warning("Feature alignment failed: %s", exc)
+            logger.warning("Feature alignment failed for %s: %s", type(model).__name__, exc)
             return None
 
-    def _poisson_1x2(self, home_team: str, away_team: str) -> np.ndarray:
+    def _dc_1x2(self, home_team: str, away_team: str) -> np.ndarray:
         try:
-            r = self.poisson.predict(home_team, away_team)
-            return np.array([r.get("away_win_prob", 0.33), r.get("draw_prob", 0.34), r.get("home_win_prob", 0.33)])
+            if hasattr(self.dc, "predict_proba"):
+                df = pd.DataFrame([{"home_team": home_team, "away_team": away_team}])
+                return cast(np.ndarray, self.dc.predict_proba(df)[0])
+            return np.array([0.33, 0.34, 0.33])
         except Exception:
             return np.array([0.33, 0.34, 0.33])
 
-    def _poisson_over(self, home_team: str, away_team: str, threshold: float) -> float:
+    def _resolve_dc_for_fixture(self, home_team: str, away_team: str, league: str | None = None) -> Any:
+        """Resolve the best DC model for O/U and BTTS on a single fixture.
+
+        Uses ``_resolve_dc()`` to pick per-league model or global fallback.
+        If the resolved model has both teams, returns it; otherwise falls
+        back to ``self.dc``.
+        """
+        dc = self._resolve_dc(home_team, away_team, league=league)
+        if dc is not None and hasattr(dc, "_fitted") and dc._fitted:
+            return dc
+        return self.dc
+
+    def _dc_1x2(self, home_team: str, away_team: str) -> np.ndarray:
         try:
-            key = f"over_{threshold:.1f}_prob".replace(".", "_")
-            r = self.poisson.predict(home_team, away_team, over_under_threshold=threshold)
-            return float(r.get(key, 0.50))
+            # 1X2 always uses global DC (tree models dominate 1X2)
+            if hasattr(self.dc, "predict_proba"):
+                df = pd.DataFrame([{"home_team": home_team, "away_team": away_team}])
+                return cast(np.ndarray, self.dc.predict_proba(df)[0])
+            return np.array([0.33, 0.34, 0.33])
+        except Exception:
+            return np.array([0.33, 0.34, 0.33])
+
+    def _dc_over(self, home_team: str, away_team: str, threshold: float, league: str | None = None) -> float:
+        """Dixon-Coles Over/Under probability, using per-league DC if available."""
+        dc = self._resolve_dc_for_fixture(home_team, away_team, league=league)
+        try:
+            if dc is not None and hasattr(dc, "predict"):
+                r = dc.predict(home_team, away_team, over_under_threshold=threshold)
+                return float(getattr(r, "over_2_5_prob" if threshold == 2.5 else "over_3_5_prob", 0.50))
+            return 0.50
         except Exception:
             return 0.50
 
-    def _poisson_btts(self, home_team: str, away_team: str) -> float:
+    def _dc_btts(self, home_team: str, away_team: str, league: str | None = None) -> float:
+        """Dixon-Coles BTTS probability, using per-league DC if available."""
+        dc = self._resolve_dc_for_fixture(home_team, away_team, league=league)
         try:
-            r = self.poisson.predict(home_team, away_team)
-            return float(r.get("btts_prob", 0.50))
+            if dc is not None and hasattr(dc, "predict"):
+                r = dc.predict(home_team, away_team)
+                return float(getattr(r, "btts_prob", 0.50))
+            return 0.50
         except Exception:
             return 0.50
 
     def _elo_1x2(self, home_team: str, away_team: str) -> np.ndarray:
         try:
+            # If a form adjuster is loaded, compute form-adjusted Elo probs
+            if self.form_adjuster is not None and hasattr(self.elo, "expected_score"):
+                R_home_raw = self.elo._ratings.get(home_team, float(self.elo.initial_rating))
+                R_away_raw = self.elo._ratings.get(away_team, float(self.elo.initial_rating))
+                R_home = self.form_adjuster.adjust_rating(R_home_raw, home_team)
+                R_away = self.form_adjuster.adjust_rating(R_away_raw, away_team)
+                E_home = self.elo.expected_score(R_home, R_away)
+                # Reuse the EloSystem's own probability conversion
+                if hasattr(self.elo, "_expected_to_probs"):
+                    return np.array(self.elo._expected_to_probs(E_home))
+                # Fallback if method not available
+                E_away = 1.0 - E_home
+                diff = abs(E_home - E_away)
+                p_draw = 0.25 * (1.0 - diff)
+                p_home = E_home - p_draw / 2.0
+                p_away = 1.0 - E_home - p_draw / 2.0
+                return np.array([p_away, p_draw, p_home])
+            # Standard Elo prediction (no form adjustment)
             df = pd.DataFrame([{"home_team": home_team, "away_team": away_team}])
-            return self.elo.predict_proba(df)[0]
+            return cast(np.ndarray, self.elo.predict_proba(df)[0])
         except Exception:
             return np.array([0.33, 0.34, 0.33])
 
-    def _xgb_1x2(self, home_team: str, away_team: str) -> np.ndarray:
+    def _ml_predict_proba(self, model: Any, home_team: str, away_team: str) -> np.ndarray | None:
+        """Generic predict_proba for any tree model via feature builder."""
         try:
             X = self._feature_builder.build([home_team], [away_team])
             if X is not None and len(X) > 0:
-                X_aligned = self._align_xgb_features(X)
+                X_aligned = self._align_features(X, model)
                 if X_aligned is not None and len(X_aligned) > 0:
-                    return self.xgb.predict_proba(X_aligned)[0]
+                    return cast(np.ndarray, model.predict_proba(X_aligned)[0])
         except Exception:
             pass
-        return np.array([0.33, 0.34, 0.33])
+        return None
+
+    def _xgb_1x2(self, home_team: str, away_team: str) -> np.ndarray:
+        if self.xgb is None:
+            return np.array([0.33, 0.34, 0.33])
+        result = self._ml_predict_proba(self.xgb, home_team, away_team)
+        return result if result is not None else np.array([0.33, 0.34, 0.33])
+
+    def _xgb_btts(self, home_team: str, away_team: str) -> float | None:
+        # Try market-specific BTTS model first
+        if "xgb" in self.btts_models:
+            result = self._ml_binary_predict_proba(self.btts_models["xgb"], home_team, away_team)
+            if result is not None:
+                return float(result[1])  # binary: [P(No), P(BTTS)]
+        if self.xgb is None:
+            return None
+        probs = self._xgb_1x2(home_team, away_team)
+        if np.array_equal(probs, np.array([0.33, 0.34, 0.33])):
+            return None
+        return self._ml_btts(probs)
 
     def _xgb_over(self, home_team: str, away_team: str, threshold: float) -> float:
-        """Get XGBoost's P(Over threshold) via expected total goals → Poisson CDF.
+        # Try market-specific O/U model first
+        if "xgb" in self.ou_models and threshold == 2.5:
+            result = self._ml_binary_predict_proba(self.ou_models["xgb"], home_team, away_team)
+            if result is not None:
+                return float(result[1])  # binary: [P(Under), P(Over)]
+        if self.xgb is None:
+            return 0.50
+        probs = self._xgb_1x2(home_team, away_team)
+        if np.array_equal(probs, np.array([0.33, 0.34, 0.33])):
+            return 0.50
+        return self._ml_over(probs, threshold)
 
-        Strategy:
-        1. Get XGBoost's 1X2 probabilities from ``predict_proba()``.
-        2. Compute expected total goals as the weighted average of
-           outcome-conditional mean totals (from ``cond_rates``).
-        3. Convert to P(Over) using Poisson CDF:
-           P(Over) = 1 - P(X <= floor(threshold)) where X ~ Pois(expected_total).
+    def _lgb_1x2(self, home_team: str, away_team: str) -> np.ndarray:
+        if self.lgb is None:
+            return np.array([0.33, 0.34, 0.33])
+        result = self._ml_predict_proba(self.lgb, home_team, away_team)
+        return result if result is not None else np.array([0.33, 0.34, 0.33])
 
-        This is more principled than deriving P(Over) directly from 1X2 probs
-        because it models the full goal distribution via Poisson.
+    def _lgb_btts(self, home_team: str, away_team: str) -> float | None:
+        # Try market-specific BTTS model first
+        if "lgb" in self.btts_models:
+            result = self._ml_binary_predict_proba(self.btts_models["lgb"], home_team, away_team)
+            if result is not None:
+                return float(result[1])
+        if self.lgb is None:
+            return None
+        probs = self._lgb_1x2(home_team, away_team)
+        if np.array_equal(probs, np.array([0.33, 0.34, 0.33])):
+            return None
+        return self._ml_btts(probs)
+
+    def _lgb_over(self, home_team: str, away_team: str, threshold: float) -> float:
+        # Try market-specific O/U model first
+        if "lgb" in self.ou_models and threshold == 2.5:
+            result = self._ml_binary_predict_proba(self.ou_models["lgb"], home_team, away_team)
+            if result is not None:
+                return float(result[1])
+        if self.lgb is None:
+            return 0.50
+        probs = self._lgb_1x2(home_team, away_team)
+        if np.array_equal(probs, np.array([0.33, 0.34, 0.33])):
+            return 0.50
+        return self._ml_over(probs, threshold)
+
+    def _cat_1x2(self, home_team: str, away_team: str) -> np.ndarray:
+        if self.cat is None:
+            return np.array([0.33, 0.34, 0.33])
+        result = self._ml_predict_proba(self.cat, home_team, away_team)
+        return result if result is not None else np.array([0.33, 0.34, 0.33])
+
+    def _cat_btts(self, home_team: str, away_team: str) -> float | None:
+        # Try market-specific BTTS model first
+        if "cat" in self.btts_models:
+            result = self._ml_binary_predict_proba(self.btts_models["cat"], home_team, away_team)
+            if result is not None:
+                return float(result[1])
+        if self.cat is None:
+            return None
+        probs = self._cat_1x2(home_team, away_team)
+        if np.array_equal(probs, np.array([0.33, 0.34, 0.33])):
+            return None
+        return self._ml_btts(probs)
+
+    def _cat_over(self, home_team: str, away_team: str, threshold: float) -> float:
+        # Try market-specific O/U model first
+        if "cat" in self.ou_models and threshold == 2.5:
+            result = self._ml_binary_predict_proba(self.ou_models["cat"], home_team, away_team)
+            if result is not None:
+                return float(result[1])
+        if self.cat is None:
+            return 0.50
+        probs = self._cat_1x2(home_team, away_team)
+        if np.array_equal(probs, np.array([0.33, 0.34, 0.33])):
+            return 0.50
+        return self._ml_over(probs, threshold)
+
+    def _batch_ml_predict(self, model: Any, X: pd.DataFrame | None) -> np.ndarray | None:
+        """Run predict_proba on a pre-built feature matrix (batched).
+
+        Parameters
+        ----------
+        model : Any
+            Fitted tree model with ``predict_proba(X)``.
+        X : pd.DataFrame or None
+            Pre-built feature matrix for ALL fixtures.
+
+        Returns
+        -------
+        np.ndarray or None
+            ``(n_fixtures, 3)`` probability array, or ``None`` if model/X
+            are unavailable.
+        """
+        if model is None or X is None or len(X) == 0:
+            return None
+        X_aligned = self._align_features(X, model)
+        if X_aligned is None or len(X_aligned) == 0:
+            return None
+        try:
+            return cast(np.ndarray, model.predict_proba(X_aligned))
+        except Exception as exc:
+            logger.warning("Batch predict failed for %s: %s", type(model).__name__, exc)
+            return None
+
+    def _batch_ml_predict_binary(self, model: Any, X: pd.DataFrame | None) -> np.ndarray | None:
+        """Run predict_proba on a pre-built feature matrix (batched) — binary output.
+
+        Returns the **positive class** (index 1) probability for each fixture,
+        suitable for O/U or BTTS market-specific models.
+
+        Parameters
+        ----------
+        model : Any
+            Fitted binary tree model with ``predict_proba(X)`` returning (n, 2).
+        X : pd.DataFrame or None
+            Pre-built feature matrix for ALL fixtures.
+
+        Returns
+        -------
+        np.ndarray or None
+            ``(n_fixtures,)`` array of P(positive) probabilities, or ``None``.
+        """
+        if model is None or X is None or len(X) == 0:
+            return None
+        X_aligned = self._align_features(X, model)
+        if X_aligned is None or len(X_aligned) == 0:
+            return None
+        try:
+            probs = cast(np.ndarray, model.predict_proba(X_aligned))
+            return probs[:, 1]  # binary: [P(0), P(1)]
+        except Exception as exc:
+            logger.warning("Batch binary predict failed for %s: %s", type(model).__name__, exc)
+            return None
+
+    def _ml_binary_predict_proba(self, model: Any, home_team: str, away_team: str) -> np.ndarray | None:
+        """Single-fixture predict_proba for a binary market-specific model.
+
+        Parameters
+        ----------
+        model : Any
+            Fitted binary tree model.
+        home_team : str
+        away_team : str
+
+        Returns
+        -------
+        np.ndarray or None
+            ``(2,)`` array with ``[P(negative), P(positive)]``, or ``None``.
         """
         try:
-            xgb_1x2 = self._xgb_1x2(home_team, away_team)  # [away, draw, home]
-            cr = self.cond_rates
-            # Expected total goals from XGBoost's outcome distribution
-            exp_total = (
-                xgb_1x2[2] * cr.mean_total_given_home_win
-                + xgb_1x2[1] * cr.mean_total_given_draw
-                + xgb_1x2[0] * cr.mean_total_given_away_win
-            )
-            if exp_total <= 0:
-                return 0.50
-            return 1.0 - _poisson_cdf(threshold, exp_total)
+            X = self._feature_builder.build([home_team], [away_team])
+            if X is not None and len(X) > 0:
+                X_aligned = self._align_features(X, model)
+                if X_aligned is not None and len(X_aligned) > 0:
+                    return cast(np.ndarray, model.predict_proba(X_aligned)[0])
         except Exception:
-            return 0.50
+            pass
+        return None
+
+    # ── Load Market-Specific Models ───────────────────────
+
+    def load_market_models(self, league: str | None = None, models_dir: str | Path | None = None) -> dict[str, int]:
+        """Load market-specific O/U and BTTS tree models from disk.
+
+        Searches for files matching ``{model_type}_ou.joblib`` and
+        ``{model_type}_btts.joblib`` (e.g. ``xgboost_ou.joblib``,
+        ``lightgbm_btts.joblib``) and loads them into ``self.ou_models``
+        and ``self.btts_models`` dicts.
+
+        Parameters
+        ----------
+        league : str, optional
+            League code (e.g. ``"F1"``).  If provided, looks in
+            ``models/per_league/{league}/``.
+        models_dir : str or Path, optional
+            Explicit directory to search.  Supersedes ``league``.
+
+        Returns
+        -------
+        dict[str, int]
+            Summary of loaded models: ``{"ou": n, "btts": n}``.
+        """
+        import joblib
+
+        if models_dir is None:
+            if league:
+                models_dir = Path("models") / "per_league" / league
+            else:
+                models_dir = Path("models")
+        models_dir = Path(models_dir)
+
+        if not models_dir.exists():
+            logger.warning("Market models directory not found: %s", models_dir)
+            return {"ou": 0, "btts": 0}
+
+        model_type_map = {
+            "xgboost": "xgb",
+            "lightgbm": "lgb",
+            "catboost": "cat",
+        }
+
+        loaded = {"ou": 0, "btts": 0}
+
+        for pattern in ["*_ou.joblib", "*_btts.joblib"]:
+            for fpath in sorted(models_dir.glob(pattern)):
+                stem = fpath.stem  # e.g. "xgboost_ou"
+                parts = stem.split("_")
+                if len(parts) < 2:
+                    continue
+                # The last part is the market ("ou" or "btts")
+                market = parts[-1]
+                # Everything before the last part is the model name
+                model_name = "_".join(parts[:-1])
+                # Map to short names
+                short_key = model_type_map.get(model_name, model_name)
+
+                try:
+                    model = joblib.load(fpath)
+                    if market == "ou":
+                        self.ou_models[short_key] = model
+                        loaded["ou"] += 1
+                        logger.info("Loaded O/U model: %s → ou_models[%s]", fpath.name, short_key)
+                    elif market == "btts":
+                        self.btts_models[short_key] = model
+                        loaded["btts"] += 1
+                        logger.info("Loaded BTTS model: %s → btts_models[%s]", fpath.name, short_key)
+                except Exception as exc:
+                    logger.warning("Failed to load market model %s: %s", fpath.name, exc)
+
+        logger.info("Market models loaded: %d O/U, %d BTTS from %s", loaded["ou"], loaded["btts"], models_dir)
+        return loaded
 
     # ── Batch Prediction ──────────────────────────────────
 
     def predict_matches(self, df: pd.DataFrame, home_col: str = "home_team", away_col: str = "away_team") -> pd.DataFrame:
-        """Predict all markets for multiple fixtures in batch."""
+        """Predict all markets for multiple fixtures in **batched** fashion.
+
+        **Performance:** Feature engineering is done **once** for all fixtures
+        instead of once per fixture per tree model.  This reduces the cost
+        from ``N × M`` ``build_features()`` calls to just **1** (where N =
+        number of fixtures and M = number of tree models).
+
+        For a typical 50-fixture, 3-tree-model batch this cuts prediction time
+        from ~25 minutes to ~10–15 seconds.
+        """
+        home_teams = df[home_col].tolist()
+        away_teams = df[away_col].tolist()
+        n = len(df)
+
+        # ── Batch feature engineering ONCE for all tree models ──
+        X = self._feature_builder.build(home_teams, away_teams)
+
+        # ── Batch tree model predict_proba (once per model) ──
+        xgb_probs = self._batch_ml_predict(self.xgb, X)
+        lgb_probs = self._batch_ml_predict(self.lgb, X)
+        cat_probs = self._batch_ml_predict(self.cat, X)
+
+        # ── Batch binary predictions for market-specific models ──
+        # Only compute if their model keys have non-zero weight
+        w_ou = self.weights.get("Over2.5", DEFAULT_WEIGHTS["Over2.5"])
+        w_btts = self.weights.get("BTTS", DEFAULT_WEIGHTS["BTTS"])
+        need_ou_trees = any(k in w_ou and w_ou[k] > 0 for k in ("xgb", "lgb", "cat"))
+        need_btts_trees = any(k in w_btts and w_btts[k] > 0 for k in ("xgb", "lgb", "cat"))
+
+        xgb_ou_preds = self._batch_ml_predict_binary(self.ou_models.get("xgb"), X) if ("xgb" in self.ou_models and need_ou_trees) else None
+        lgb_ou_preds = self._batch_ml_predict_binary(self.ou_models.get("lgb"), X) if ("lgb" in self.ou_models and need_ou_trees) else None
+        cat_ou_preds = self._batch_ml_predict_binary(self.ou_models.get("cat"), X) if ("cat" in self.ou_models and need_ou_trees) else None
+        xgb_btts_preds = self._batch_ml_predict_binary(self.btts_models.get("xgb"), X) if ("xgb" in self.btts_models and need_btts_trees) else None
+        lgb_btts_preds = self._batch_ml_predict_binary(self.btts_models.get("lgb"), X) if ("lgb" in self.btts_models and need_btts_trees) else None
+        cat_btts_preds = self._batch_ml_predict_binary(self.btts_models.get("cat"), X) if ("cat" in self.btts_models and need_btts_trees) else None
+
+        w_1x2 = self.weights.get("1X2", DEFAULT_WEIGHTS["1X2"])
+        w_ou = self.weights.get("Over2.5", DEFAULT_WEIGHTS["Over2.5"])
+        w_ou35 = self.weights.get("Over3.5", DEFAULT_WEIGHTS["Over3.5"])
+        w_btts = self.weights.get("BTTS", DEFAULT_WEIGHTS["BTTS"])
+
         records: list[dict[str, Any]] = []
-        for _, row in df.iterrows():
-            home, away = row[home_col], row[away_col]
-            result = self.predict(home, away)
-            p = result["1x2"]  # {'H': ..., 'D': ..., 'A': ...}
-            flat = {
-                "home_team": home, "away_team": away,
-                "home_win_prob": p["H"],
-                "draw_prob": p["D"],
-                "away_win_prob": p["A"],
-                "over_2_5_prob": result["over_under"]["Over"],
-                "under_2_5_prob": result["over_under"]["Under"],
-                "over_3_5_prob": result["over_3_5"]["Over"],
-                "under_3_5_prob": result["over_3_5"]["Under"],
-                "btts_prob": result["btts"]["BTTS"],
-                "btts_no_prob": result["btts"]["No BTTS"],
+        for i, (home, away) in enumerate(zip(home_teams, away_teams)):
+            # ── DC predictions (fast per-fixture — no feature build) ──
+            # Use league column if available for per-league DC routing
+            league_ctx = None
+            if "league" in df.columns:
+                try:
+                    league_ctx = str(df.iloc[i].get("league", ""))
+                    if not league_ctx or league_ctx == "nan":
+                        league_ctx = None
+                except (IndexError, ValueError):
+                    pass
+            dc_1x2 = self._dc_1x2(home, away) if self.dc else None
+            dc_btts_val = self._dc_btts(home, away, league=league_ctx) if self.dc else None
+            dc_over25 = self._dc_over(home, away, 2.5, league=league_ctx) if self.dc else None
+            dc_over35 = self._dc_over(home, away, 3.5, league=league_ctx) if self.dc else None
+
+            # ── Elo predictions (fast per-fixture — no feature build) ──
+            elo_1x2 = self._elo_1x2(home, away)
+            elo_btts_val = self._elo_btts(home, away)
+
+            # ── Tree model predictions from batched compute ──
+            xgb_1x2_i = xgb_probs[i] if xgb_probs is not None else None
+            lgb_1x2_i = lgb_probs[i] if lgb_probs is not None else None
+            cat_1x2_i = cat_probs[i] if cat_probs is not None else None
+
+            # ═══════════════════════════════════════════════════
+            #  Blend 1X2
+            # ═══════════════════════════════════════════════════
+            models_1x2: list[tuple[str, Any]] = [
+                ("dc", dc_1x2), ("elo", elo_1x2),
+                ("xgb", xgb_1x2_i), ("lgb", lgb_1x2_i), ("cat", cat_1x2_i),
+            ]
+            p_h = p_d = p_a = 0.0
+            total_w = 0.0
+            for key, probs in models_1x2:
+                if probs is not None and key in w_1x2:
+                    weight = w_1x2.get(key, 0.0)
+                    if weight > 0:
+                        p_h += weight * probs[2]
+                        p_d += weight * probs[1]
+                        p_a += weight * probs[0]
+                        total_w += weight
+            if total_w > 0:
+                p_h /= total_w
+                p_d /= total_w
+                p_a /= total_w
+            else:
+                total = p_h + p_d + p_a
+                if total > 0:
+                    p_h /= total
+                    p_d /= total
+                    p_a /= total
+
+            # ═══════════════════════════════════════════════════
+            #  Blend BTTS — market-specific model preferred, fallback to derived-from-1X2
+            # ═══════════════════════════════════════════════════
+            xgb_btts_i = xgb_btts_preds[i] if xgb_btts_preds is not None else (self._ml_btts(xgb_1x2_i) if xgb_1x2_i is not None else None)
+            lgb_btts_i = lgb_btts_preds[i] if lgb_btts_preds is not None else (self._ml_btts(lgb_1x2_i) if lgb_1x2_i is not None else None)
+            cat_btts_i = cat_btts_preds[i] if cat_btts_preds is not None else (self._ml_btts(cat_1x2_i) if cat_1x2_i is not None else None)
+            models_btts: list[tuple[str, float | None]] = [
+                ("dc", dc_btts_val),
+                ("elo", elo_btts_val),
+                ("xgb", xgb_btts_i),
+                ("lgb", lgb_btts_i),
+                ("cat", cat_btts_i),
+            ]
+            btts_blend = 0.0
+            total_w = 0.0
+            for key, val in models_btts:
+                if val is not None and key in w_btts:
+                    weight = w_btts.get(key, 0.0)
+                    if weight > 0:
+                        btts_blend += weight * val
+                        total_w += weight
+            if total_w > 0:
+                btts_blend /= total_w
+            else:
+                btts_blend = 0.5
+
+            # ═══════════════════════════════════════════════════
+            #  Blend Over/Under 2.5 — market-specific model preferred, fallback to derived
+            # ═══════════════════════════════════════════════════
+            xgb_ou_i = xgb_ou_preds[i] if xgb_ou_preds is not None else (self._ml_over(xgb_1x2_i, 2.5) if xgb_1x2_i is not None else None)
+            lgb_ou_i = lgb_ou_preds[i] if lgb_ou_preds is not None else (self._ml_over(lgb_1x2_i, 2.5) if lgb_1x2_i is not None else None)
+            cat_ou_i = cat_ou_preds[i] if cat_ou_preds is not None else (self._ml_over(cat_1x2_i, 2.5) if cat_1x2_i is not None else None)
+            models_ou25: list[tuple[str, float | None]] = [
+                ("dc", dc_over25),
+                ("xgb", xgb_ou_i),
+                ("lgb", lgb_ou_i),
+                ("cat", cat_ou_i),
+            ]
+            over25 = 0.0
+            total_w = 0.0
+            for key, val in models_ou25:
+                if val is not None and key in w_ou:
+                    weight = w_ou.get(key, 0.0)
+                    if weight > 0:
+                        over25 += weight * val
+                        total_w += weight
+            if total_w > 0:
+                over25 /= total_w
+            else:
+                over25 = 0.5
+
+            # ═══════════════════════════════════════════════════
+            #  Blend Over/Under 3.5  (always derived — no market model for 3.5)
+            # ═══════════════════════════════════════════════════
+            models_ou35: list[tuple[str, float | None]] = [
+                ("dc", dc_over35),
+                ("xgb", self._ml_over(xgb_1x2_i, 3.5) if xgb_1x2_i is not None else None),
+                ("lgb", self._ml_over(lgb_1x2_i, 3.5) if lgb_1x2_i is not None else None),
+                ("cat", self._ml_over(cat_1x2_i, 3.5) if cat_1x2_i is not None else None),
+            ]
+            over35 = 0.0
+            total_w = 0.0
+            for key, val in models_ou35:
+                if val is not None and key in w_ou35:
+                    weight = w_ou35.get(key, 0.0)
+                    if weight > 0:
+                        over35 += weight * val
+                        total_w += weight
+            if total_w > 0:
+                over35 /= total_w
+            else:
+                over35 = 0.5
+
+            # ═══════════════════════════════════════════════════
+            #  Expected goals
+            # ═══════════════════════════════════════════════════
+            expectations: dict[str, float] = {}
+            if self.dc is not None and hasattr(self.dc, "expected_goals"):
+                try:
+                    eh, ea = self.dc.expected_goals(home, away)
+                    expectations = {
+                        "expected_home_goals": round(float(eh), 4),
+                        "expected_away_goals": round(float(ea), 4),
+                        "expected_total_goals": round(float(eh + ea), 4),
+                    }
+                except Exception:
+                    pass
+
+            # ═══════════════════════════════════════════════════
+            #  Build flat record
+            # ═══════════════════════════════════════════════════
+            flat: dict[str, Any] = {
+                "home_team": home,
+                "away_team": away,
+                "home_win_prob": round(p_h, 4),
+                "draw_prob": round(p_d, 4),
+                "away_win_prob": round(p_a, 4),
+                "over_2_5_prob": round(over25, 4),
+                "under_2_5_prob": round(1.0 - over25, 4),
+                "over_3_5_prob": round(over35, 4),
+                "under_3_5_prob": round(1.0 - over35, 4),
+                "btts_prob": round(btts_blend, 4),
+                "btts_no_prob": round(1.0 - btts_blend, 4),
             }
-            if result["expected_goals"]:
-                flat.update(result["expected_goals"])
-            if p["H"] >= p["D"] and p["H"] >= p["A"]:
+            if expectations:
+                flat.update(expectations)
+
+            # Apply away-fix override in batch mode too
+            if self.away_fix_enabled and self.elo is not None:
+                try:
+                    R_h = self.elo._ratings.get(home, 1500.0)
+                    R_a = self.elo._ratings.get(away, 1500.0)
+                    elo_diff = R_h - R_a
+                    if elo_diff < self.away_fix_elo_threshold:
+                        self.away_fix_applied += 1
+                        if elo_diff < self.away_fix_elo_threshold * 1.5:
+                            p_a, p_d, p_h = 0.55, 0.25, 0.20
+                        else:
+                            p_a, p_d, p_h = 0.50, 0.28, 0.22
+                        # Sync flat record with fixed probabilities
+                        flat["home_win_prob"] = round(p_h, 4)
+                        flat["draw_prob"] = round(p_d, 4)
+                        flat["away_win_prob"] = round(p_a, 4)
+                except Exception:
+                    pass
+
+            # Apply draw-fix override in batch mode too
+            if self.draw_fix_enabled and self.elo is not None:
+                try:
+                    R_h = self.elo._ratings.get(home, 1500.0)
+                    R_a = self.elo._ratings.get(away, 1500.0)
+                    if abs(R_h - R_a) < self.draw_fix_max_elo_diff and p_d < self.draw_fix_min_prob:
+                        self.draw_fix_applied += 1
+                        new_d = self.draw_fix_min_prob
+                        remaining = 1.0 - new_d
+                        total_ha = p_h + p_a
+                        if total_ha > 0:
+                            p_h = remaining * (p_h / total_ha)
+                            p_a = remaining * (p_a / total_ha)
+                        else:
+                            p_h = remaining * 0.5
+                            p_a = remaining * 0.5
+                        p_d = new_d
+                        # Sync flat record
+                        flat["home_win_prob"] = round(p_h, 4)
+                        flat["draw_prob"] = round(p_d, 4)
+                        flat["away_win_prob"] = round(p_a, 4)
+                except Exception:
+                    pass
+
+            # Predicted outcome
+            if p_h >= p_d and p_h >= p_a:
                 flat["predicted_outcome"] = "Home Win"
-            elif p["D"] >= p["A"]:
+            elif p_d >= p_a:
                 flat["predicted_outcome"] = "Draw"
             else:
                 flat["predicted_outcome"] = "Away Win"
-            flat["confidence"] = max(p["H"], p["D"], p["A"])
+            flat["confidence"] = round(max(p_h, p_d, p_a), 4)
+
             records.append(flat)
+
         return pd.DataFrame(records)
 
     # ═══════════════════════════════════════════════════════
@@ -832,40 +1535,62 @@ class ThreeModelBlend:
                    cache_key: str = "default") -> PerModelPredictions:
         """Pre-compute per-model predictions for all matches in df.
 
-        This is the key performance optimisation: instead of calling each
-        model's predict() hundreds of times during weight grid search,
-        we compute everything once and cache it.
-
-        Importantly, Poisson's binary market predictions (BTTS, O/U) are
-        computed here from the Poisson model's scoreline table — NOT
-        approximated via conditional rates.
+        Computes all model predictions once and caches them for fast weight
+        grid search.  DC binary markets (BTTS, O/U) come from the DC model's
+        scoreline table.  Tree model binary markets are derived from 1X2 probs
+        via expected total goals → Poisson CDF / Poisson BTTS formula.
         """
         home_teams = df[home_col].tolist()
         away_teams = df[away_col].tolist()
         n = len(df)
 
-        pois_1x2_list, elo_1x2_list = [], []
-        pois_btts_list, pois_over25_list, pois_over35_list = [], [], []
-        elo_btts_list, xgb_btts_list = [], []
-        pois_eh_list, pois_ea_list = [], []
+        dc_1x2_list, elo_1x2_list = [], []
+        dc_btts_list, dc_over25_list, dc_over35_list = [], [], []
+        elo_btts_list = []
+        dc_eh_list, dc_ea_list = [], []
+        xgb_1x2_list: list[float | np.ndarray | list[float]] = []
+        lgb_1x2_list: list[float | np.ndarray | list[float]] = []
+        cat_1x2_list: list[float | np.ndarray | list[float]] = []
+        xgb_btts_list: list[float] = []
+        lgb_btts_list: list[float] = []
+        cat_btts_list: list[float] = []
 
         for ht, at in zip(home_teams, away_teams):
-            # Poisson 1X2
-            try:
-                r = self.poisson.predict(ht, at)
-                pois_1x2_list.append([r["away_win_prob"], r["draw_prob"], r["home_win_prob"]])
-                pois_btts_list.append(r.get("btts_prob", 0.5))
-                pois_over25_list.append(r.get("over_2_5_prob", 0.5))
-                pois_over35_list.append(r.get("over_3_5_prob", 0.5))
-                pois_eh_list.append(r.get("expected_home_goals", 0.0))
-                pois_ea_list.append(r.get("expected_away_goals", 0.0))
-            except Exception:
-                pois_1x2_list.append([0.33, 0.34, 0.33])
-                pois_btts_list.append(0.5)
-                pois_over25_list.append(0.5)
-                pois_over35_list.append(0.5)
-                pois_eh_list.append(0.0)
-                pois_ea_list.append(0.0)
+            # Dixon-Coles 1X2 + binary markets
+            if self.dc is not None:
+                try:
+                    if hasattr(self.dc, "predict"):
+                        r = self.dc.predict(ht, at)
+                        dc_1x2_list.append([r.away_win_prob, r.draw_prob, r.home_win_prob])
+                        dc_btts_list.append(r.btts_prob)
+                        dc_over25_list.append(r.over_2_5_prob)
+                        dc_over35_list.append(r.over_3_5_prob)
+                        dc_eh_list.append(r.expected_home_goals)
+                        dc_ea_list.append(r.expected_away_goals)
+                    elif hasattr(self.dc, "predict_proba"):
+                        df_single = pd.DataFrame([{"home_team": ht, "away_team": at}])
+                        dc_1x2_list.append(self.dc.predict_proba(df_single)[0])
+                        dc_btts_list.append(0.5)
+                        dc_over25_list.append(0.5)
+                        dc_over35_list.append(0.5)
+                        dc_eh_list.append(0.0)
+                        dc_ea_list.append(0.0)
+                    else:
+                        raise AttributeError("DC model has no predict or predict_proba")
+                except Exception:
+                    dc_1x2_list.append([0.33, 0.34, 0.33])
+                    dc_btts_list.append(0.5)
+                    dc_over25_list.append(0.5)
+                    dc_over35_list.append(0.5)
+                    dc_eh_list.append(0.0)
+                    dc_ea_list.append(0.0)
+            else:
+                dc_1x2_list.append([0.33, 0.34, 0.33])
+                dc_btts_list.append(0.5)
+                dc_over25_list.append(0.5)
+                dc_over35_list.append(0.5)
+                dc_eh_list.append(0.0)
+                dc_ea_list.append(0.0)
 
             # Elo 1X2 and direct BTTS
             try:
@@ -876,101 +1601,96 @@ class ThreeModelBlend:
                 elo_1x2_list.append([0.33, 0.34, 0.33])
                 elo_btts_list.append(0.5)
 
-        # XGBoost — batch feature engineering
-        xgb_1x2_list = []
-        try:
-            X = self._feature_builder.build(home_teams, away_teams)
-            if X is not None and len(X) > 0:
-                X_aligned = self._align_xgb_features(X)
-                if X_aligned is not None and len(X_aligned) > 0:
-                    xgb_raw = self.xgb.predict_proba(X_aligned)
-                    cr = self.cond_rates
-                    for i in range(len(X_aligned)):
-                        xgb_probs = xgb_raw[i]  # [away, draw, home]
-                        xgb_1x2_list.append(xgb_probs)
-                        # Compute XGBoost BTTS via 1X2 → expected goals → Poisson formula (inline)
-                        exp_total = (
-                            xgb_probs[2] * cr.mean_total_given_home_win
-                            + xgb_probs[1] * cr.mean_total_given_draw
-                            + xgb_probs[0] * cr.mean_total_given_away_win
-                        )
-                        if exp_total > 0:
-                            exp_home = exp_total * 0.55
-                            exp_away = exp_total * 0.45
-                            p_h0 = np.exp(-exp_home)
-                            p_a0 = np.exp(-exp_away)
-                            btts_val = 1.0 - p_h0 - p_a0 + (p_h0 * p_a0)
-                            xgb_btts_list.append(float(np.clip(btts_val, 0.0, 1.0)))
-                        else:
-                            xgb_btts_list.append(0.5)
-                else:
-                    # Alignment returned empty — safe fallback
-                    xgb_1x2_list = [[0.33, 0.34, 0.33]] * n
-                    xgb_btts_list = [0.5] * n
-            else:
-                xgb_1x2_list = [[0.33, 0.34, 0.33]] * n
-                xgb_btts_list = [0.5] * n
-        except Exception as exc:
-            logger.warning("XGBoost batch prediction failed: %s", exc)
-            xgb_1x2_list = [[0.33, 0.34, 0.33]] * n
-            xgb_btts_list = [0.5] * n
+        # Tree models — batch feature engineering
+        cr = self.cond_rates
+        X = self._feature_builder.build(home_teams, away_teams)
+
+        _tree_batch_predict(
+            self.xgb, xgb_1x2_list, xgb_btts_list, n, X, cr, self
+        )
+        _tree_batch_predict(
+            self.lgb, lgb_1x2_list, lgb_btts_list, n, X, cr, self
+        )
+        _tree_batch_predict(
+            self.cat, cat_1x2_list, cat_btts_list, n, X, cr, self
+        )
 
         ppm = PerModelPredictions(
-            pois_1x2=np.array(pois_1x2_list),
+            dc_1x2=np.array(dc_1x2_list),
             elo_1x2=np.array(elo_1x2_list),
             xgb_1x2=np.array(xgb_1x2_list),
-            pois_btts=np.array(pois_btts_list),
+            lgb_1x2=np.array(lgb_1x2_list),
+            cat_1x2=np.array(cat_1x2_list),
+            dc_btts=np.array(dc_btts_list),
             elo_btts=np.array(elo_btts_list),
             xgb_btts=np.array(xgb_btts_list),
-            pois_over_25=np.array(pois_over25_list),
-            pois_over_35=np.array(pois_over35_list),
-            pois_exp_home=np.array(pois_eh_list),
-            pois_exp_away=np.array(pois_ea_list),
+            lgb_btts=np.array(lgb_btts_list),
+            cat_btts=np.array(cat_btts_list),
+            dc_over_25=np.array(dc_over25_list),
+            dc_over_35=np.array(dc_over35_list),
+            dc_exp_home=np.array(dc_eh_list),
+            dc_exp_away=np.array(dc_ea_list),
             n=n,
         )
         self._cache[cache_key] = ppm
         return ppm
 
     def _blend_1x2(self, ppm: PerModelPredictions, w: dict[str, float]) -> np.ndarray:
-        wp, we, wx = w.get("poisson", 0), w.get("elo", 0), w.get("xgb", 0)
-        total = wp + we + wx
-        if total <= 0:
-            return ppm.pois_1x2.copy()
-        result = (wp / total) * ppm.pois_1x2 + (we / total) * ppm.elo_1x2 + (wx / total) * ppm.xgb_1x2
+        model_map = {
+            "dc": ppm.dc_1x2,
+            "elo": ppm.elo_1x2,
+            "xgb": ppm.xgb_1x2,
+            "lgb": ppm.lgb_1x2,
+            "cat": ppm.cat_1x2,
+        }
+        total_w = 0.0
+        result = np.zeros_like(ppm.dc_1x2)
+        for key, probs in model_map.items():
+            weight = w.get(key, 0.0)
+            if weight > 0:
+                result += weight * probs
+                total_w += weight
+        if total_w <= 0:
+            return ppm.dc_1x2.copy()
+        result /= total_w
         row_sums = result.sum(axis=1, keepdims=True)
         row_sums[row_sums == 0] = 1.0
-        return result / row_sums
+        return cast(np.ndarray, result / row_sums)
 
     def _blend_binary(self, ppm: PerModelPredictions, w: dict[str, float], market: str) -> np.ndarray:
-        """Blend binary market (BTTS or O/U).
+        """Blend binary market (BTTS or O/U) across all available models.
 
-        For **BTTS**: uses direct Poisson BTTS from each model:
-        - Poisson: exact from scoreline table
-        - Elo: direct from Elo-derived expected goals
-        - XGBoost: from 1X2 → expected goals → Poisson formula
-
-        For **Over/Under**: Poisson exact + XGBoost Poisson CDF + Elo conditional rates.
+        For **BTTS**: direct from each model's BTTS computation.
+        For **Over/Under**: DC exact + tree model Poisson CDF + Elo conditional rates.
         """
-        wp, we, wx = w.get("poisson", 0), w.get("elo", 0), w.get("xgb", 0)
-        total = wp + we + wx
-        if total <= 0:
-            return np.full(ppm.n, 0.5)
-
+        model_map: dict[str, np.ndarray] = {"elo": ppm.elo_btts}
         if market == "BTTS":
-            # Direct BTTS from all three models
-            pois_val = ppm.pois_btts
-            elo_val = ppm.elo_btts
-            xgb_val = ppm.xgb_btts
+            model_map["dc"] = ppm.dc_btts
+            model_map["xgb"] = ppm.xgb_btts
+            model_map["lgb"] = ppm.lgb_btts
+            model_map["cat"] = ppm.cat_btts
         elif "3.5" in market:
-            pois_val = ppm.pois_over_35
-            elo_val = self.cond_rates.ou_from_1x2(ppm.elo_1x2, 3.5)
-            xgb_val = self.cond_rates.ou_from_1x2(ppm.xgb_1x2, 3.5)
+            model_map["dc"] = ppm.dc_over_35
+            model_map["xgb"] = self.cond_rates.ou_from_1x2(ppm.xgb_1x2, 3.5)
+            model_map["lgb"] = self.cond_rates.ou_from_1x2(ppm.lgb_1x2, 3.5)
+            model_map["cat"] = self.cond_rates.ou_from_1x2(ppm.cat_1x2, 3.5)
         else:
-            pois_val = ppm.pois_over_25
-            elo_val = self.cond_rates.ou_from_1x2(ppm.elo_1x2, 2.5)
-            xgb_val = self.cond_rates.ou_from_1x2(ppm.xgb_1x2, 2.5)
+            model_map["dc"] = ppm.dc_over_25
+            model_map["xgb"] = self.cond_rates.ou_from_1x2(ppm.xgb_1x2, 2.5)
+            model_map["lgb"] = self.cond_rates.ou_from_1x2(ppm.lgb_1x2, 2.5)
+            model_map["cat"] = self.cond_rates.ou_from_1x2(ppm.cat_1x2, 2.5)
 
-        return (wp * pois_val + we * elo_val + wx * xgb_val) / total
+        total_w = 0.0
+        result = np.zeros(ppm.n)
+        for key, vals in model_map.items():
+            weight = w.get(key, 0.0)
+            if weight > 0:
+                result += weight * vals
+                total_w += weight
+
+        if total_w <= 0:
+            return np.full(ppm.n, 0.5)
+        return result / total_w
 
     # ═══════════════════════════════════════════════════════
     #  Weight Optimisation
@@ -1029,7 +1749,8 @@ class ThreeModelBlend:
                 logger.warning("No search range for '%s', skipping", market)
                 continue
             ranges = WEIGHT_SEARCH_RANGES[market]
-            models_in_market = [m for m in ["poisson", "elo", "xgb"] if m in ranges]
+            w = self.weights.get(market, {})
+            models_in_market = [m for m in ranges.keys() if w.get(m, 0) > 0 or ranges[m][1] > 0]
             combos = _build_weight_grid(ranges, models_in_market, n_grid)
 
             best_score, best_w = float("inf"), dict(DEFAULT_WEIGHTS.get(market, {}))
@@ -1112,8 +1833,8 @@ class ThreeModelBlend:
         actual_total = hg + ag
 
         # Expected goals errors
-        mse = float(np.mean((ppm.pois_total_goals - actual_total) ** 2))
-        mae = float(np.mean(np.abs(ppm.pois_total_goals - actual_total)))
+        mse = float(np.mean((ppm.dc_total_goals - actual_total) ** 2))
+        mae = float(np.mean(np.abs(ppm.dc_total_goals - actual_total)))
 
         results: dict[str, Any] = {
             "n_test": ppm.n,
@@ -1122,14 +1843,19 @@ class ThreeModelBlend:
         }
 
         # ── Individual model predictions ──
-        # BTTS: direct Poisson computation from each model
         elo_btts = ppm.elo_btts
         xgb_btts = ppm.xgb_btts
-        # Over/Under: Elo and XGBoost derived from 1X2 via conditional rates
+        lgb_btts = ppm.lgb_btts
+        cat_btts = ppm.cat_btts
+        # Over/Under: derived from 1X2 via conditional rates for tree models
         elo_ou25 = self.cond_rates.ou_from_1x2(ppm.elo_1x2, 2.5)
         elo_ou35 = self.cond_rates.ou_from_1x2(ppm.elo_1x2, 3.5)
         xgb_ou25 = self.cond_rates.ou_from_1x2(ppm.xgb_1x2, 2.5)
         xgb_ou35 = self.cond_rates.ou_from_1x2(ppm.xgb_1x2, 3.5)
+        lgb_ou25 = self.cond_rates.ou_from_1x2(ppm.lgb_1x2, 2.5)
+        lgb_ou35 = self.cond_rates.ou_from_1x2(ppm.lgb_1x2, 3.5)
+        cat_ou25 = self.cond_rates.ou_from_1x2(ppm.cat_1x2, 2.5)
+        cat_ou35 = self.cond_rates.ou_from_1x2(ppm.cat_1x2, 3.5)
 
         # Ensemble comparison (if provided)
         ens_1x2 = None
@@ -1149,37 +1875,45 @@ class ThreeModelBlend:
 
             if market_name == "1X2":
                 if include_individual:
-                    md["models"]["Poisson"] = _metrics_1x2(actual_result, ppm.pois_1x2)
+                    md["models"]["Dixon-Coles"] = _metrics_1x2(actual_result, ppm.dc_1x2)
                     md["models"]["Elo"] = _metrics_1x2(actual_result, ppm.elo_1x2)
                     md["models"]["XGBoost"] = _metrics_1x2(actual_result, ppm.xgb_1x2)
+                    md["models"]["LightGBM"] = _metrics_1x2(actual_result, ppm.lgb_1x2)
+                    md["models"]["CatBoost"] = _metrics_1x2(actual_result, ppm.cat_1x2)
                     if ens_1x2 is not None:
                         md["models"]["Current Ensemble"] = _metrics_1x2(actual_result, ens_1x2)
                 blend = self._blend_1x2(ppm, w)
-                md["models"]["3-Model Blend"] = _metrics_1x2(actual_result, blend)
+                md["models"]["Multi-Model Blend"] = _metrics_1x2(actual_result, blend)
 
             elif market_name == "Over2.5":
                 if include_individual:
-                    md["models"]["Poisson"] = _metrics_binary(actual_ou25, ppm.pois_over_25)
+                    md["models"]["Dixon-Coles"] = _metrics_binary(actual_ou25, ppm.dc_over_25)
                     md["models"]["Elo"] = _metrics_binary(actual_ou25, elo_ou25)
                     md["models"]["XGBoost"] = _metrics_binary(actual_ou25, xgb_ou25)
+                    md["models"]["LightGBM"] = _metrics_binary(actual_ou25, lgb_ou25)
+                    md["models"]["CatBoost"] = _metrics_binary(actual_ou25, cat_ou25)
                 blend = self._blend_binary(ppm, w, "Over2.5")
-                md["models"]["3-Model Blend"] = _metrics_binary(actual_ou25, blend)
+                md["models"]["Multi-Model Blend"] = _metrics_binary(actual_ou25, blend)
 
             elif market_name == "Over3.5":
                 if include_individual:
-                    md["models"]["Poisson"] = _metrics_binary(actual_ou35, ppm.pois_over_35)
+                    md["models"]["Dixon-Coles"] = _metrics_binary(actual_ou35, ppm.dc_over_35)
                     md["models"]["Elo"] = _metrics_binary(actual_ou35, elo_ou35)
                     md["models"]["XGBoost"] = _metrics_binary(actual_ou35, xgb_ou35)
+                    md["models"]["LightGBM"] = _metrics_binary(actual_ou35, lgb_ou35)
+                    md["models"]["CatBoost"] = _metrics_binary(actual_ou35, cat_ou35)
                 blend = self._blend_binary(ppm, w, "Over3.5")
-                md["models"]["3-Model Blend"] = _metrics_binary(actual_ou35, blend)
+                md["models"]["Multi-Model Blend"] = _metrics_binary(actual_ou35, blend)
 
             elif market_name == "BTTS":
                 if include_individual:
-                    md["models"]["Poisson"] = _metrics_binary(actual_btts, ppm.pois_btts)
+                    md["models"]["Dixon-Coles"] = _metrics_binary(actual_btts, ppm.dc_btts)
                     md["models"]["Elo"] = _metrics_binary(actual_btts, elo_btts)
                     md["models"]["XGBoost"] = _metrics_binary(actual_btts, xgb_btts)
+                    md["models"]["LightGBM"] = _metrics_binary(actual_btts, lgb_btts)
+                    md["models"]["CatBoost"] = _metrics_binary(actual_btts, cat_btts)
                 blend = self._blend_binary(ppm, w, "BTTS")
-                md["models"]["3-Model Blend"] = _metrics_binary(actual_btts, blend)
+                md["models"]["Multi-Model Blend"] = _metrics_binary(actual_btts, blend)
 
             results["markets"][market_name] = md
 
@@ -1205,9 +1939,11 @@ class ThreeModelBlend:
         import joblib
 
         payload = {
-            "poisson": self.poisson,
+            "dc": self.dc,
             "elo": self.elo,
             "xgb": self.xgb,
+            "lgb": self.lgb,
+            "cat": self.cat,
             "weights": self.weights,
             "cond_rates": self.cond_rates,
         }
@@ -1240,12 +1976,16 @@ class ThreeModelBlend:
             raise FileNotFoundError(f"ThreeModelBlend not found: {p}")
 
         payload = joblib.load(p)
+        # Backward compat: old payloads used "poisson" key
+        dc = payload.get("dc", payload.get("poisson", None))
         blend = cls(
-            poisson_model=payload["poisson"],
-            elo_model=payload["elo"],
-            xgb_model=payload["xgb"],
-            weights=payload["weights"],
-            conditional_rates=payload["cond_rates"],
+            dc_model=dc,
+            elo_model=payload.get("elo"),
+            xgb_model=payload.get("xgb"),
+            lgb_model=payload.get("lgb"),
+            cat_model=payload.get("cat"),
+            weights=payload.get("weights"),
+            conditional_rates=payload.get("cond_rates"),
             historical_df=historical_df,
         )
         logger.info(
@@ -1282,16 +2022,14 @@ class ThreeModelBlend:
         ``cal_probs`` must be computed by the caller (e.g. via
         ``CalibratedModel``).  When provided, the blend's raw 1X2
         prediction is replaced with these calibrated probabilities,
-        while Over/Under and BTTS continue to use the blend (since
-        those are derived from Poisson/Elo, not the ML 1X2).
+        while Over/Under and BTTS continue to use the blend.
 
         Parameters
         ----------
         home_team : str
         away_team : str
         cal_probs : np.ndarray, optional
-            Pre-calibrated ``[away, draw, home]`` probabilities.  If
-            ``None``, returns the raw blend prediction.
+            Pre-calibrated ``[away, draw, home]`` probabilities.
         method : str
             Calibration method label for metadata (default ``"hybrid"``).
 
@@ -1304,7 +2042,6 @@ class ThreeModelBlend:
         result = self.predict(home_team, away_team)
 
         if cal_probs is not None and len(cal_probs) == 3:
-            # Overwrite 1X2 with calibrated probabilities
             result["1x2"] = {
                 "A": float(cal_probs[0]),
                 "D": float(cal_probs[1]),
@@ -1358,7 +2095,7 @@ class ThreeModelBlend:
             lines.append("")
             lines.append("| Model | Brier Score | Log Loss | Accuracy | Samples |")
             lines.append("|-------|-------------|----------|----------|---------|")
-            for mn in ["Poisson", "Elo", "XGBoost", "Current Ensemble", "3-Model Blend"]:
+            for mn in ["Dixon-Coles", "Elo", "XGBoost", "LightGBM", "CatBoost", "Current Ensemble", "Multi-Model Blend"]:
                 m = md.get("models", {}).get(mn)
                 if m:
                     lines.append(f"| {mn} | {m.get('brier_score', 'N/A'):.4f} | {m.get('log_loss', 'N/A'):.4f} | {m.get('accuracy', 'N/A'):.2%} | {m.get('n', 'N/A')} |")
@@ -1367,11 +2104,11 @@ class ThreeModelBlend:
         # Weight recommendations
         lines.append("## Optimal Weight Recommendations")
         lines.append("")
-        lines.append("| Market | Poisson Weight | Elo Weight | XGBoost Weight |")
-        lines.append("|--------|---------------|------------|----------------|")
+        lines.append("| Market | DC | Elo | XGB | LGB | Cat |")
+        lines.append("|--------|----|-----|-----|-----|-----|")
         for mkt in ["1X2", "Over2.5", "BTTS", "Over3.5"]:
             w = self.weights.get(mkt, {})
-            lines.append(f"| {mkt} | {w.get('poisson', 0):.2f} | {w.get('elo', 0):.2f} | {w.get('xgb', 0):.2f} |")
+            lines.append(f"| {mkt} | {w.get('dc', 0):.2f} | {w.get('elo', 0):.2f} | {w.get('xgb', 0):.2f} | {w.get('lgb', 0):.2f} | {w.get('cat', 0):.2f} |")
         lines.append("")
 
         # Recommendation text
@@ -1383,7 +2120,7 @@ class ThreeModelBlend:
             models_d = md.get("models", {})
             blend_m = models_d.get("3-Model Blend", {})
             best_single, best_brier = None, float("inf")
-            for mn in ["Poisson", "Elo", "XGBoost", "Current Ensemble"]:
+            for mn in ["Dixon-Coles", "Elo", "XGBoost", "LightGBM", "CatBoost", "Current Ensemble"]:
                 m = models_d.get(mn, {})
                 br = m.get("brier_score", float("inf"))
                 if br < best_brier:
@@ -1405,9 +2142,9 @@ class ThreeModelBlend:
         lines.append("| Hypothesis | Expected | Actual |")
         lines.append("|------------|----------|--------|")
         w1, w2, w3 = self.weights.get("1X2", {}), self.weights.get("Over2.5", {}), self.weights.get("BTTS", {})
-        lines.append(f"| 1X2 Weight | Poisson(0.5-0.6) + Elo(0.3-0.4) + XGB(0.1-0.2) | P({w1.get('poisson',0):.2f}) + E({w1.get('elo',0):.2f}) + X({w1.get('xgb',0):.2f}) |")
-        lines.append(f"| Over/Under Weight | Poisson(0.3-0.4) + XGB(0.5-0.6) + Elo(0-0.1) | P({w2.get('poisson',0):.2f}) + X({w2.get('xgb',0):.2f}) + E({w2.get('elo',0):.2f}) |")
-        lines.append(f"| BTTS Weight | Poisson(0.3-0.4) + Elo(0.3-0.4) + XGB(0.3-0.4) | P({w3.get('poisson',0):.2f}) + E({w3.get('elo',0):.2f}) + X({w3.get('xgb',0):.2f}) |")
+        lines.append(f"| 1X2 Weight | DC+Elo dominate, tree models small | DC({w1.get('dc',0):.2f}) E({w1.get('elo',0):.2f}) X({w1.get('xgb',0):.2f}) L({w1.get('lgb',0):.2f}) C({w1.get('cat',0):.2f}) |")
+        lines.append(f"| Over/Under Weight | DC+tree models dominate | DC({w2.get('dc',0):.2f}) X({w2.get('xgb',0):.2f}) L({w2.get('lgb',0):.2f}) C({w2.get('cat',0):.2f}) |")
+        lines.append(f"| BTTS Weight | Tree models dominate, DC+Elo support | DC({w3.get('dc',0):.2f}) E({w3.get('elo',0):.2f}) X({w3.get('xgb',0):.2f}) L({w3.get('lgb',0):.2f}) C({w3.get('cat',0):.2f}) |")
 
         report_md = "\n".join(lines)
         report_path = output_path / f"three_model_comparison_{ts}.md"
@@ -1439,6 +2176,45 @@ def _poisson_cdf(k: float, lam: float) -> float:
     for i in range(k_int + 1):
         cdf += exp(-lam) * (lam ** i) / factorial(i)
     return min(cdf, 1.0)
+
+
+def _tree_batch_predict(model: Any, xgb_list: list[Any], btts_list: list[float], n: int, X: pd.DataFrame | None, cr: ConditionalRates, blend: ThreeModelBlend) -> None:
+    if model is None:
+        xgb_list.extend([[0.33, 0.34, 0.33]] * n)
+        btts_list.extend([0.5] * n)
+        return
+    try:
+        if X is not None and len(X) > 0:
+            X_aligned = blend._align_features(X.copy(), model)
+            if X_aligned is not None and len(X_aligned) > 0:
+                raw = model.predict_proba(X_aligned)
+                for i in range(len(X_aligned)):
+                    probs = raw[i]
+                    xgb_list.append(probs)
+                    exp_total = (
+                        probs[2] * cr.mean_total_given_home_win
+                        + probs[1] * cr.mean_total_given_draw
+                        + probs[0] * cr.mean_total_given_away_win
+                    )
+                    if exp_total > 0:
+                        exp_h = exp_total * 0.55
+                        exp_a = exp_total * 0.45
+                        p_h0 = np.exp(-exp_h)
+                        p_a0 = np.exp(-exp_a)
+                        btts_val = 1.0 - p_h0 - p_a0 + (p_h0 * p_a0)
+                        btts_list.append(float(np.clip(btts_val, 0.0, 1.0)))
+                    else:
+                        btts_list.append(0.5)
+            else:
+                xgb_list.extend([[0.33, 0.34, 0.33]] * n)
+                btts_list.extend([0.5] * n)
+        else:
+            xgb_list.extend([[0.33, 0.34, 0.33]] * n)
+            btts_list.extend([0.5] * n)
+    except Exception as exc:
+        logger.warning("%s batch prediction failed: %s", type(model).__name__, exc)
+        xgb_list.extend([[0.33, 0.34, 0.33]] * n)
+        btts_list.extend([0.5] * n)
 
 
 def _build_weight_grid(ranges: dict[str, tuple[float, float]], models: list[str], n_grid: int) -> list[dict[str, float]]:
@@ -1477,18 +2253,18 @@ def _build_weight_grid(ranges: dict[str, tuple[float, float]], models: list[str]
 
         if remaining < -0.01 or remaining > 0.01:
             continue
-        key = tuple(sorted(candidate.items()))
+        key = str(sorted(candidate.items()))
         if key in seen:
             continue
         seen.add(key)
         combos.append(candidate)
 
-    # Ensure defaults are included
+    # Ensure defaults are included (subset to active models)
     for mkt_default in ["1X2", "Over2.5", "BTTS"]:
         default = DEFAULT_WEIGHTS.get(mkt_default, {})
         default_subset = {m: default.get(m, 1.0 / len(models)) for m in models if m in default}
         if default_subset and all(m in default_subset for m in models):
-            key = tuple(sorted(default_subset.items()))
+            key = str(sorted(default_subset.items()))
             if key not in seen:
                 combos.append(default_subset)
 

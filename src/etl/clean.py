@@ -139,7 +139,7 @@ class DataCleaner:
 
     # ── Internal helpers ────────────────────────────────
 
-    def _trim_strings(self, data: list[dict]) -> list[dict]:
+    def _trim_strings(self, data: list[dict[str, Any]]) -> list[dict[str, Any]]:
         trimmed = []
         for row in data:
             new_row = {}
@@ -152,8 +152,8 @@ class DataCleaner:
         return trimmed
 
     def _coerce_types(
-        self, data: list[dict]
-    ) -> tuple[list[dict], float]:
+        self, data: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], float]:
         errors = 0
         coerced = []
         for row in data:
@@ -168,7 +168,7 @@ class DataCleaner:
             coerced.append(new_row)
         return coerced, float(errors)
 
-    def _handle_missing(self, data: list[dict]) -> list[dict]:
+    def _handle_missing(self, data: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if self.fill_strategy == "drop":
             # Only drop rows where KEY columns are null (or all cols if key_columns not set)
             cols_to_check = self.key_columns or (list(data[0].keys()) if data else [])
@@ -220,7 +220,7 @@ class DataCleaner:
                         row[col] = fill_values.get(col, 0)
         return data
 
-    def _deduplicate(self, data: list[dict]) -> list[dict]:
+    def _deduplicate(self, data: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if not data:
             return data
         keys = self.duplicate_keys or list(data[0].keys())
@@ -234,8 +234,8 @@ class DataCleaner:
         return unique
 
     def _clip_ranges(
-        self, data: list[dict]
-    ) -> tuple[list[dict], float]:
+        self, data: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], float]:
         clipped = 0
         for row in data:
             for col, (lo, hi) in self.clip_ranges.items():
@@ -250,7 +250,7 @@ class DataCleaner:
         return data, float(clipped)
 
     @staticmethod
-    def _compute_means(data: list[dict]) -> dict[str, float]:
+    def _compute_means(data: list[dict[str, Any]]) -> dict[str, float]:
         sums: dict[str, float] = {}
         counts: dict[str, int] = {}
         for row in data:
@@ -261,6 +261,6 @@ class DataCleaner:
         return {col: sums[col] / counts[col] for col in sums if counts[col] > 0}
 
     @staticmethod
-    def _count_null(data: list[dict], columns: list[str] | None = None) -> int:
+    def _count_null(data: list[dict[str, Any]], columns: list[str] | None = None) -> int:
         cols = columns or (list(data[0].keys()) if data else [])
         return sum(1 for row in data for c in cols if row.get(c) is None)

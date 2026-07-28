@@ -363,7 +363,7 @@ class ModelRegistry:
             logger.debug("DB persistence skipped (non-fatal): %s", exc)
 
     def __repr__(self) -> str:
-        types = {}
+        types: dict[str, int] = {}
         for m in self._models.values():
             t = m.model_type
             types[t] = types.get(t, 0) + 1

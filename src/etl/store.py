@@ -253,7 +253,7 @@ class DatabaseStore(DataStore):
         self, session: Session, batch: list[dict[str, Any]]
     ) -> int:
         """Insert or do-nothing on conflict using parameterised SQL."""
-        table = self.model_class.__table__
+        table = self.model_class.__table__  # type: ignore[attr-defined]
 
         if self.unique_columns:
             stmt = pg_insert(self.model_class).values(batch)

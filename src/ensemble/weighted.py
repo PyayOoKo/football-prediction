@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import itertools
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -182,12 +182,12 @@ class WeightedEnsemble:
             for i in range(len(self._members)):
                 member = list(self._members[i])
                 member[1] = 1.0 / max(len(self._members), 1)
-                self._members[i] = tuple(member)
+                self._members[i] = tuple(member)  # type: ignore[assignment]
         else:
             for i in range(len(self._members)):
                 member = list(self._members[i])
-                member[1] /= total
-                self._members[i] = tuple(member)
+                member[1] /= total  # type: ignore[operator]
+                self._members[i] = tuple(member)  # type: ignore[assignment]
 
     def set_weights(self, weights: dict[str, float]) -> WeightedEnsemble:
         """Explicitly set weights by model name (type name).
@@ -208,7 +208,7 @@ class WeightedEnsemble:
             name = self._model_name(model)
             member = list(self._members[i])
             member[1] = weights.get(name, 0.0)
-            self._members[i] = tuple(member)
+            self._members[i] = tuple(member)  # type: ignore[assignment]
         self._normalise_weights()
         return self
 
@@ -293,7 +293,7 @@ class WeightedEnsemble:
     ) -> np.ndarray:
         """Predict hard class labels (0=Away, 1=Draw, 2=Home)."""
         probs = self.predict_proba(X, df_raw=df_raw)
-        return np.argmax(probs, axis=1)
+        return cast(np.ndarray, np.argmax(probs, axis=1))
 
     # ── Optional fitting: learn weights ───────────────────
 
@@ -350,8 +350,8 @@ class WeightedEnsemble:
         preds_list: list[np.ndarray] = []
         individual_losses: dict[str, float] = {}
 
-        for model, weight, mtype in self._members:
-            probs = self._predict_single(model, mtype, X_val, df_val)
+        for model, weight in self._members:
+            probs = self._predict_single(model, X_val, df_val)
             name = self._model_name(model)
             preds_list.append(probs)
             try:
@@ -404,6 +404,7 @@ class WeightedEnsemble:
             try:
                 loss = float(log_loss(y_val, weighted))
             except Exception:
+                logger.warning("log_loss failed for weight combination", exc_info=True)
                 continue
 
             if loss < best_loss:
@@ -414,7 +415,7 @@ class WeightedEnsemble:
         for i in range(n_models):
             member = list(self._members[i])
             member[1] = best_weights[i]
-            self._members[i] = tuple(member)
+            self._members[i] = tuple(member)  # type: ignore[assignment]
 
         self._fitted = True
         logger.info(
@@ -451,9 +452,9 @@ class WeightedEnsemble:
 
         # Individual predictions
         individual_losses: dict[str, float] = {}
-        for model, weight, mtype in self._members:
+        for model, weight in self._members:
             name = self._model_name(model)
-            probs = self._predict_single(model, mtype, X_test, df_test)
+            probs = self._predict_single(model, X_test, df_test)
             try:
                 loss = float(log_loss(y_test, probs))
             except Exception:
@@ -467,7 +468,7 @@ class WeightedEnsemble:
         accuracy = float(np.mean(ensemble_preds == y_test.values))
 
         # Comparison with best single model
-        best_single_name = min(individual_losses, key=individual_losses.get)
+        best_single_name = min(individual_losses, key=lambda k: individual_losses[k])
         best_single_loss = individual_losses[best_single_name]
         improvement = best_single_loss - ensemble_loss
 

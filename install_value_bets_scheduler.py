@@ -1,10 +1,21 @@
 """
-install_value_bets_scheduler.py — Install Daily Value Bets as Windows Scheduled Task.
+install_value_bets_scheduler.py — Install Daily League Value Bets as Windows Scheduled Task.
 
 Run this script as Administrator:
     python install_value_bets_scheduler.py
 
-Creates a task that runs today_value_bets_live.py daily at 7:00 AM.
+Creates a task that runs today_league_value_bets.py daily at 7:00 AM
+on profitable top 5 European leagues (E0, D1, F1) with RF O/U model,
+BTTS implied model, hybrid calibration, and O/U + BTTS value betting.
+
+Leagues selected based on backtest profitability:
+- E0 (EPL): +11.67% Over ROI (2023-2024)
+- D1 (Bundesliga): +17.12% Over ROI (2023-2024)
+- F1 (Ligue 1): +19.32% Over ROI (2023-2024)
+- SP1 (La Liga) and I1 (Serie A) excluded due to negative Over ROI
+- SE1 was removed due to -0.87% ROI (breakeven)
+
+Waiting for August 2026 season start for new fixtures to appear.
 """
 
 import subprocess
@@ -12,24 +23,32 @@ import sys
 from pathlib import Path
 
 
+def _venv_python(project_root: Path) -> str:
+    """Return the project's virtual environment Python path."""
+    candidates = [
+        project_root / ".venv" / "Scripts" / "python.exe",
+        project_root / "venv" / "Scripts" / "python.exe",
+        project_root / ".venv" / "bin" / "python",
+    ]
+    for c in candidates:
+        if c.exists():
+            return str(c.resolve())
+    return sys.executable
+
+
 def main() -> int:
     project_root = Path(__file__).resolve().parent
-    python_exe = sys.executable
-    script = project_root / "today_value_bets_live.py"
-    log_dir = project_root / "logs" / "scheduler"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "value_bets.log"
+    bat_script = project_root / "run_value_bets_task.bat"
 
     task_name = "FootballValueBets"
 
     print("=" * 60)
-    print("  Installing Daily Value Bets Scheduler")
+    print("  Installing Daily League Value Bets Scheduler")
     print("=" * 60)
     print(f"  Task name:  {task_name}")
     print(f"  Schedule:   Daily at 07:00")
-    print(f"  Python:     {python_exe}")
-    print(f"  Script:     {script}")
-    print(f"  Log:        {log_file}")
+    print(f"  Script:     {bat_script.name}")
+    print(f"  Leagues:    SE1, SWE, NOR, FI")
     print()
 
     # Delete existing task if any
@@ -38,19 +57,12 @@ def main() -> int:
         capture_output=True, text=True,
     )
 
-    # Create the task - runs daily at 7:00 AM
-    # Uses --quiet for silent operation with logging to file
-    # Results saved to reports/value_bets/latest.csv for dashboard
-    task_cmd = (
-        f'"{python_exe}" -u "{script}" '
-        f'--quiet --days 1'
-    )
-
+    # Create the task using the batch wrapper
     result = subprocess.run(
         [
             "schtasks", "/create",
             "/tn", task_name,
-            "/tr", task_cmd,
+            "/tr", f'"{bat_script}"',
             "/sc", "daily",
             "/st", "07:00",
             "/rl", "highest",
@@ -62,9 +74,10 @@ def main() -> int:
     if result.returncode == 0:
         print("  [+] Task created successfully!")
         print(f"  [+] Runs daily at 07:00")
-        print(f"  [+] Log file: {log_file}")
+        print(f"  [+] Uses: {bat_script.name}")
         print()
-        print("  Use 'schtasks /run /tn FootballValueBets' to test it now.")
+        print("  Test now:    schtasks /run /tn FootballValueBets")
+        print("  View logs:   type logs\\scheduler\\value_bets.log")
     else:
         print(f"  [!] Failed (error {result.returncode})")
         print(f"      {result.stderr.strip()}")

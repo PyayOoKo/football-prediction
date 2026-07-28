@@ -109,11 +109,28 @@ logger = logging.getLogger(__name__)
 # ── Default column sets for Football-Data.co.uk ────────
 # Opening: BetBrain maximum (widest line available early)
 # Closing: BetBrain average (market consensus at kick-off)
-_DEFAULT_OPENING = ("BbMxH", "BbMxD", "BbMxA")
-_DEFAULT_CLOSING = ("BbAvH", "BbAvD", "BbAvA")
+# Lowercase matches both enriched format ("maxh") and original mixed-case
+# ("MaxH", "MaxD", "MaxA") via case-insensitive _resolve_odds_cols().
+_DEFAULT_OPENING = ("maxh", "maxd", "maxa")
+_DEFAULT_CLOSING = ("avgh", "avgd", "avga")
 
 # Fallback: Bet365 (very commonly available)
-_FALLBACK_CLOSING = ("B365H", "B365D", "B365A")
+_FALLBACK_CLOSING = ("b365h", "b365d", "b365a")
+
+# Column-name aliases for different data-source conventions.
+# When the primary (lowercase) lookup fails, the resolver tries these
+# alternatives.  Key = lowercase config triplet, value = list of
+# alternative lowercase triplets to try.
+# This lets "maxh" silently match "BbMxH" (standard football-data.co.uk)
+# and "avgh" match "BbAvH".
+_COLUMN_ALIASES: dict[tuple[str, str, str], list[tuple[str, str, str]]] = {
+    ("maxh", "maxd", "maxa"): [
+        ("bbmxh", "bbmxd", "bbmxa"),  # Standard football-data.co.uk max odds (BbMxH/BbMxD/BbMxA)
+    ],
+    ("avgh", "avgd", "avga"): [
+        ("bbavh", "bbavd", "bbava"),  # Standard football-data.co.uk avg odds
+    ],
+}
 
 # Outcome labels
 _OUTCOMES = ["home", "draw", "away"]
@@ -409,26 +426,36 @@ def add_consensus_features(
 
     if bookmaker_sets is None:
         bookmaker_sets = [
-            ("BbAvH", "BbAvD", "BbAvA"),
-            ("B365H", "B365D", "B365A"),
-            ("BWH", "BWD", "BWA"),
-            ("IWH", "IWD", "IWA"),
-            ("LBH", "LBD", "LBA"),
-            ("SBH", "SBD", "SBA"),
-            ("WHH", "WHD", "WHA"),
-            ("SJH", "SJD", "SJA"),
-            ("VCH", "VCD", "VCA"),
+            # Lowercase only — matching is case-insensitive via col_lookup,
+            # so "avgh" matches both "avgh" (enriched) and "AvgH" (original).
+            # Case-insensitive matching via col_lookup, so lowercase
+            # triplets work for both "avgh" (enriched) and "BbAvH" (standard).
+            # BbMx/BbAv aliases are handled by _resolve_odds_cols above.
+            ("avgh", "avgd", "avga"),
+            ("b365h", "b365d", "b365a"),
+            ("bwh", "bwd", "bwa"),
+            ("iwh", "iwd", "iwa"),
+            ("lbh", "lbd", "lba"),
+            ("sbh", "sbd", "sba"),
+            ("whh", "whd", "wha"),
+            ("sjh", "sjd", "sja"),
+            ("vch", "vcd", "vca"),
         ]
 
     all_fair_home: list[np.ndarray] = []
     all_fair_draw: list[np.ndarray] = []
     all_fair_away: list[np.ndarray] = []
 
+    col_lookup = {c.lower(): c for c in df.columns}
+
     for h_col, d_col, a_col in bookmaker_sets:
-        if h_col not in df.columns or d_col not in df.columns or a_col not in df.columns:
+        actual_h = col_lookup.get(h_col.lower())
+        actual_d = col_lookup.get(d_col.lower())
+        actual_a = col_lookup.get(a_col.lower())
+        if actual_h is None or actual_d is None or actual_a is None:
             continue
 
-        odds = df[[h_col, d_col, a_col]].values.astype(float)
+        odds = df[[actual_h, actual_d, actual_a]].values.astype(float)
         odds = np.where(np.isfinite(odds), odds, np.nan)
 
         ip = 1.0 / odds
@@ -484,14 +511,34 @@ def _resolve_odds_cols(
     """Resolve which odds columns to use.
 
     Checks user-provided columns first, then defaults.
+    Performs **case-insensitive** matching so ``"maxh"`` matches
+    ``"MaxH"``, ``"MAXH"``, etc.
     Returns ``None`` if none of the columns exist.
     """
+    # Build a lowercase lookup map: lower_name -> actual_name
+    col_lookup = {c.lower(): c for c in df.columns}
+
     candidates = [user_cols, default_cols] if user_cols else [default_cols]
 
     for cols in candidates:
-        if all(c in df.columns for c in cols):
-            logger.debug("Using %s odds columns: %s", label, cols)
-            return cols
+        if cols is not None:
+            # Try direct (case-insensitive) match first
+            if all(c.lower() in col_lookup for c in cols):
+                resolved = tuple(col_lookup[c.lower()] for c in cols)
+                logger.debug("Using %s odds columns: %s", label, resolved)
+                return resolved
+
+            # Try known alternative naming patterns
+            key = tuple(c.lower() for c in cols)
+            if key in _COLUMN_ALIASES:
+                for alt in _COLUMN_ALIASES[key]:
+                    if all(a in col_lookup for a in alt):
+                        resolved = tuple(col_lookup[a] for a in alt)
+                        logger.debug(
+                            "Using alternative %s odds columns: %s (aliased from %s)",
+                            label, resolved, cols,
+                        )
+                        return resolved
 
     return None
 

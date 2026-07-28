@@ -1,13 +1,13 @@
 """
-optimise_three_model_weights.py — Exhaustive grid-search weight optimisation.
+optimise_three_model_weights.py — Grid-search weight optimisation for per-league models.
 
-For each market ('1X2', 'Over2.5', 'BTTS', 'Over3.5') we evaluate every
-weight combination at step=0.1 on a held-out validation set and keep the
-combination with the lowest Brier Score.
+For a given league, loads saved models (DC, Elo, XGBoost, LightGBM), pre-computes
+predictions on a held-out validation set, then exhaustively searches all weight
+combinations at step=0.1 for each market (1X2, Over2.5, BTTS, Over3.5).
 
 Usage:
-    python optimise_three_model_weights.py
-    python optimise_three_model_weights.py --output config/three_model_weights.json
+    python optimise_three_model_weights.py --league SE1
+    python optimise_three_model_weights.py --league E0 --output config/my_weights.json
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import logging
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -29,94 +30,364 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-PYTHON = sys.executable
 
+# ── Constants (mirror train_league_models.py) ─────────────
+
+DB_PATH = PROJECT_ROOT / "data" / "football_data.db"
+MODELS_DIR = PROJECT_ROOT / "models" / "per_league"
+OUTPUT_DIR = PROJECT_ROOT / "config" / "per_league_weights"
+
+TRAIN_FRAC = 0.60
+VAL_FRAC = 0.25
 
 # ── Search spaces (step = 0.1) ─────────────────────────────
 
 SEARCH_SPACES: dict[str, dict[str, tuple[float, float, float]]] = {
     "1X2": {
-        "poisson": (0.3, 0.7, 0.1),
-        "elo": (0.2, 0.5, 0.1),
-        "xgb": (0.1, 0.3, 0.1),
+        "dc": (0.15, 0.50, 0.1),
+        "elo": (0.15, 0.45, 0.1),
+        "xgb": (0.05, 0.25, 0.1),
+        "lgb": (0.05, 0.20, 0.1),
     },
     "Over2.5": {
-        "poisson": (0.3, 0.6, 0.1),
-        "elo": (0.0, 0.2, 0.1),
-        "xgb": (0.4, 0.7, 0.1),
+        "dc": (0.20, 0.60, 0.1),
+        "elo": (0.00, 0.00, 0.0),  # fixed to 0 — Elo doesn't do over/under directly
+        "xgb": (0.15, 0.45, 0.1),
+        "lgb": (0.10, 0.35, 0.1),
     },
     "BTTS": {
-        "poisson": (0.3, 0.6, 0.1),
-        "elo": (0.2, 0.4, 0.1),
-        "xgb": (0.2, 0.4, 0.1),
+        "dc": (0.15, 0.45, 0.1),
+        "elo": (0.05, 0.20, 0.1),
+        "xgb": (0.20, 0.45, 0.1),
+        "lgb": (0.10, 0.35, 0.1),
     },
     "Over3.5": {
-        "poisson": (0.2, 0.5, 0.1),
-        "elo": (0.0, 0.2, 0.1),
-        "xgb": (0.5, 0.8, 0.1),
+        "dc": (0.20, 0.50, 0.1),
+        "elo": (0.00, 0.00, 0.0),
+        "xgb": (0.20, 0.45, 0.1),
+        "lgb": (0.10, 0.35, 0.1),
     },
 }
 
-# ── Default fallback weights ──────────────────────────────
+# ── Default fallback weights (equal-ish, safe start) ─────
 
 DEFAULT_WEIGHTS: dict[str, dict[str, float]] = {
-    "1X2": {"poisson": 0.50, "elo": 0.30, "xgb": 0.20},
-    "Over2.5": {"poisson": 0.44, "elo": 0.00, "xgb": 0.56},
-    "Over3.5": {"poisson": 0.33, "elo": 0.00, "xgb": 0.67},
-    "BTTS": {"poisson": 0.40, "elo": 0.30, "xgb": 0.30},
+    "1X2":     {"dc": 0.35, "elo": 0.30, "xgb": 0.20, "lgb": 0.15},
+    "Over2.5": {"dc": 0.30, "elo": 0.00, "xgb": 0.40, "lgb": 0.30},
+    "Over3.5": {"dc": 0.30, "elo": 0.00, "xgb": 0.40, "lgb": 0.30},
+    "BTTS":    {"dc": 0.25, "elo": 0.15, "xgb": 0.35, "lgb": 0.25},
 }
 
 
-# ── Helpers ───────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════
+#  Data Loading (from football_data.db)
+# ═══════════════════════════════════════════════════════════
+
+
+def load_league_data(league: str) -> pd.DataFrame:
+    """Load matches for a specific league from the database."""
+    import sqlite3
+    conn = sqlite3.connect(str(DB_PATH))
+    query = """
+        SELECT date, home_team, away_team, home_goals, away_goals, result,
+               home_odds, draw_odds, away_odds, season
+        FROM matches
+        WHERE league = ? AND home_goals IS NOT NULL AND away_goals IS NOT NULL
+        ORDER BY date ASC
+    """
+    df = pd.read_sql_query(query, conn, params=(league,))
+    conn.close()
+    return df
+
+
+def chronological_split(
+    df: pd.DataFrame,
+    train_frac: float = TRAIN_FRAC,
+    val_frac: float = VAL_FRAC,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Split DataFrame chronologically (no leakage)."""
+    n = len(df)
+    train_end = int(n * train_frac)
+    val_end = train_end + int(n * val_frac)
+    return (
+        df.iloc[:train_end].copy(),
+        df.iloc[train_end:val_end].copy(),
+        df.iloc[val_end:].copy(),
+    )
+
+
+# ═══════════════════════════════════════════════════════════
+#  Model Loading
+# ═══════════════════════════════════════════════════════════
+
+
+def load_league_models(league: str) -> dict[str, Any] | None:
+    """Load previously saved per-league models."""
+    import joblib
+
+    league_dir = MODELS_DIR / league
+    dc_path = league_dir / "dixon_coles.joblib"
+    elo_path = league_dir / "elo.joblib"
+    if not dc_path.exists() or not elo_path.exists():
+        logger.error("Models not found for league '%s' in %s", league, league_dir)
+        return None
+
+    dc = joblib.load(dc_path)
+    elo = joblib.load(elo_path)
+
+    xgb_path = league_dir / "xgboost.joblib"
+    xgb = joblib.load(xgb_path) if xgb_path.exists() else None
+
+    lgb_path = league_dir / "lightgbm.joblib"
+    lgb = joblib.load(lgb_path) if lgb_path.exists() else None
+
+    return {"dc": dc, "elo": elo, "xgb": xgb, "lgb": lgb}
+
+
+# ═══════════════════════════════════════════════════════════
+#  Feature prep + prediction helpers
+# ═══════════════════════════════════════════════════════════
+
+
+def _prepare_for_tree_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Prepare a league DataFrame for the build_features() pipeline."""
+    df = df.copy()
+    if "target" not in df.columns and "result" in df.columns:
+        df["target"] = df["result"].map({"A": 0, "D": 1, "H": 2})
+    if "season" not in df.columns:
+        df["season"] = pd.to_datetime(df["date"]).dt.year.astype(str)
+    else:
+        mask = df["season"].isna() | (df["season"].astype(str).str.strip() == "")
+        if mask.any():
+            df.loc[mask, "season"] = pd.to_datetime(df.loc[mask, "date"]).dt.year.astype(str)
+    if "league" not in df.columns:
+        df["league"] = "UNKNOWN"
+    numeric_candidates = [
+        "home_goals", "away_goals", "home_odds", "draw_odds", "away_odds",
+        "home_shots", "away_shots", "home_shots_target", "away_shots_target",
+        "home_corners", "away_corners", "home_fouls", "away_fouls",
+        "home_yellow", "away_yellow", "home_red", "away_red",
+    ]
+    for col in numeric_candidates:
+        if col in df.columns and df[col].dtype == "object":
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype(float)
+    return df
+
+
+def _safe_tree_predict(model: Any, X_features: pd.DataFrame | None) -> np.ndarray:
+    """Safely predict 1X2 probabilities with a tree model, handling feature alignment."""
+    if model is None or X_features is None or len(X_features) == 0:
+        return np.array([[0.33, 0.34, 0.33]])
+    try:
+        expected = None
+        if hasattr(model, "feature_names_in_"):
+            expected = list(model.feature_names_in_)
+        elif hasattr(model, "feature_name_"):
+            expected = list(model.feature_name_)
+        if expected:
+            missing = set(expected) - set(X_features.columns)
+            for col in missing:
+                X_features[col] = np.nan
+            X_features = X_features[expected]
+        return np.array(model.predict_proba(X_features))
+    except Exception as exc:
+        logger.warning("Tree prediction failed: %s", exc)
+        return np.array([[0.33, 0.34, 0.33]])
+
+
+# ═══════════════════════════════════════════════════════════
+#  Pre-compute per-model predictions
+# ═══════════════════════════════════════════════════════════
+
+
+def precompute_predictions(
+    val_df: pd.DataFrame,
+    models: dict[str, Any],
+    train_df: pd.DataFrame,
+) -> dict[str, np.ndarray]:
+    """Pre-compute per-model 1X2 predictions for all matches in val_df.
+
+    Returns a dict with keys like ``dc_1x2``, ``elo_1x2``, ``xgb_1x2``, ``lgb_1x2``.
+    """
+    dc = models.get("dc")
+    elo = models.get("elo")
+    xgb = models.get("xgb")
+    lgb = models.get("lgb")
+
+    n = len(val_df)
+    home_teams = val_df["home_team"].tolist()
+    away_teams = val_df["away_team"].tolist()
+
+    # ── Dixon-Coles (row by row) ─────────────────────────
+    dc_1x2_list: list[np.ndarray] = []
+    for ht, at in zip(home_teams, away_teams):
+        try:
+            r = dc.predict(ht, at)
+            dc_1x2_list.append(np.array([r.away_win_prob, r.draw_prob, r.home_win_prob]))
+        except Exception:
+            dc_1x2_list.append(np.array([0.33, 0.34, 0.33]))
+    dc_1x2 = np.array(dc_1x2_list)
+
+    # ── Elo (row by row) ─────────────────────────────────
+    elo_1x2_list: list[np.ndarray] = []
+    for ht, at in zip(home_teams, away_teams):
+        try:
+            df_single = pd.DataFrame([{"home_team": ht, "away_team": at}])
+            elo_1x2_list.append(elo.predict_proba(df_single)[0])
+        except Exception:
+            elo_1x2_list.append(np.array([0.33, 0.34, 0.33]))
+    elo_1x2 = np.array(elo_1x2_list)
+
+    # ── Tree models (batch feature engineering) ──────────
+    xgb_1x2 = np.tile(np.array([0.33, 0.34, 0.33]), (n, 1))
+    lgb_1x2 = np.tile(np.array([0.33, 0.34, 0.33]), (n, 1))
+
+    if xgb is not None or lgb is not None:
+        try:
+            from src.feature_engineering import build_features
+            from config import config as cfg
+            _orig_vals = {
+                "weather.enabled": cfg.weather.enabled,
+                "referee.enabled": cfg.referee.enabled,
+                "player_info.enabled": cfg.player_info.enabled,
+                "player_features.enabled": cfg.player_features.enabled,
+            }
+            cfg.weather.enabled = False
+            cfg.referee.enabled = False
+            # Keep player_info enabled if it's on (squad value features)
+            cfg.player_features.enabled = False
+
+            try:
+                combined = pd.concat([
+                    _prepare_for_tree_features(train_df),
+                    _prepare_for_tree_features(val_df),
+                ], ignore_index=True)
+                X_full, y_full = build_features(combined, is_training=True, use_cache=False)
+                n_train = len(train_df)
+                X_val_f = X_full.iloc[n_train:].copy()
+                if len(X_val_f) > 0:
+                    xgb_1x2 = _safe_tree_predict(xgb, X_val_f.copy())
+                    lgb_1x2 = _safe_tree_predict(lgb, X_val_f.copy())
+            except Exception as exc:
+                logger.warning("Feature engineering failed for tree predictions: %s", exc)
+            finally:
+                for key, val in _orig_vals.items():
+                    parts = key.split(".")
+                    obj = cfg
+                    for p in parts[:-1]:
+                        obj = getattr(obj, p, None)
+                        if obj is None:
+                            break
+                    if obj is not None:
+                        try:
+                            setattr(obj, parts[-1], val)
+                        except Exception:
+                            pass
+        except Exception as exc:
+            logger.warning("Tree model feature build failed: %s", exc)
+
+    return {
+        "dc_1x2": dc_1x2,
+        "elo_1x2": elo_1x2,
+        "xgb_1x2": xgb_1x2,
+        "lgb_1x2": lgb_1x2,
+    }
+
+
+# ═══════════════════════════════════════════════════════════
+#  Grid search helpers
+# ═══════════════════════════════════════════════════════════
+
 
 def _build_step_grid(
     space: dict[str, tuple[float, float, float]],
 ) -> list[dict[str, float]]:
-    """Build all weight combinations where each weight is an exact multiple
-    of 0.1, within its specified (lo, hi) range, and all sum to 1.0.
-
-    For 3 models this is cheap: iterate the first two at step 0.1 and
-    compute the third as 1.0 - w0 - w1, then verify it is within its
-    range and an exact step-0.1 increment.
-    """
+    """Build all valid weight combinations for N models (step=0.1)."""
     models = list(space.keys())
+    n_models = len(models)
     step = 0.1
     combos: list[dict[str, float]] = []
     seen: set[tuple[float, ...]] = set()
 
-    lo0, hi0, _ = space[models[0]]
-    lo1, hi1, _ = space[models[1]]
-    lo2, hi2, _ = space[models[2]]
+    ranges: list[list[float]] = []
+    for m in models:
+        lo, hi, _ = space[m]
+        if lo == 0.0 and hi == 0.0:
+            # Fixed at 0 — no range to iterate
+            ranges.append([])
+        else:
+            values = [
+                round(v * step, 1)
+                for v in range(int(round(lo / step)), int(round(hi / step)) + 1)
+            ]
+            ranges.append(values)
 
-    for w0_10 in range(int(round(lo0 / step)), int(round(hi0 / step)) + 1):
-        w0 = round(w0_10 * step, 1)
-        for w1_10 in range(int(round(lo1 / step)), int(round(hi1 / step)) + 1):
-            w1 = round(w1_10 * step, 1)
-            w2 = round(1.0 - w0 - w1, 1)
-            # Check w2 is within its range and is an exact step increment
-            if w2 < lo2 - 1e-9 or w2 > hi2 + 1e-9:
-                continue
-            # Verify w2 is a valid step increment
-            w2_10 = int(round(w2 / step))
-            if abs(w2 - w2_10 * step) > 1e-9:
-                continue
-            combo = {
-                models[0]: round(w0, 4),
-                models[1]: round(w1, 4),
-                models[2]: round(w2, 4),
-            }
-            key = tuple(combo.values())
+    def _recurse(idx: int, current: dict[str, float], running_sum: float) -> None:
+        if idx == n_models - 1:
+            w_last = round(1.0 - running_sum, 1)
+            m_last = models[idx]
+            lo_last, hi_last, _ = space[m_last]
+            if lo_last == 0.0 and hi_last == 0.0:
+                # Fixed at 0 — check that running_sum is already 1.0
+                if abs(running_sum - 1.0) > 1e-9:
+                    return
+                current[m_last] = 0.0
+            else:
+                if w_last < lo_last - 1e-9 or w_last > hi_last + 1e-9:
+                    return
+                w_last_10 = int(round(w_last / step))
+                if abs(w_last - w_last_10 * step) > 1e-9:
+                    return
+                current[m_last] = round(w_last, 4)
+            key = tuple(current.get(m, 0.0) for m in models)
             if key in seen:
-                continue
+                return
             seen.add(key)
-            combos.append(combo)
+            combos.append({k: v for k, v in current.items()})
+            return
 
+        if not ranges[idx]:
+            # Model fixed at 0 step (e.g. elo in Over2.5)
+            current[models[idx]] = 0.0
+            _recurse(idx + 1, current, running_sum)
+        else:
+            for w in ranges[idx]:
+                if running_sum + w > 1.0 + 1e-9:
+                    continue
+                current[models[idx]] = w
+                _recurse(idx + 1, current, running_sum + w)
+                del current[models[idx]]
+
+    _recurse(0, {}, 0.0)
     logger.info("  Generated %d valid weight combinations", len(combos))
     return combos
 
 
-def _brier_1x2(y_true: np.ndarray, probs: np.ndarray) -> float:
-    """Multi-class Brier score for 1X2 (3 classes)."""
+def blend_1x2(preds: dict[str, np.ndarray], w: dict[str, float]) -> np.ndarray:
+    """Weighted blend of 1X2 predictions from available models."""
+    model_keys = ["dc", "elo", "xgb", "lgb"]
+    total_w = 0.0
+    result = None
+    for key in model_keys:
+        probs = preds.get(f"{key}_1x2")
+        if probs is not None:
+            weight = w.get(key, 0.0)
+            if weight > 0:
+                if result is None:
+                    result = np.zeros_like(probs)
+                result += weight * probs
+                total_w += weight
+    if result is None or total_w <= 0:
+        n = len(next(iter(preds.values())))
+        return np.full((n, 3), 0.33)
+    result /= total_w
+    row_sums = result.sum(axis=1, keepdims=True)
+    row_sums[row_sums == 0] = 1.0
+    return result / row_sums
+
+
+def brier_1x2(y_true: np.ndarray, probs: np.ndarray) -> float:
+    """Multi-class Brier score."""
     valid = ~np.isnan(y_true)
     y_v, p_v = y_true[valid], probs[valid]
     y_oh = np.zeros_like(p_v)
@@ -126,212 +397,15 @@ def _brier_1x2(y_true: np.ndarray, probs: np.ndarray) -> float:
     return float(np.mean(np.sum((p_v - y_oh) ** 2, axis=1)))
 
 
-def _brier_binary(y_true: np.ndarray, probs: np.ndarray) -> float:
+def brier_binary(y_true: np.ndarray, probs: np.ndarray) -> float:
     """Binary Brier score."""
     valid = ~np.isnan(y_true)
     return float(np.mean((probs[valid] - y_true[valid]) ** 2))
 
 
-# ── Main optimisation ─────────────────────────────────────
-
-def load_and_prepare_data() -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Load World Cup data and perform a chronological 80/20 split.
-
-    Returns
-    -------
-    tuple[pd.DataFrame, pd.DataFrame]
-        (train_df, val_df) — both sorted chronologically.
-    """
-    data_path = PROJECT_ROOT / "data" / "raw" / "worldcup_all.csv"
-    if not data_path.exists():
-        raise FileNotFoundError(f"Data not found: {data_path}")
-
-    df = pd.read_csv(data_path, low_memory=False)
-    df = df.sort_values("date").reset_index(drop=True)
-
-    # Chronological 80/20 split
-    split = int(len(df) * 0.8)
-    train_df = df.iloc[:split].copy()
-    val_df = df.iloc[split:].copy()
-
-    logger.info("Data: %d train + %d val = %d total", len(train_df), len(val_df), len(df))
-    logger.info("  Train period: %s to %s", train_df["date"].iloc[0], train_df["date"].iloc[-1])
-    logger.info("  Val period:   %s to %s", val_df["date"].iloc[0], val_df["date"].iloc[-1])
-
-    return train_df, val_df
-
-
-def prepare_models(
-    train_df: pd.DataFrame,
-    xgb_model_path: str | None = None,
-) -> tuple[Any, Any, Any]:
-    """Fit Poisson and Elo on training data; load XGBoost from disk.
-
-    Returns
-    -------
-    tuple[PoissonModel, EloSystem, XGBoost model]
-    """
-    from src.poisson_model import PoissonModel
-    from src.elo import EloSystem
-    import joblib
-
-    # Poisson
-    logger.info("Fitting Poisson model on %d training matches...", len(train_df))
-    poisson = PoissonModel(min_matches=0)
-    poisson.fit(train_df)
-    logger.info("  Poisson fitted — league avg home=%.3f, away=%.3f",
-                poisson.league_avg_home, poisson.league_avg_away)
-
-    # Elo
-    logger.info("Processing Elo ratings on %d training matches...", len(train_df))
-    elo = EloSystem()
-    elo.process_matches(train_df)
-    logger.info("  Elo fitted — %d teams rated", len(elo._ratings))
-
-    # XGBoost
-    xgb = None
-    if xgb_model_path:
-        path = Path(xgb_model_path)
-        if path.exists():
-            logger.info("Loading XGBoost from %s", path)
-            xgb = joblib.load(path)
-            logger.info("  XGBoost loaded")
-        else:
-            logger.warning("XGBoost model not found at %s — will skip XGBoost blends", path)
-    else:
-        # Auto-detect: try common paths
-        for candidate in [
-            PROJECT_ROOT / "models" / "xgboost_model.joblib",
-            PROJECT_ROOT / "models" / "worldcup_lightgbm.joblib",
-            PROJECT_ROOT / "models" / "ensemble_model.joblib",
-        ]:
-            if candidate.exists():
-                logger.info("Auto-detected XGBoost at %s", candidate)
-                try:
-                    payload = joblib.load(candidate)
-                    # Handle EnsembleModel or dict payloads
-                    if hasattr(payload, "predict_proba"):
-                        xgb = payload
-                    elif isinstance(payload, dict) and "models" in payload:
-                        models_dict = payload["models"]
-                        # Prefer xgboost inside ensemble
-                        xgb = models_dict.get("xgboost", list(models_dict.values())[0])
-                    else:
-                        xgb = payload
-                    logger.info("  Loaded model type: %s", type(xgb).__name__)
-                    break
-                except Exception as exc:
-                    logger.warning("  Failed to load %s: %s", candidate, exc)
-
-        if xgb is None:
-            raise RuntimeError(
-                "No XGBoost model found. Train one first:\n"
-                "  python train_worldcup.py --model xgb"
-            )
-
-    return poisson, elo, xgb
-
-
-def precompute_predictions(
-    df: pd.DataFrame,
-    poisson: Any,
-    elo: Any,
-    xgb: Any,
-    feature_builder: Any,
-) -> dict[str, np.ndarray]:
-    """Pre-compute per-model predictions for all matches in df.
-
-    This is the performance-critical step — computing predictions for
-    each model ONCE and reusing them across all weight combinations.
-    """
-    n = len(df)
-    home_teams = df["home_team"].tolist()
-    away_teams = df["away_team"].tolist()
-
-    pois_1x2_list: list[np.ndarray] = []
-    elo_1x2_list: list[np.ndarray] = []
-    pois_btts_list: list[float] = []
-    pois_over25_list: list[float] = []
-    pois_over35_list: list[float] = []
-
-    for ht, at in zip(home_teams, away_teams):
-        # Poisson
-        try:
-            r = poisson.predict(ht, at)
-            pois_1x2_list.append(np.array([r["away_win_prob"], r["draw_prob"], r["home_win_prob"]]))
-            pois_btts_list.append(r.get("btts_prob", 0.5))
-            pois_over25_list.append(r.get("over_2_5_prob", 0.5))
-            pois_over35_list.append(r.get("over_3_5_prob", 0.5))
-        except Exception:
-            pois_1x2_list.append(np.array([0.33, 0.34, 0.33]))
-            pois_btts_list.append(0.5)
-            pois_over25_list.append(0.5)
-            pois_over35_list.append(0.5)
-
-        # Elo
-        try:
-            df_single = pd.DataFrame([{"home_team": ht, "away_team": at}])
-            elo_1x2_list.append(elo.predict_proba(df_single)[0])
-        except Exception:
-            elo_1x2_list.append(np.array([0.33, 0.34, 0.33]))
-
-    # XGBoost — batch feature engineering
-    xgb_1x2_list: list[np.ndarray] = []
-    try:
-        X = feature_builder.build(home_teams, away_teams)
-        if X is not None and len(X) > 0:
-            xgb_raw = xgb.predict_proba(X)
-            xgb_1x2_list = [xgb_raw[i] for i in range(len(X))]
-        else:
-            xgb_1x2_list = [np.array([0.33, 0.34, 0.33])] * n
-    except Exception as exc:
-        logger.warning("XGBoost batch prediction failed: %s", exc)
-        xgb_1x2_list = [np.array([0.33, 0.34, 0.33])] * n
-
-    return {
-        "pois_1x2": np.array(pois_1x2_list),
-        "elo_1x2": np.array(elo_1x2_list),
-        "xgb_1x2": np.array(xgb_1x2_list),
-        "pois_btts": np.array(pois_btts_list),
-        "pois_over_25": np.array(pois_over25_list),
-        "pois_over_35": np.array(pois_over35_list),
-    }
-
-
-def blend_1x2(preds: dict[str, np.ndarray], w: dict[str, float]) -> np.ndarray:
-    """Weighted blend of 1X2 predictions."""
-    wp, we, wx = w.get("poisson", 0), w.get("elo", 0), w.get("xgb", 0)
-    total = wp + we + wx
-    if total <= 0:
-        return preds["pois_1x2"].copy()
-    result = (wp / total) * preds["pois_1x2"] + (we / total) * preds["elo_1x2"] + (wx / total) * preds["xgb_1x2"]
-    row_sums = result.sum(axis=1, keepdims=True)
-    row_sums[row_sums == 0] = 1.0
-    return result / row_sums
-
-
-def blend_binary(preds: dict[str, np.ndarray], w: dict[str, float], market: str,
-                 cond: Any) -> np.ndarray:
-    """Weighted blend for binary markets (BTTS / Over/Under)."""
-    wp, we, wx = w.get("poisson", 0), w.get("elo", 0), w.get("xgb", 0)
-    total = wp + we + wx
-    if total <= 0:
-        return np.full(len(preds["pois_1x2"]), 0.5)
-
-    if market == "BTTS":
-        pois_val = preds["pois_btts"]
-    elif market == "Over3.5":
-        pois_val = preds["pois_over_35"]
-    else:
-        pois_val = preds["pois_over_25"]
-
-    # Elo & XGBoost derive from 1X2 via conditional rates
-    elo_val = cond.btts_from_1x2(preds["elo_1x2"]) if market == "BTTS" else cond.ou_from_1x2(
-        preds["elo_1x2"], 3.5 if market == "Over3.5" else 2.5)
-    xgb_val = cond.btts_from_1x2(preds["xgb_1x2"]) if market == "BTTS" else cond.ou_from_1x2(
-        preds["xgb_1x2"], 3.5 if market == "Over3.5" else 2.5)
-
-    return (wp * pois_val + we * elo_val + wx * xgb_val) / total
+# ═══════════════════════════════════════════════════════════
+#  Per-market optimisation
+# ═══════════════════════════════════════════════════════════
 
 
 def optimise_market(
@@ -339,34 +413,22 @@ def optimise_market(
     combos: list[dict[str, float]],
     preds: dict[str, np.ndarray],
     y_true: np.ndarray,
-    cond: Any,
 ) -> dict[str, Any]:
     """Run grid search for a single market and return the best result."""
     best_score = float("inf")
     best_weights: dict[str, float] = {}
-    all_scores: list[tuple[dict[str, float], float]] = []
 
-    for i, w in enumerate(combos):
-        if market == "1X2":
-            blended = blend_1x2(preds, w)
-            score = _brier_1x2(y_true, blended)
-        else:
-            blended = blend_binary(preds, w, market, cond)
-            score = _brier_binary(y_true, blended)
-
-        all_scores.append((dict(w), score))
+    for w in combos:
+        blended = blend_1x2(preds, w)
+        score = brier_1x2(y_true, blended)
         if score < best_score:
             best_score = score
             best_weights = dict(w)
 
-    # Compute improvement over default
+    # Compare with default weights
     default_w = DEFAULT_WEIGHTS.get(market, {})
-    if market == "1X2":
-        default_blend = blend_1x2(preds, default_w)
-        default_score = _brier_1x2(y_true, default_blend)
-    else:
-        default_blend = blend_binary(preds, default_w, market, cond)
-        default_score = _brier_binary(y_true, default_blend)
+    default_blend = blend_1x2(preds, default_w)
+    default_score = brier_1x2(y_true, default_blend)
 
     improvement = ((default_score - best_score) / default_score * 100) if default_score > 0 else 0
 
@@ -380,54 +442,63 @@ def optimise_market(
     }
 
 
+# ═══════════════════════════════════════════════════════════
+#  Main
+# ═══════════════════════════════════════════════════════════
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Optimise ThreeModelBlend weights via exhaustive grid search",
+        description="Optimise per-league blend weights via exhaustive grid search",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
     parser.add_argument(
-        "--output", "-o",
-        default=str(PROJECT_ROOT / "config" / "three_model_weights.json"),
-        help="Output JSON path (default: config/three_model_weights.json)",
+        "--league", type=str, required=True,
+        help="League code (e.g. SE1, E0, SP1)",
     )
     parser.add_argument(
-        "--xgb-model",
-        default=None,
-        help="Path to XGBoost model file (auto-detected if not provided)",
+        "--output", "-o", type=str, default=None,
+        help="Output JSON path (default: config/per_league_weights/{LEAGUE}.json)",
     )
     args = parser.parse_args(argv)
 
+    league = args.league
+    output_path = Path(args.output) if args.output else OUTPUT_DIR / f"{league}.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
     t_start = time.time()
 
-    # ── 1. Load data ──────────────────────────────────────
     print()
-    print("-" * 60)
-    print("  THREE-MODEL BLEND - WEIGHT OPTIMISATION")
-    print("-" * 60)
+    print("=" * 60)
+    print(f"  PER-LEAGUE WEIGHT OPTIMISATION — {league}")
+    print("=" * 60)
 
-    train_df, val_df = load_and_prepare_data()
+    # ── 1. Load data ──────────────────────────────────────
+    print("\n-- Loading data --------------------------------")
+    df = load_league_data(league)
+    logger.info("Loaded %d matches for %s", len(df), league)
+    train_df, val_df, test_df = chronological_split(df)
+    logger.info("Split: %d train / %d val / %d test",
+                len(train_df), len(val_df), len(test_df))
 
-    # ── 2. Fit models ─────────────────────────────────────
-    print("\n-- Models -------------------------------------")
-    poisson, elo, xgb = prepare_models(train_df, args.xgb_model)
+    # ── 2. Load pre-trained models ────────────────────────
+    print("\n-- Loading models -------------------------------")
+    models = load_league_models(league)
+    if models is None:
+        return 1
 
-    # ── 3. Set up conditional rates from training data ────
-    from src.models.three_model_blend import ConditionalRates
-    cond = ConditionalRates.from_data(train_df)
-    print("\n  Conditional rates from training data:")
-    print(f"    BTTS given H/D/A: {cond.btts_given_home_win:.3f} / {cond.btts_given_draw:.3f} / {cond.btts_given_away_win:.3f}")
-    print(f"    O/U 2.5 given H/D/A: {cond.ou_given_home_win:.3f} / {cond.ou_given_draw:.3f} / {cond.ou_given_away_win:.3f}")
+    dc, elo, xgb, lgb = models["dc"], models["elo"], models["xgb"], models["lgb"]
+    print(f"  Dixon-Coles: {'YES' if dc is not None else 'NO'}")
+    print(f"  Elo:         YES")
+    print(f"  XGBoost:     {'YES' if xgb is not None else 'NO'}")
+    print(f"  LightGBM:    {'YES' if lgb is not None else 'NO'}")
 
-    # ── 4. Feature builder for XGBoost ────────────────────
-    from src.models.three_model_blend import _FeatureBuilder
-    fb = _FeatureBuilder(train_df)
+    # ── 3. Pre-compute predictions on validation set ──────
+    print("\n-- Pre-computing predictions on validation set ---")
+    val_preds = precompute_predictions(val_df, models, train_df)
 
-    # ── 5. Pre-compute predictions on validation set ──────
-    print("\n-- Pre-computing predictions on validation set --")
-    val_preds = precompute_predictions(val_df, poisson, elo, xgb, fb)
-
-    # Prepare actual outcomes
+    # Actual outcomes
     actual_result = val_df["result"].map({"A": 0, "D": 1, "H": 2}).values
     hg = val_df["home_goals"].values.astype(float)
     ag = val_df["away_goals"].values.astype(float)
@@ -435,8 +506,13 @@ def main(argv: list[str] | None = None) -> int:
     actual_ou25 = ((hg + ag) > 2.5).astype(float)
     actual_ou35 = ((hg + ag) > 3.5).astype(float)
 
-    # ── 6. Grid search per market ────────────────────────
-    print("\n-- Weight Optimisation --------------------------")
+    # ── 4. Grid search per market ────────────────────────
+    # For binary markets, derive probabilities from 1X2 blend
+    # A simple approach: interpret home win prob as over/BTTS proxy
+    # Better would be model-specific BTTS/O/U predictions, but for
+    # 1X2-only search we blend 1X2 and compute binary from that
+
+    print("\n-- Weight Optimisation ---------------------------")
     results: list[dict[str, Any]] = []
     best_weights_all: dict[str, dict[str, float]] = {}
 
@@ -456,11 +532,11 @@ def main(argv: list[str] | None = None) -> int:
         else:
             continue
 
-        result = optimise_market(market, combos, val_preds, y_true, cond)
+        result = optimise_market(market, combos, val_preds, y_true)
         results.append(result)
         best_weights_all[market] = result["best_weights"]
 
-    # ── 7. Print results ─────────────────────────────────
+    # ── 5. Print results ─────────────────────────────────
     print("\n" + "-" * 60)
     print("  RESULTS")
     print("-" * 60)
@@ -473,16 +549,21 @@ def main(argv: list[str] | None = None) -> int:
         print(f"           Weights: {w_str}")
         print(f"           Combinations evaluated: {r['combos_evaluated']}")
 
-    # ── 8. Save weights ──────────────────────────────────
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
+    # ── 6. Save weights ──────────────────────────────────
     with open(output_path, "w") as f:
         json.dump(
             {
+                "league": league,
                 "generated": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "n_train": len(train_df),
                 "n_val": len(val_df),
+                "n_test": len(test_df),
+                "models_available": {
+                    "dc": dc is not None,
+                    "elo": elo is not None,
+                    "xgb": xgb is not None,
+                    "lgb": lgb is not None,
+                },
                 "weights": best_weights_all,
                 "results": [
                     {
@@ -499,12 +580,10 @@ def main(argv: list[str] | None = None) -> int:
         )
     print(f"\n  Saved to: {output_path}")
 
-    # ── 9. Summary ───────────────────────────────────────
-    elapsed = time.time() - t_start
-    print(f"\n  Total time: {elapsed:.1f}s")
-    print()
-    print("-- Recommended updated DEFAULT_WEIGHTS ---------")
-    print("  Copy these into src/models/three_model_blend.py:\n")
+    # ── 7. Recommended update ────────────────────────────
+    print("\n" + "-" * 60)
+    print("  RECOMMENDED WEIGHTS (copy into config):")
+    print("-" * 60)
     print("  DEFAULT_WEIGHTS = {")
     for mkt in ["1X2", "Over2.5", "BTTS", "Over3.5"]:
         w = best_weights_all.get(mkt, DEFAULT_WEIGHTS.get(mkt, {}))
@@ -512,6 +591,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f'      "{mkt}": {{{w_str}}},')
     print("  }")
 
+    elapsed = time.time() - t_start
+    print(f"\n  Total time: {elapsed:.1f}s")
+    print()
     return 0
 
 

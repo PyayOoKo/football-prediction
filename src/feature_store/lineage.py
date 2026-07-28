@@ -463,7 +463,7 @@ class FeatureLineage:
 
         if feature_entry is not None:
             # Walk up the parent chain
-            current = feature_entry
+            current: FeatureLineageEntry | None = feature_entry
             while current is not None:
                 provenance.source_chain.insert(0, {
                     "type": current.source_type,

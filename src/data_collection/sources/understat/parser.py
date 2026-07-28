@@ -120,11 +120,6 @@ class UnderstatParser:
                 npxga=float(season_data.get("npxGA", 0)),
             )
 
-            # Compute per-match averages
-            if team.matches_played > 0:
-                team.xg_per_match = round(team.xg / team.matches_played, 2)
-                team.xga_per_match = round(team.xga / team.matches_played, 2)
-
             if self.validate and team.matches_played > 0:
                 # Basic sanity checks
                 if team.xg < 0:
@@ -404,6 +399,158 @@ class UnderstatParser:
             dates_data, teams_data, league_code, year,
         )
         return teams, matches
+
+    # ══════════════════════════════════════════════════════
+    #  Parse from JSON dict (new API format)
+    # ══════════════════════════════════════════════════════
+
+    def parse_league_from_json(
+        self,
+        data: dict[str, Any],
+        league_code: str,
+        year: int,
+    ) -> tuple[list[TeamXG], list[MatchXG]]:
+        """Parse both teams and matches from the JSON API directly.
+
+        The new Understat API returns data with keys ``teams``, ``players``,
+        ``dates`` (as opposed to the old ``teamsData``, ``datesData``).
+        The ``teams`` field is a dict (team_id → info), while ``dates``
+        is a **list** of match dicts with the structure::
+
+            {
+                "id": int,
+                "isResult": bool,
+                "h": {"id": int, "title": str},
+                "a": {"id": int, "title": str},
+                "goals": {"h": int, "a": int},
+                "xG": {"h": float, "a": float},
+                "datetime": str,
+            }
+
+        Parameters
+        ----------
+        data : dict
+            Raw JSON from the API endpoint.
+        league_code : str
+            League code.
+        year : int
+            Season starting year.
+
+        Returns
+        -------
+        tuple[list[TeamXG], list[MatchXG]]
+            Parsed teams and matches.
+        """
+        teams_raw = data.get("teams", {})
+        # The API returns an empty list [] for future seasons that
+        # haven't started yet. Convert to empty dict for our parser.
+        if isinstance(teams_raw, list):
+            teams_raw = {}
+
+        dates_raw = data.get("dates", [])
+        if not isinstance(dates_raw, list):
+            dates_raw = []
+
+        # Parse teams (same format as before)
+        teams = self.parse_league_teams(teams_raw, league_code, year)
+
+        # Parse matches from list format (new API)
+        matches = self._parse_matches_from_list(
+            dates_raw, teams_raw, league_code, year,
+        )
+        return teams, matches
+
+    def _parse_matches_from_list(
+        self,
+        dates_list: list[dict[str, Any]],
+        teams_data: dict[str, Any],
+        league_code: str,
+        year: int,
+    ) -> list[MatchXG]:
+        """Parse match data from the new API list format.
+
+        The new Understat API returns ``dates`` as a list of match dicts,
+        each containing ``id``, ``isResult``, ``h``, ``a``, ``goals``,
+        ``xG``, ``datetime``.
+        """
+        # Build team_id → team_name lookup
+        team_names: dict[str, str] = {}
+        for tid, info in teams_data.items():
+            if isinstance(info, dict):
+                team_names[str(tid)] = info.get("title", str(tid))
+
+        league_name = LEAGUE_NAMES.get(league_code, league_code)
+        season_str = str(year)
+        matches: list[MatchXG] = []
+
+        for raw in dates_list:
+            if not isinstance(raw, dict):
+                continue
+
+            match_id = int(raw.get("id", 0))
+            is_result = raw.get("isResult", False)
+
+            # Extract teams from h/a objects
+            h_info = raw.get("h", {})
+            a_info = raw.get("a", {})
+            if isinstance(h_info, dict):
+                home_team_id = str(h_info.get("id", ""))
+                home_team = h_info.get("title", team_names.get(home_team_id, ""))
+            else:
+                home_team, home_team_id = str(h_info), ""
+
+            if isinstance(a_info, dict):
+                away_team_id = str(a_info.get("id", ""))
+                away_team = a_info.get("title", team_names.get(away_team_id, ""))
+            else:
+                away_team, away_team_id = str(a_info), ""
+
+            # Extract goals
+            goals = raw.get("goals", {})
+            home_goals = self._safe_int(goals.get("h", 0)) if isinstance(goals, dict) else 0
+            away_goals = self._safe_int(goals.get("a", 0)) if isinstance(goals, dict) else 0
+
+            # Extract xG
+            xg_data = raw.get("xG", {})
+            home_xg = self._safe_float(xg_data.get("h", 0)) if isinstance(xg_data, dict) else 0
+            away_xg = self._safe_float(xg_data.get("a", 0)) if isinstance(xg_data, dict) else 0
+
+            # Extract datetime (format: "2025-08-16 15:00:00")
+            dt_str = raw.get("datetime", "")
+            date_str = dt_str[:10] if dt_str else ""
+
+            match = MatchXG(
+                match_id=match_id,
+                league=league_name,
+                season=season_str,
+                date=date_str,
+                home_team=home_team,
+                away_team=away_team,
+                home_xg=round(home_xg, 2),
+                away_xg=round(away_xg, 2),
+                home_goals=home_goals,
+                away_goals=away_goals,
+                is_result=is_result,
+            )
+
+            if self.validate:
+                issues = validate_match_xg(match)
+                if issues and self.strict:
+                    raise ValueError(
+                        f"Match {match_id} validation: {issues}"
+                    )
+                elif issues:
+                    logger.debug(
+                        "Match %d issues: %s", match_id, issues,
+                    )
+
+            matches.append(match)
+
+        logger.info(
+            "Parsed %d matches from %s %s (list format)",
+            len(matches), league_code, year,
+        )
+        return matches
 
     # ── Helpers ─────────────────────────────────────────
 

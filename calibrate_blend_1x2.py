@@ -99,9 +99,11 @@ def get_blend_predictions_batch(df: pd.DataFrame) -> np.ndarray:
     # Blend 1X2 using the optimised weights
     w = blend.weights["1X2"]
     probs = (
-        w["poisson"] * ppm.pois_1x2
-        + w["elo"] * ppm.elo_1x2
-        + w["xgb"] * ppm.xgb_1x2
+        w.get("dc", 0) * ppm.dc_1x2
+        + w.get("elo", 0) * ppm.elo_1x2
+        + w.get("xgb", 0) * ppm.xgb_1x2
+        + w.get("lgb", 0) * (ppm.lgb_1x2 if hasattr(ppm, 'lgb_1x2') else ppm.dc_1x2 * 0)
+        + w.get("cat", 0) * (ppm.cat_1x2 if hasattr(ppm, 'cat_1x2') else ppm.dc_1x2 * 0)
     )
     # Renormalise each row to sum to 1.0
     row_sums = probs.sum(axis=1, keepdims=True)

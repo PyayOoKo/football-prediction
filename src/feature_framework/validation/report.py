@@ -49,7 +49,7 @@ class ValidationReport:
     passed_checks: int = 0
     failed_checks: int = 0
     total_violations: int = 0
-    checks: dict[str, dict] = field(default_factory=dict)
+    checks: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def passed(self) -> bool:
@@ -142,7 +142,7 @@ class CorrelationReport:
 
     n_features: int = 0
     correlation_matrix: pd.DataFrame | None = None
-    high_correlation_pairs: list[dict] = field(default_factory=list)
+    high_correlation_pairs: list[dict[str, Any]] = field(default_factory=list)
     n_high_pairs: int = 0
     message: str = ""
 
@@ -215,7 +215,7 @@ class MissingValueReport:
     n_infinite_cells: int = 0
     missing_rate: float = 0.0
     columns_with_missing: int = 0
-    details: list[dict] = field(default_factory=list)
+    details: list[dict[str, Any]] = field(default_factory=list)
 
     def summary(self) -> str:
         """Return a human-readable summary."""
@@ -289,7 +289,7 @@ class DriftReport:
     n_drifted: int = 0
     drift_threshold: float = 0.1
     passed: bool = True
-    details: list[dict] = field(default_factory=list)
+    details: list[dict[str, Any]] = field(default_factory=list)
     message: str = ""
 
     def summary(self) -> str:

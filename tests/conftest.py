@@ -18,6 +18,23 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from src.database.base import Base
 from src.database.models import Competition, Match, Team
+from src.di_container import configure_container, reset_container, set_container
+
+
+# ── DI container bootstrap ───────────────────────────────
+@pytest.fixture(autouse=True)
+def _bootstrap_global_di_container() -> None:
+    """Register the root config as ConfigProvider so services can resolve it.
+
+    Child conftest fixtures (e.g. ``tests/test_services/conftest.py``) run
+    after this one and can override with a mock via ``set_container()``.
+    """
+    from config import config
+
+    container = configure_container(config)
+    set_container(container)
+    yield
+    reset_container()
 
 
 # ── Sample data ─────────────────────────────────────────

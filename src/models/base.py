@@ -112,7 +112,7 @@ class ModelMeta(abc.ABCMeta):
         return wrapper
 
 
-def _log_entry(self: Any, method: str, args: tuple, kwargs: dict) -> None:
+def _log_entry(self: Any, method: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> None:
     """Log method entry with key parameters."""
     if not logger.isEnabledFor(logging.DEBUG):
         return
@@ -598,7 +598,7 @@ class BaseModel(metaclass=ModelMeta):
     def _require_fitted(self) -> None:
         """Raise if the model has not been fitted."""
         if not self._fitted:
-            from src.utils.exceptions import ModelNotFittedError
+            from src.utils.exceptions import ModelNotTrainedError as ModelNotFittedError
             raise ModelNotFittedError(
                 f"{self.model_summary} has not been fitted. "
                 "Call .fit() first."

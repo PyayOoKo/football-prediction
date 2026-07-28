@@ -105,9 +105,9 @@ def evaluate_model(
         plot_paths["roc_curve"] = path
 
     if cfg.eval.plot_feature_importance:
-        path = _save_feature_importance(model, X_test.columns, config=cfg)
-        if path:
-            plot_paths["feature_importance"] = path
+        feat_path: str = _save_feature_importance(model, X_test.columns, config=cfg) or ""
+        if feat_path:
+            plot_paths["feature_importance"] = feat_path
 
     report["plots"] = plot_paths
 
@@ -122,8 +122,8 @@ def _compute_roc_auc(y_test: pd.Series, y_proba: np.ndarray) -> float:
     """Compute ROC-AUC, handling multi-class via macro-average."""
     n_classes = y_proba.shape[1]
     if n_classes == 2:
-        return roc_auc_score(y_test, y_proba[:, 1])
-    return roc_auc_score(y_test, y_proba, multi_class="ovr", average="macro")
+        return roc_auc_score(y_test, y_proba[:, 1])  # type: ignore[no-any-return]
+    return roc_auc_score(y_test, y_proba, multi_class="ovr", average="macro")  # type: ignore[no-any-return]
 
 
 def _save_confusion_matrix(y_test: pd.Series, y_pred: np.ndarray, config: Any | None = None) -> str:
@@ -234,7 +234,8 @@ def _save_feature_importance(
            yticklabels=feature_names[indices][::-1],
            xlabel="Importance", title="Top 20 Feature Importances")
     plt.tight_layout()
-    path = str(config.eval.output_dir / "feature_importance.png")
+    _cfg = config or _global_config
+    path = str(_cfg.eval.output_dir / "feature_importance.png")
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     logger.info("Feature importance saved to %s", path)

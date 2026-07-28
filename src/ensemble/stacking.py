@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -154,7 +154,7 @@ class StackingEnsemble:
             meta_train = self._direct_predictions(X_train, self.base_models)
 
         # 3. Train meta-learner
-        logger.info("Training meta-learner on %d meta-features", meta_train.shape[1])
+        logger.info("Training meta-learner on %d meta-features", meta_train.shape[1])  # type: ignore[attr-defined]
         X_meta = X_train.copy() if hasattr(X_train, "copy") else X_train
         # Get meta-features
         meta_probs = self._get_meta_features(
@@ -361,11 +361,11 @@ class StackingEnsemble:
             raise RuntimeError("StackingEnsemble must be fitted before predicting.")
 
         meta = self._get_meta_features(X, self.base_models, None)
-        return self._meta.predict_proba(meta)
+        return cast(np.ndarray, self._meta.predict_proba(meta))
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         probs = self.predict_proba(X)
-        return np.argmax(probs, axis=1)
+        return cast(np.ndarray, np.argmax(probs, axis=1))
 
     def _evaluate_base_models(
         self, X: pd.DataFrame, y: pd.Series,
@@ -421,7 +421,7 @@ class StackingEnsemble:
         ensemble_preds = np.argmax(ensemble_probs, axis=1)
         accuracy = float(np.mean(ensemble_preds == y_test.values))
 
-        best_single = min(individual_losses, key=individual_losses.get)
+        best_single = min(individual_losses, key=lambda k: individual_losses[k])
         improvement = individual_losses[best_single] - ensemble_loss
 
         report = {

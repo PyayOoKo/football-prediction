@@ -98,16 +98,16 @@ def setup_models(train_df: pd.DataFrame, val_df: pd.DataFrame,
                  cond_rates: Any) -> dict[str, Any]:
     """Fit/setup all models and return predictions for analysis."""
     import joblib
-    from src.poisson_model import PoissonModel
+    from src.dixon_coles import DixonColesModel
     from src.elo import EloSystem
     from src.models.three_model_blend import ThreeModelBlend, _FeatureBuilder
 
     fit_df = pd.concat([train_df, val_df], ignore_index=True)
 
-    # Poisson
-    logger.info("Fitting Poisson...")
-    poisson = PoissonModel(min_matches=0)
-    poisson.fit(fit_df)
+    # Dixon-Coles
+    logger.info("Fitting Dixon-Coles...")
+    dc = DixonColesModel(decay_halflife_days=1460)
+    dc.fit(fit_df)
 
     # Elo
     logger.info("Processing Elo...")
@@ -129,7 +129,7 @@ def setup_models(train_df: pd.DataFrame, val_df: pd.DataFrame,
 
     # ThreeModelBlend
     blend = ThreeModelBlend(
-        poisson_model=poisson,
+        dc_model=dc,
         elo_model=elo,
         xgb_model=xgb,
         weights=weights,
@@ -156,7 +156,7 @@ def setup_models(train_df: pd.DataFrame, val_df: pd.DataFrame,
     fb = _FeatureBuilder(fit_df)
 
     return {
-        "poisson": poisson,
+        "dc": dc,
         "elo": elo,
         "xgb": xgb,
         "blend": blend,

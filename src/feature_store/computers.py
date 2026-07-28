@@ -236,9 +236,9 @@ class ComputerRegistry:
             return self._instances[feature_type]
 
         # Check class registry
-        cls = self._computers.get(feature_type)
-        if cls is not None:
-            instance = cls(name=feature_type)
+        computer_cls = self._computers.get(feature_type)
+        if computer_cls is not None:
+            instance = computer_cls(name=feature_type)  # type: ignore[operator]
             self._instances[feature_type] = instance
             instance.init()
             return instance

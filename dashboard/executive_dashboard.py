@@ -52,12 +52,12 @@ SYSTEM_STATS = {
 MODEL_ACCURACY = {
     "Ensemble (Stacking)": (0.62, 0.68),
     "Ensemble (Weighted)": (0.61, 0.66),
-    "XGBoost (tuned)": (0.60, 0.65),
-    "LightGBM (World Cup 2026)": (0.71, 0.74),
-    "LightGBM": (0.59, 0.64),
+    "XGBoost (league)": (0.60, 0.65),
+    "LightGBM (league)": (0.59, 0.64),
+    "CatBoost (league)": (0.55, 0.60),
     "Random Forest": (0.55, 0.60),
     "Logistic Regression": (0.52, 0.57),
-    "Poisson Model": (0.50, 0.55),
+    "Dixon-Coles Model": (0.50, 0.55),
 }
 
 CALIBRATION_METRICS = {
@@ -82,7 +82,7 @@ DATA_SOURCES = [
     ("OpenWeatherMap", "Weather data", "✅"),
     ("FBref", "Referee statistics", "✅"),
     ("Understat", "xG data (leagues)", "✅"),
-    ("openfootball", "World Cup data", "✅"),
+    ("openfootball", "Tournament data", "✅"),
 ]
 
 PHASES = [
@@ -198,7 +198,7 @@ DI_MIGRATION = {
         "_add_attack_defence_ratios",
     ]},
     "Batch 2d — Data Collection": {"files": 5, "done": 5, "functions": [
-        "collect_worldcup", "collect_all", "collect_league", "update",
+        "collect_league", "collect_all", "update",
         "download_bulk", "_session", "collect_weather",
         "_build_placeholder_df",
     ]},
@@ -206,7 +206,7 @@ DI_MIGRATION = {
         "cli.py: _handle_train", "eda.py: run_eda",
         "factory.py: create_ensemble, create_default",
         "app/utils.py (9 refs)", "app/dashboard.py (5 refs)",
-        "app/pages/4_WorldCup.py",
+        "app/pages/4_Top5Leagues.py",
         "Removed dead config imports: live_predictions.py, 3_Backtest.py, backtesting/__init__.py, feature_store/computation.py",
     ]},
 }
@@ -229,7 +229,7 @@ RECENT_FIXES = [
      "src/features/rolling.py"),
     ("tune_hyperparameters signature",
      "Got unexpected keyword argument 'model_type' after DI migration",
-     "train_worldcup.py"),
+     "train_league.py"),
     ("find_value_bets.py argparse",
      "ValueError: badly formed help string — %K treated as format spec",
      "find_value_bets.py"),
@@ -246,14 +246,14 @@ RECENT_FIXES = [
 ]
 
 TECH_DEBT = [
-    ("train_worldcup.py hardcoded paths", "Medium", "30 min", "✅ Done"),
+    ("league training hardcoded paths", "Medium", "30 min", "✅ Done"),
     ("feature_engineering.py 1,700+ lines → src/features/", "High", "4 hr", "✅ Done"),
     ("Dashboard page test coverage low", "Medium", "3 hr", "✅ Done — 44 tests across 4 files"),
     ("No integration tests for live predictions", "Medium", "2 hr", "✅ Done — 12 tests covering full pipeline"),
     ("Global config imports → DI migration", "Low", "8 hr", "✅ Done — 32/32 src/ modules refactored"),
     ("Schedule features: 'tuple as dict key' TypeError", "High", "30 min", "✅ Fixed — unconditional index reset in ScheduleTransformer"),
     ("Rolling features: duplicate columns via pd.concat", "High", "30 min", "✅ Fixed — dedup check before concat in _merge_team_stats"),
-    ("train_worldcup.py: tune_hyperparameters kwarg mismatch", "Medium", "10 min", "✅ Fixed — removed stale model_type= kwarg"),
+    ("train_league.py: tune_hyperparameters kwarg mismatch", "Medium", "10 min", "✅ Fixed — removed stale model_type= kwarg"),
     ("find_value_bets.py: argparse %K format crash", "Medium", "5 min", "✅ Fixed — escaped % in help string"),
     ("tests/test_dashboard/conftest.py: SyntaxError", "High", "5 min", "✅ Fixed — newline between docstring and future import"),
     ("src/data/feature_engineering.py: dead TODO stub", "Low", "5 min", "✅ Removed — 0 imports, 53 lines of dead code"),

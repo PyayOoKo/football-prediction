@@ -23,7 +23,11 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("today_value_bets")
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-DATA_CSV = PROJECT_ROOT / "data" / "raw" / "worldcup_all.csv"
+# Prefer the full combined dataset (5 leagues + World Cup, ~9k matches).
+# Falls back to worldcup-only data if the processed file doesn't exist.
+_PROCESSED_CSV = PROJECT_ROOT / "data" / "processed" / "results_clean.csv"
+_RAW_WC_CSV = PROJECT_ROOT / "data" / "raw" / "worldcup_all.csv"
+DATA_CSV = _PROCESSED_CSV if _PROCESSED_CSV.exists() else _RAW_WC_CSV
 REPORTS_DIR = PROJECT_ROOT / "reports" / "value_bets"
 
 # Fallback odds: (home, away) -> (away_odds, draw_odds, home_odds)

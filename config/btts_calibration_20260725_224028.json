@@ -1,0 +1,22 @@
+{
+  "generated": "2026-07-25 22:40:28",
+  "model": "btts",
+  "target": "btts",
+  "source_model": "C:\\Users\\dell\\Documents\\complex num\\football prediction\\models\\btts_xgboost_20260725_223702.joblib",
+  "source_data": "C:\\Users\\dell\\Documents\\complex num\\football prediction\\data\\processed\\btts_data_20260725_222516.parquet",
+  "n_val": 4849,
+  "n_test": 7596,
+  "raw_metrics": {
+    "brier": 0.22515,
+    "logloss": 0.63963,
+    "ece": 0.00839
+  },
+  "calibrated_metrics": {
+    "method": "Temperature Scaling",
+    "brier": 0.2254,
+    "improvement_pct": -0.1
+  },
+  "params": {
+    "T": 0.8311
+  }
+}

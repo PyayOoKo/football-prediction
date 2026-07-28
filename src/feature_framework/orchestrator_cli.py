@@ -281,9 +281,9 @@ def _load_config(config_path: str | None) -> dict[str, Any] | None:
         with open(path) as f:
             if suffix in (".yaml", ".yml"):
                 import yaml
-                return yaml.safe_load(f)
+                return yaml.safe_load(f)  # type: ignore[no-any-return]
             elif suffix == ".json":
-                return json.load(f)
+                return json.load(f)  # type: ignore[no-any-return]
             else:
                 print(f"Unsupported config format: {suffix}", file=sys.stderr)
                 sys.exit(1)
@@ -357,7 +357,7 @@ def _save_output(
         with open(report_path, "w") as f:
             json.dump(report.to_dict(), f, indent=2, default=str)
     except Exception:
-        pass
+        logger.warning("Failed to save report metadata to %s", report_path, exc_info=True)
 
 
 def _print_report(report: OrchestratorReport, verbose: bool) -> int:
@@ -576,7 +576,7 @@ def main(argv: list[str] | None = None) -> int:
         logging.basicConfig(level=logging.WARNING)
 
     try:
-        return args.func(args)
+        return args.func(args)  # type: ignore[no-any-return]
     except KeyboardInterrupt:
         print("\nInterrupted.")
         return 1

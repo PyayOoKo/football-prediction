@@ -59,13 +59,13 @@ class ModelArtifact:
     model: Any
     feature_names: list[str]
     selected_feature_names: list[str] | None = None
-    preprocessing_config: dict = field(default_factory=dict)
+    preprocessing_config: dict[str, Any] = field(default_factory=dict)
     feature_engineering_version: str = "1.0"
     model_type: str = "unknown"
     trained_at: str = ""
     target_mapping: dict[str, int] = field(default_factory=lambda: dict(TARGET_MAPPING))
-    calibration_metadata: dict | None = None
-    target_encoder_state: dict | None = None
+    calibration_metadata: dict[str, Any] | None = None
+    target_encoder_state: dict[str, Any] | None = None
     artifact_version: str = ARTIFACT_VERSION
 
     def __post_init__(self) -> None:
@@ -120,7 +120,7 @@ class ModelArtifact:
             X = X.drop(columns=list(extra), errors="ignore")
 
         # Reorder to match training-time order
-        return X[list(self.selected_feature_names)]
+        return X[list(self.selected_feature_names or [])]
 
     @property
     def predict_proba(self) -> Any:

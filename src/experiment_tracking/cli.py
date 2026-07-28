@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from src.experiment_tracking.comparator import ExperimentComparator
 from src.experiment_tracking.export import export_csv, export_html, export_json
-from src.experiment_tracking.models import Base, Run
+from src.experiment_tracking.models import Base, Run  # type: ignore[attr-defined]
 from src.experiment_tracking.registry import ModelRegistry
 from src.experiment_tracking.tracker import ExperimentTracker
 

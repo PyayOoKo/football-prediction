@@ -1,0 +1,22 @@
+{
+  "generated": "2026-07-25 22:40:26",
+  "model": "over_under",
+  "target": "over_2_5",
+  "source_model": "C:\\Users\\dell\\Documents\\complex num\\football prediction\\models\\over_under_logistic_regression_20260725_222912.joblib",
+  "source_data": "C:\\Users\\dell\\Documents\\complex num\\football prediction\\data\\processed\\over_under_data_20260725_222214.parquet",
+  "n_val": 4849,
+  "n_test": 7596,
+  "raw_metrics": {
+    "brier": 0.21563,
+    "logloss": 0.61787,
+    "ece": 0.01142
+  },
+  "calibrated_metrics": {
+    "method": "Temperature Scaling",
+    "brier": 0.21575,
+    "improvement_pct": -0.1
+  },
+  "params": {
+    "T": 0.9186
+  }
+}

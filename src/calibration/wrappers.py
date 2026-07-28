@@ -51,7 +51,7 @@ class CalibratedTemperatureWrapper:
 
     def predict(self, X: np.ndarray | Any) -> np.ndarray:
         """Predict hard class labels using calibrated probabilities."""
-        return np.argmax(self.predict_proba(X), axis=1)
+        return np.argmax(self.predict_proba(X), axis=1)  # type: ignore[no-any-return]
 
     def predict_proba(self, X: np.ndarray | Any) -> np.ndarray:
         """Predict calibrated probabilities via temperature scaling."""
@@ -209,7 +209,7 @@ class CalibratedModel:
 
     def predict(self, X: np.ndarray | Any) -> np.ndarray:
         """Predict hard class labels."""
-        return np.argmax(self.predict_proba(X), axis=1)
+        return np.argmax(self.predict_proba(X), axis=1)  # type: ignore[no-any-return]
 
     def predict_proba(self, X: np.ndarray | Any) -> np.ndarray:
         """Predict calibrated probabilities.
@@ -227,7 +227,7 @@ class CalibratedModel:
         if self.method == "hybrid":
             hybrid_cal = self._calibrators[0]
             if hybrid_cal is not None:
-                return hybrid_cal.transform(raw_probs)
+                return hybrid_cal.transform(raw_probs)  # type: ignore[no-any-return]
 
         # Legacy per-class calibrator logic (platt / isotonic)
         calibrated = np.zeros_like(raw_probs)
@@ -249,7 +249,7 @@ class CalibratedModel:
         row_sums = np.where(row_sums > 0, row_sums, 1.0)
         calibrated = calibrated / row_sums[:, np.newaxis]
 
-        return calibrated
+        return calibrated  # type: ignore[no-any-return]
 
     # ── Evaluation ───────────────────────────────────────
 

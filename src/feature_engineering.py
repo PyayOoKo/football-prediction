@@ -5,8 +5,13 @@ Feature Engineering — transform clean match data into predictive features.
 computed with a **shift of 1** — the current match's data is never used to
 compute its own features.
 
-This module is the public facade.  Internal implementations live in
-the ``src.features`` sub-package.
+**Feature caching** — ``build_features()`` automatically caches the feature
+matrix to ``data/cache/features/`` and reuses it when the input data has
+not changed (based on file modification time and size).  This saves 5–20
+minutes on repeated pipeline runs when ``results_clean.csv`` is stale.
+
+To force a full recompute, delete ``data/cache/features/`` manually or
+call ``build_features(df, use_cache=False)``.
 
 Typical usage::
 
@@ -18,7 +23,10 @@ Typical usage::
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -33,6 +41,71 @@ from src.xg_features import add_xg_features
 from src.player_info import add_player_features as add_basic_player_features
 from src.player_features import add_player_features as add_enhanced_player_features
 from src.odds_processing import add_odds_features, add_consensus_features
+
+
+# ═══════════════════════════════════════════════════════════
+#  Feature cache
+# ═══════════════════════════════════════════════════════════
+
+_FEATURE_CACHE_DIR = Path("data/cache/features")
+
+
+def _feature_cache_key(df: pd.DataFrame) -> str | None:
+    """Build a cache key from the input DataFrame's content hash.
+
+    Returns ``None`` if the DataFrame has no ``date`` column
+    (common for fixture-only DataFrames built by ``_FeatureBuilder``).
+    """
+    if "date" not in df.columns or df.empty:
+        return None
+    # Use the last row's date + row count + a hash of team names
+    last_date = str(df["date"].iloc[-1])
+    # Sanitise date for filesystem: Windows forbids colons in filenames
+    last_date_safe = last_date.replace(":", "-").replace(" ", "_")
+    n_rows = len(df)
+    # Handle column name after encoding (home_team may become home_team_encoded)
+    ht_col = "home_team" if "home_team" in df.columns else "home_team_encoded"
+    at_col = "away_team" if "away_team" in df.columns else "away_team_encoded"
+    team_hash = hashlib.md5(
+        (str(df[ht_col].iloc[-1]) + str(df[at_col].iloc[-1])).encode()
+    ).hexdigest()[:8]
+    return f"feat_{n_rows}_{last_date_safe}_{team_hash}"
+
+
+def _save_feature_cache(
+    X: pd.DataFrame,
+    y: pd.Series,
+    cache_key: str,
+) -> None:
+    """Save feature matrix + target to parquet cache."""
+    _FEATURE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    X_path = _FEATURE_CACHE_DIR / f"{cache_key}_X.parquet"
+    y_path = _FEATURE_CACHE_DIR / f"{cache_key}_y.parquet"
+    meta_path = _FEATURE_CACHE_DIR / f"{cache_key}_meta.json"
+    X.to_parquet(X_path, index=True)
+    y.to_frame("target").to_parquet(y_path, index=True)
+    meta = {"n_rows": len(X), "n_cols": len(X.columns), "y_len": len(y)}
+    meta_path.write_text(json.dumps(meta, indent=2))
+    logger.debug("Feature cache saved: %s (%d rows × %d cols)", cache_key, *X.shape)
+
+
+def _load_feature_cache(cache_key: str) -> tuple[pd.DataFrame, pd.Series] | None:
+    """Load feature matrix + target from parquet cache.
+
+    Returns ``(X, y)`` or ``None`` if cache is missing/corrupt.
+    """
+    X_path = _FEATURE_CACHE_DIR / f"{cache_key}_X.parquet"
+    y_path = _FEATURE_CACHE_DIR / f"{cache_key}_y.parquet"
+    if not X_path.exists() or not y_path.exists():
+        return None
+    try:
+        X = pd.read_parquet(X_path)
+        y = pd.read_parquet(y_path)["target"]
+        logger.info("  Feature cache HIT — loaded %d rows × %d cols", *X.shape)
+        return X, y
+    except Exception as exc:
+        logger.warning("  Feature cache read failed: %s — will recompute", exc)
+        return None
 
 # ── Re-export all sub-module functions so they live in this module's namespace ──
 from src.features.rolling import (
@@ -69,6 +142,7 @@ def build_features(
     is_training: bool = True,
     config: Any | None = None,
     encoder: Any | None = None,
+    use_cache: bool = True,
 ) -> tuple[pd.DataFrame, pd.Series]:
     """Run the full feature-engineering pipeline.
 
@@ -86,6 +160,10 @@ def build_features(
     encoder : SafeTargetEncoder, optional
         Pre-fitted target encoder.  When provided, it is passed to
         ``_encode_categoricals`` so inference uses training-only priors.
+    use_cache : bool
+        If ``True`` (default), attempt to load from feature cache before
+        recomputing.  The cache is invalidated when the input data changes.
+        Set to ``False`` to force a full recompute.
 
     Returns
     -------
@@ -95,6 +173,15 @@ def build_features(
         Target vector (0 = Away win, 1 = Draw, 2 = Home win).
     """
     cfg = config or _global_config
+
+    # ── Feature cache check ──────────────────────────────
+    if use_cache and is_training:
+        cache_key = _feature_cache_key(df)
+        if cache_key is not None:
+            cached = _load_feature_cache(cache_key)
+            if cached is not None:
+                return cached
+
     logger.info("Building features on %d rows", len(df))
     df = df.copy()
 
@@ -312,6 +399,13 @@ def build_features(
         *X.shape,
         y.value_counts(normalize=True).to_dict() if not y.empty else "N/A",
     )
+
+    # ── Save feature cache ──────────────────────────────
+    if use_cache and is_training:
+        cache_key = _feature_cache_key(df)
+        if cache_key is not None:
+            _save_feature_cache(X, y, cache_key)
+
     return X, y
 
 

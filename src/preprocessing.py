@@ -3,14 +3,16 @@ Preprocessing — clean, normalise, and prepare raw match data for ML.
 
 Pipeline stages (in order):
 
-1.  **Load**        — read raw CSV from ``data/raw/``
+1.  **Load**        — read raw CSV from ``data/raw/`` (or ``data/matches.csv`` if available)
+1b. **Enrich**      — merge full bookmaker odds from ``data/raw/league_all.csv`` (168+ columns)
 2.  **Convert dates** — parse to datetime, extract temporal features
 3.  **Normalise team names** — map abbreviations to canonical names
 4.  **Remove duplicates** — exact + near-duplicate match rows
 5.  **Handle missing values** — configurable fill / drop strategies
 6.  **Create structured columns** — ensure home/away split is consistent
-7.  **Validate**    — run integrity checks
-8.  **Save**        — write cleaned dataset to ``data/processed/``
+7.  **Add temporal features** — season week, midweek flag, etc.
+8.  **Validate**    — run integrity checks
+9.  **Save**        — write cleaned dataset to ``data/processed/``
 
 Typical usage::
 
@@ -25,7 +27,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import numpy as np
 import pandas as pd
@@ -245,6 +247,344 @@ _TEMPORAL_FEATURES = [
 # ═══════════════════════════════════════════════════════════
 
 
+# ═══════════════════════════════════════════════════════════
+#  League value backfill (team-to-league mapping)
+# ═══════════════════════════════════════════════════════════
+
+
+_team_to_league_cache: dict[str, str] | None = None
+"""Cached team-to-league mapping so we only build it once per session."""
+
+
+def build_team_to_league_mapping(
+    source_path: str | Path | None = None,
+    cfg: Any | None = None,
+) -> dict[str, str]:
+    """Build a mapping from team name → most common league code.
+
+    Uses ``data/matches.csv`` (or an explicit ``source_path``) as the
+    authoritative source because it has **0 null league values** across
+    438 teams in 14 leagues spanning 22 years.
+
+    93.8% of teams appear in exactly 1 league, so the mapping is highly
+    accurate.  For the 6.2% that appear in multiple leagues, the most
+    frequent league wins (e.g. a team with 100 matches in E0 and 5 in
+    E1 maps to E0).
+
+    The result is cached in ``_team_to_league_cache`` to avoid rebuilding
+    on repeated calls within the same Python session.
+
+    Parameters
+    ----------
+    source_path : str | Path, optional
+        Path to a CSV with columns ``home_team``, ``away_team``, ``league``.
+        Defaults to ``data/matches.csv`` (reliable with 0 null leagues).
+    cfg : Any, optional
+        Injected config object.
+
+    Returns
+    -------
+    dict[str, str]
+        ``{team_name: league_code}`` mapping (e.g. ``{"Arsenal": "E0"}``).
+    """
+    global _team_to_league_cache
+    if _team_to_league_cache is not None:
+        return _team_to_league_cache
+
+    _cfg = cfg or _global_config
+
+    path = Path(source_path) if source_path else Path("data/matches.csv")
+    if not path.exists():
+        logger.warning("Team-to-league source not found: %s — mapping empty", path)
+        _team_to_league_cache = {}
+        return {}
+
+    df = pd.read_csv(path, low_memory=False)
+
+    # Count how many times each team appears in each league
+    # Keys are lowercased so the mapping is case-insensitive
+    counts: dict[str, dict[str, int]] = {}
+    for _, row in df.iterrows():
+        lg = row.get("league")
+        if pd.isna(lg):
+            continue
+        for team_col in ["home_team", "away_team"]:
+            team = row.get(team_col)
+            if pd.isna(team):
+                continue
+            team = str(team).strip().lower()
+            counts.setdefault(team, {})
+            counts[team][str(lg)] = counts[team].get(str(lg), 0) + 1
+
+    # Pick the league with the most matches for each team
+    mapping: dict[str, str] = {}
+    for team, league_counts in counts.items():
+        mapping[team] = max(league_counts, key=league_counts.get)  # type: ignore[arg-type]
+
+    _team_to_league_cache = mapping
+    logger.info(
+        "Built team→league mapping: %d teams, %d leagues from %s",
+        len(mapping),
+        len(set(mapping.values())),
+        path.name,
+    )
+    return mapping
+
+
+def backfill_league(
+    df: pd.DataFrame,
+    mapping: dict[str, str] | None = None,
+    source_path: str | Path | None = None,
+    cfg: Any | None = None,
+) -> tuple[pd.DataFrame, str]:
+    """Backfill null ``league`` values using a team-to-league mapping.
+
+    For each row where ``league`` is null, tries to infer the league from:
+    1. The ``div`` column (if present) — renamed to ``league``.
+    2. The team-to-league mapping (built from ``matches.csv`` by default).
+       For each null-league row, checks both ``home_team`` and ``away_team``
+       in the mapping.  If both teams agree on the league, it's used.  If
+       they disagree, the row is left null (requires manual resolution).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input data with a ``league`` column (possibly with nulls).
+    mapping : dict[str, str], optional
+        Pre-built team→league mapping.  Built from ``data/matches.csv``
+        if not provided.
+    source_path : str | Path, optional
+        Source path for building the mapping (passed to
+        ``build_team_to_league_mapping``).
+    cfg : Any, optional
+        Injected config object.
+
+    Returns
+    -------
+    tuple[pd.DataFrame, str]
+        DataFrame with backfilled league values and a detail string.
+    """
+    if "league" not in df.columns:
+        return df, "No league column — backfill skipped"
+
+    before = df["league"].isna().sum()
+    if before == 0:
+        return df, "No null league values to backfill"
+
+    # Method 1: Rename 'div' → 'league' where league is null
+    if "div" in df.columns:
+        div_mask = df["league"].isna() & df["div"].notna()
+        if div_mask.any():
+            df.loc[div_mask, "league"] = df.loc[div_mask, "div"]
+
+    after_div = df["league"].isna().sum()
+    filled_from_div = before - after_div
+
+    # Method 2: Team-to-league mapping
+    if mapping is None:
+        mapping = build_team_to_league_mapping(source_path=source_path, cfg=cfg)
+
+    if mapping:
+        still_null = df["league"].isna()
+        for idx in df.index[still_null]:
+            home_raw = str(df.at[idx, "home_team"]).strip() if pd.notna(df.at[idx, "home_team"]) else ""
+            away_raw = str(df.at[idx, "away_team"]).strip() if pd.notna(df.at[idx, "away_team"]) else ""
+            # Case-insensitive lookup (mapping keys are lowercased)
+            home_league = mapping.get(home_raw.lower())
+            away_league = mapping.get(away_raw.lower())
+
+            if home_league and away_league and home_league == away_league:
+                df.at[idx, "league"] = home_league
+            elif home_league and not away_league:
+                df.at[idx, "league"] = home_league
+            elif away_league and not home_league:
+                df.at[idx, "league"] = away_league
+            # If both teams have leagues but they disagree, leave null
+
+    after_all = df["league"].isna().sum()
+    filled_from_mapping = after_div - after_all
+
+    detail_parts: list[str] = []
+    if filled_from_div > 0:
+        detail_parts.append(f"{filled_from_div} from 'div' column")
+    if filled_from_mapping > 0:
+        detail_parts.append(f"{filled_from_mapping} from team→league mapping")
+    detail = (
+        f"Backfilled {before - after_all}/{before} null league values"
+        + (f" ({', '.join(detail_parts)})" if detail_parts else " — no source available")
+    )
+    return df, detail
+
+
+# ═══════════════════════════════════════════════════════════
+#  League data enrichment (matches.csv + league_all.csv)
+# ═══════════════════════════════════════════════════════════
+
+
+def enrich_from_league_all(
+    df: pd.DataFrame,
+    league_all_path: str | Path | None = None,
+    cfg: Any | None = None,
+) -> tuple[pd.DataFrame, str]:
+    """Merge extra columns from ``league_all.csv`` into the primary DataFrame.
+
+    ``league_all.csv`` contains full bookmaker odds (B365, BW, IW, WH, PS, VC,
+    Max, Avg), over/under odds, Asian handicap odds, closing prices, fouls,
+    cards, referee names, and half-time results for 5 top leagues (E0, F1, D1,
+    I1, SP1) from 2016 onward.
+
+    The merge uses ``(date, league, home_team, away_team)`` as the primary key
+    and falls back to ``(date, home_team, away_team)`` for rows whose league
+    is not present in league_all.
+
+    Only columns **not already present** in the primary DataFrame are merged
+    (plus join-key columns which are dropped after merge).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The primary match data (e.g. loaded from ``matches.csv``).
+    league_all_path : str | Path, optional
+        Path to league_all.csv.  Defaults to ``data/raw/league_all.csv``.
+    cfg : Any, optional
+        Injected config object.  Falls back to global ``config`` when
+        ``None`` (default).
+
+    Returns
+    -------
+    tuple[pd.DataFrame, str]
+        Enriched DataFrame and a detail string describing what was merged.
+    """
+    _cfg = cfg or _global_config
+    path = Path(league_all_path) if league_all_path else (
+        _cfg.paths.raw / "league_all.csv"
+    )
+
+    if not path.exists():
+        return df, f"{path.name} not found — enrichment skipped"
+
+    # ── Load ────────────────────────────────────────────────
+    league = pd.read_csv(path, low_memory=False)
+    if league.empty:
+        return df, f"{path.name} is empty — enrichment skipped"
+
+    # Backfill null league values in league_all so the join key works
+    if "league" in league.columns and league["league"].isna().any():
+        league, bf_detail = backfill_league(league, cfg=_cfg)
+        nulls_after = league["league"].isna().sum()
+        logger.info("  League backfill for %s: %s (%d nulls remaining)",
+                     path.name, bf_detail, nulls_after)
+
+    # Standardize date format in both
+    # Both matches.csv and league_all.csv use YYYY-MM-DD (ISO) format,
+    # while football-data.co.uk raw CSVs use DD/MM/YYYY (UK) format.
+    # Auto-detect: if sample contains '/' use dayfirst=True, else default.
+    def _parse_dates_safe(series: pd.Series) -> pd.Series:
+        sample = series.dropna().astype(str)
+        if len(sample) > 0 and "/" in sample.iloc[0]:
+            return pd.to_datetime(series, dayfirst=True, errors="coerce")
+        return pd.to_datetime(series, errors="coerce")
+
+    df["_date_std"] = _parse_dates_safe(df["date"])
+    league["_date_std"] = _parse_dates_safe(league["date"])
+
+    # Standardize team names in league_all (lowercase strip matching)
+    for col in ["home_team", "away_team"]:
+        league[col] = league[col].astype(str).str.strip()
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
+
+    # ── Determine columns to merge ──────────────────────────
+    join_keys = {"_date_std", "date", "league", "home_team", "away_team"}
+    existing_cols = set(df.columns)
+    extra_cols = [
+        c for c in league.columns
+        if c not in existing_cols and c not in join_keys
+    ]
+
+    if not extra_cols:
+        df.drop(columns=["_date_std"], inplace=True)
+        return df, "No new columns to merge from league_all"
+
+    # Columns we need from league: join keys + extra
+    merge_cols = ["_date_std", "league", "home_team", "away_team"] + extra_cols
+    league_subset = league[merge_cols].copy()
+
+    # ── Merge strategy: 2-pass join ─────────────────────────
+    before = len(df)
+
+    # Pass 1: join on (date, league, home_team, away_team)
+    # Use a left join so we keep all primary rows
+    enriched = df.merge(
+        league_subset,
+        on=["_date_std", "league", "home_team", "away_team"],
+        how="left",
+        suffixes=("", "_from_league"),
+    )
+
+    # Columns from league get the _from_league suffix when they conflict;
+    # since we filtered to only non-existing columns, there should be no
+    # conflicts.  Drop any spurious _from_league columns.
+    from_league_cols = [c for c in enriched.columns if c.endswith("_from_league")]
+    if from_league_cols:
+        logger.debug("Dropping unexpected suffix columns: %s", from_league_cols)
+        enriched.drop(columns=from_league_cols, inplace=True)
+
+    # Pass 2: for rows that didn't match (e.g. because league differs),
+    # attempt a join on (date, home_team, away_team) alone.
+    matched_mask = enriched[extra_cols].notna().any(axis=1)
+    unmatched = enriched[~matched_mask].copy()
+
+    if len(unmatched) > 0:
+        # Drop league from league_subset for the broader join
+        league_broad = league_subset.drop(columns=["league"], errors="ignore")
+
+        # Columns might duplicate after dropping league — only keep those
+        # that are still null in the unmatched rows
+        still_needed = [c for c in extra_cols if c in league_broad.columns]
+        if still_needed:
+            cols = ["_date_std", "home_team", "away_team"] + still_needed
+            league_broad = league_broad[cols]
+
+            fallback = unmatched[["_date_std", "home_team", "away_team"]].merge(
+                league_broad.drop_duplicates(subset=["_date_std", "home_team", "away_team"]),
+                on=["_date_std", "home_team", "away_team"],
+                how="left",
+                suffixes=("", "_fb"),
+            )
+            # Update the enriched DataFrame with fallback matches
+            for col in still_needed:
+                fb_col = f"{col}_fb"
+                if fb_col in fallback.columns:
+                    enriched.loc[~matched_mask, col] = fallback[fb_col].values
+
+            # Clean up _fb columns
+            fb_cols = [c for c in enriched.columns if c.endswith("_fb")]
+            if fb_cols:
+                enriched.drop(columns=fb_cols, inplace=True)
+
+    # ── Report ──────────────────────────────────────────────
+    matched_count = enriched[extra_cols].notna().any(axis=1).sum()
+    new_cols_added = [c for c in extra_cols if c in enriched.columns]
+
+    detail = (
+        f"Merged {len(new_cols_added)} columns (odds, stats) from {path.name} "
+        f"— {matched_count:,}/{len(enriched):,} rows enriched "
+        f"({matched_count / len(enriched) * 100:.1f}% coverage)"
+    )
+
+    # Clean up temporary column
+    enriched.drop(columns=["_date_std"], inplace=True)
+
+    logger.info(detail)
+    return enriched, detail
+
+
+# ═══════════════════════════════════════════════════════════
+#  Main pipeline entry point
+# ═══════════════════════════════════════════════════════════
+
+
 def run_preprocessing(
     input_path: str | Path | None = None,
     output_path: str | Path | None = None,
@@ -257,6 +597,9 @@ def run_preprocessing(
     ----------
     input_path : str | Path, optional
         Path to the raw CSV file.  Defaults to ``data/raw/results.csv``.
+        If ``data/matches.csv`` exists, it is used instead (it has broader
+        league coverage and xG data), and is enriched with columns from
+        ``data/raw/league_all.csv`` (full bookmaker odds, fouls, cards).
     output_path : str | Path, optional
         Where to save the cleaned CSV.  Defaults to ``data/processed/results_clean.csv``.
     save : bool
@@ -286,6 +629,7 @@ def run_preprocessing(
 
     steps = [
         ("1. Load raw data", _load_data),
+        ("1b. Enrich with league odds data", _enrich_odds),
         ("2. Convert dates", _convert_dates),
         ("3. Normalise team names", _normalise_team_names),
         ("4. Remove duplicates", _remove_duplicates),
@@ -297,15 +641,23 @@ def run_preprocessing(
 
     df = pd.DataFrame()
 
+    def _run_step(
+        step_name: str,
+        step_fn: Callable[..., tuple[pd.DataFrame, str]],
+        df: pd.DataFrame,
+    ) -> tuple[pd.DataFrame, str]:
+        if step_name == "1. Load raw data":
+            return step_fn(df, input_path, cfg=cfg)
+        elif step_name == "1b. Enrich with league odds data":
+            return step_fn(df, cfg=cfg)
+        elif step_name == "5. Handle missing values":
+            return step_fn(df, None, cfg=cfg)
+        else:
+            return step_fn(df, None)
+
     for step_name, step_fn in steps:
         stage_before = len(df) if not df.empty else 0
-        # Pass cfg to stage functions that accept it
-        if step_name == "1. Load raw data":
-            df, details = step_fn(df, input_path, cfg=cfg)
-        elif step_name == "5. Handle missing values":
-            df, details = step_fn(df, None, cfg=cfg)
-        else:
-            df, details = step_fn(df, None)
+        df, details = _run_step(step_name, step_fn, df)  # type: ignore[arg-type]
         stage_report = {
             "rows_before": stage_before,
             "rows_after": len(df),
@@ -346,11 +698,28 @@ def _load_data(
     input_path: str | Path | None,
     cfg: Any | None = None,
 ) -> tuple[pd.DataFrame, str]:
-    """Stage 1 — read raw CSV into a DataFrame."""
+    """Stage 1 — read raw CSV into a DataFrame.
+
+    If no explicit ``input_path`` is given, this method prefers
+    ``data/matches.csv`` over ``data/raw/results.csv`` because
+    ``matches.csv`` has broader league coverage (14 leagues), more
+    rows (53k vs 18k), and includes xG data.  When ``matches.csv``
+    is found, the subsequent enrichment stage (``1b``) merges full
+    bookmaker odds from ``data/raw/league_all.csv``.
+    """
     _cfg = cfg or _global_config
-    path = Path(input_path) if input_path else (
-        _cfg.paths.raw / _cfg.data_collection.output_file
-    )
+
+    if input_path:
+        path = Path(input_path)
+    else:
+        # Prefer matches.csv (richer data) over the default results.csv
+        matches_csv = Path("data/matches.csv")
+        default = _cfg.paths.raw / _cfg.data_collection.output_file
+        if matches_csv.exists():
+            path = matches_csv
+            logger.info("Using matches.csv as primary data source (14 leagues, xG data)")
+        else:
+            path = default
 
     if not path.exists():
         raise FileNotFoundError(
@@ -363,6 +732,41 @@ def _load_data(
     detail = f"Loaded {len(df)} rows × {len(df.columns)} cols from {path.name}"
     logger.info(detail)
     return df, detail
+
+
+def _enrich_odds(
+    df: pd.DataFrame,
+    _: Any = None,
+    cfg: Any | None = None,
+) -> tuple[pd.DataFrame, str]:
+    """Stage 1b — enrich primary match data with full bookmaker odds from league_all.csv.
+
+    Loads ``data/raw/league_all.csv`` and merges its extra columns (provider-specific
+    odds, closing odds, over/under, Asian handicap, fouls, cards, referee) into the
+    primary match data on ``(date, league, home_team, away_team)`` with a fallback to
+    ``(date, home_team, away_team)`` for unmatched rows.
+
+    **Why:**
+    - ``matches.csv`` (primary source when available) only has simplified odds
+      (home_odds, draw_odds, away_odds).
+    - ``league_all.csv`` has **168 extra columns** including per-bookmaker odds
+      (B365, BW, IW, WH, PS, VC), closing odds, over/under 2.5 odds from multiple
+      bookmakers, Asian handicap, fouls, cards, and referee data.
+    - More features → better model performance, especially for tree models.
+
+    **Join strategy:**
+    1. Primary: ``(date, league, home_team, away_team)`` — exact league match.
+    2. Fallback: ``(date, home_team, away_team)`` — for rows where league value
+       doesn't match (e.g. missing league in league_all).
+
+    **Edge cases handled:**
+    - ``league_all.csv`` not found: silently skipped.
+    - No new columns to merge: silently skipped.
+    - Date format differences between files: both parsed with ``dayfirst=True``.
+    """
+    if "date" not in df.columns:
+        return df, "No date column — enrichment skipped"
+    return enrich_from_league_all(df, cfg=cfg or _global_config)
 
 
 def _convert_dates(
@@ -392,12 +796,18 @@ def _convert_dates(
 
     before = df["date"].isnull().sum()
 
-    df["date"] = pd.to_datetime(df["date"], dayfirst=True, errors="coerce")
+    # Auto-detect date format: matches.csv uses YYYY-MM-DD (ISO),
+    # while football-data.co.uk raw CSVs use DD/MM/YYYY (UK).
+    sample = df["date"].dropna().astype(str)
+    if len(sample) > 0 and "/" in sample.iloc[0]:
+        df["date"] = pd.to_datetime(df["date"], dayfirst=True, errors="coerce")
+    else:
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
 
     after = df["date"].isnull().sum()
     coerced = after - before
 
-    detail_parts = [f"Parsed dates to datetime (dayfirst=True)"]
+    detail_parts = ["Parsed dates to datetime (auto-detected format)"]
     if coerced > 0:
         detail_parts.append(f"{coerced} values coerced to NaT")
 
@@ -653,22 +1063,34 @@ def _add_temporal_features(
     if "date" not in df.columns or df["date"].isnull().all():
         return df, "No valid dates — temporal features skipped"
 
-    if "year" not in df.columns:
-        df["year"] = df["date"].dt.year.astype("Int64")
-    if "month" not in df.columns:
-        df["month"] = df["date"].dt.month.astype("Int64")
+    # Work on a mask to skip rows with null dates
+    valid_mask = df["date"].notna()
 
-    df["day_of_week"] = df["date"].dt.dayofweek.astype("Int64")
-    df["day_of_year"] = df["date"].dt.dayofyear.astype("Int64")
+    if "year" not in df.columns:
+        df["year"] = pd.NA
+        df.loc[valid_mask, "year"] = df.loc[valid_mask, "date"].dt.year.astype("Int64")
+    if "month" not in df.columns:
+        df["month"] = pd.NA
+        df.loc[valid_mask, "month"] = df.loc[valid_mask, "date"].dt.month.astype("Int64")
+
+    df["day_of_week"] = pd.NA
+    df["day_of_year"] = pd.NA
+    df.loc[valid_mask, "day_of_week"] = df.loc[valid_mask, "date"].dt.dayofweek.astype("Int64")
+    df.loc[valid_mask, "day_of_year"] = df.loc[valid_mask, "date"].dt.dayofyear.astype("Int64")
 
     # Week of season: weeks since August 1st of the season's start year
-    df["_aug_1st"] = pd.to_datetime(
-        df["date"].dt.year.where(
-            df["date"].dt.month >= 8,
-            df["date"].dt.year - 1,
-        ).astype(str) + "-08-01"
-    )
-    df["week_of_season"] = ((df["date"] - df["_aug_1st"]).dt.days // 7 + 1).astype("Int64")
+    df["_aug_1st"] = pd.NaT
+    if valid_mask.any():
+        year_s = df.loc[valid_mask, "date"].dt.year
+        month_s = df.loc[valid_mask, "date"].dt.month
+        season_start_year = year_s.where(month_s >= 8, year_s - 1)
+        df.loc[valid_mask, "_aug_1st"] = pd.to_datetime(
+            season_start_year.astype(str) + "-08-01", errors="coerce"
+        )
+    df["week_of_season"] = pd.NA
+    df.loc[valid_mask, "week_of_season"] = (
+        (df.loc[valid_mask, "date"] - df.loc[valid_mask, "_aug_1st"]).dt.days // 7 + 1
+    ).astype("Int64")
     df.drop(columns=["_aug_1st"], inplace=True)
 
     # Midweek indicator

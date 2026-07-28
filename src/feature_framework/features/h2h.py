@@ -404,7 +404,7 @@ class H2HTransformer(FeatureTransformer):
         pair_stats.reset_index(drop=True, inplace=True)
 
         # Optional SQL integration: load extra historical data
-        load_fn: Callable | None = self.params.get("load_fn")
+        load_fn: Callable[..., Any] | None = self.params.get("load_fn")
         if load_fn is not None:
             try:
                 extra = load_fn()

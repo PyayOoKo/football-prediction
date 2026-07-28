@@ -92,6 +92,17 @@ class ValidationResult:
     def total_violations(self) -> int:
         return sum(c.violation_count for c in self.checks)
 
+    def get_violations(self) -> list[dict[str, Any]]:
+        """Get all violation details across all checks."""
+        result: list[dict[str, Any]] = []
+        for c in self.checks:
+            for v in c.violations:
+                result.append({
+                    "check": c.check_name,
+                    "message": v.get("message", ""),
+                })
+        return result
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "source_name": self.source_name,

@@ -162,7 +162,7 @@ class _PredictMatchesAdapter:
                 f"{type(self._model).__name__} requires df_raw parameter"
             )
         
-        preds_df = self._model.predict_matches(df_raw)
+        preds_df = self._model.predict_matches(df_raw)  # type: ignore[attr-defined]
         return np.column_stack([
             preds_df["away_win_prob"].values,
             preds_df["draw_prob"].values,
@@ -176,7 +176,7 @@ class _PredictMatchesAdapter:
     ) -> np.ndarray:
         """Get probabilities and return argmax."""
         probs = self.predict_proba(X=X, df_raw=df_raw)
-        return np.argmax(probs, axis=1)
+        return np.argmax(probs, axis=1)  # type: ignore[no-any-return]
 
 
 class _SklearnAdapter:
@@ -198,12 +198,12 @@ class _SklearnAdapter:
         
         # Handle NaN values gracefully
         try:
-            return np.asarray(self._model.predict_proba(X), dtype=np.float64)
+            return np.asarray(self._model.predict_proba(X), dtype=np.float64)  # type: ignore[attr-defined]
         except Exception:
             col_means = X.mean().fillna(0) if hasattr(X, "mean") else 0
             X_clean = X.fillna(col_means) if hasattr(X, "fillna") else X
             return np.asarray(
-                self._model.predict_proba(X_clean), dtype=np.float64
+                self._model.predict_proba(X_clean), dtype=np.float64  # type: ignore[attr-defined]
             )
     
     def predict(
@@ -216,4 +216,4 @@ class _SklearnAdapter:
             raise ValueError(
                 f"{type(self._model).__name__} requires X parameter"
             )
-        return np.asarray(self._model.predict(X))
+        return np.asarray(self._model.predict(X))  # type: ignore[attr-defined]

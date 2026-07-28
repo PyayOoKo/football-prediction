@@ -125,7 +125,7 @@ class MatchOddsCollection:
         return (best.away_odds, best.bookmaker)
 
     @property
-    def best_combined(self) -> dict[str, float]:
+    def best_combined(self) -> dict[str, Any]:
         """Best odds for each outcome, potentially from different bookmakers."""
         h_odds, h_bk = self.best_home_odds
         d_odds, d_bk = self.best_draw_odds
@@ -286,12 +286,12 @@ class OddsCollector:
 
         for h, a in team_pairs:
             key = f"{h.lower()}|{a.lower()}"
-            mc = lookup.get(key)
-            if mc is None:
+            match_odds: MatchOddsCollection | None = lookup.get(key)
+            if match_odds is None:
                 # Try swapped
                 swapped_key = f"{a.lower()}|{h.lower()}"
-                mc = lookup.get(swapped_key)
-                if mc:
+                match_odds = lookup.get(swapped_key)
+                if match_odds is not None:
                     # Swap teams and odds
                     result = {
                         "home_odds": mc.best_combined["away_odds"],
@@ -452,7 +452,7 @@ class OddsCollector:
         draw_vals = [b["draw_odds"] for b in bk_odds]
         away_vals = [b["away_odds"] for b in bk_odds]
 
-        def spread(vals):
+        def spread(vals: list[float]) -> float:
             return round(max(vals) - min(vals), 3) if vals else 0
 
         return {
@@ -526,7 +526,7 @@ class OddsCollector:
         cache_key = f"live_{sport_key}"
         cached = self._load_cache(cache_key)
         if cached is not None:
-            return cached
+            return cached  # type: ignore[no-any-return]
 
         url = f"{API_BASE_URL}/sports/{sport_key}/odds"
 
@@ -570,7 +570,7 @@ class OddsCollector:
         self._save_cache(cache_key, collections)
         return collections
 
-    def _parse_response(self, data: list[dict]) -> list[MatchOddsCollection]:
+    def _parse_response(self, data: list[dict[str, Any]]) -> list[MatchOddsCollection]:
         """Parse API response into MatchOddsCollection objects."""
         collections = []
         for event in data:

@@ -167,9 +167,10 @@ class RobotsChecker:
 
         except Exception as exc:
             logger.warning(
-                "Could not fetch robots.txt (%s) — using default polite policy",
+                "Could not fetch robots.txt (%s) — using FBref known disallowed paths",
                 exc,
             )
+            policy.disallowed_prefixes.extend(KNOWN_DISALLOWED_PREFIXES)
 
         self._policy = policy
         return policy

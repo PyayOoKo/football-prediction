@@ -215,7 +215,7 @@ class DriftDetector:
 
         # Overall drift score
         overall_score = np.mean(list(drift_scores.values())) if drift_scores else 0.0
-        drift_detected = (
+        drift_detected = bool(
             overall_score > self.config.overall_threshold
             or pred_drift > self.config.prediction_drift_threshold
         )
@@ -347,7 +347,7 @@ class DriftDetector:
         except Exception as exc:
             logger.warning("Failed to save drift history: %s", exc)
 
-    def get_drift_history(self, days: int = 30) -> list[dict]:
+    def get_drift_history(self, days: int = 30) -> list[dict[str, Any]]:
         """Get historical drift detection results.
 
         Parameters

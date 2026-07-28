@@ -84,6 +84,22 @@ def _compute_team_stats(df: pd.DataFrame) -> pd.DataFrame:
         season = getattr(row, "season", None) if has_season else None
         league = getattr(row, "league", None) if has_league else None
 
+        # ── Compute O/U, BTTS, clean sheet, scored flags ──
+        has_goals = not (np.isnan(hg) or np.isnan(ag))
+        if has_goals:
+            total_goals_val = hg + ag
+            over_2_5_val = int(total_goals_val > 2.5)
+            btts_val = int(hg > 0 and ag > 0)
+        else:
+            total_goals_val = np.nan
+            over_2_5_val = np.nan
+            btts_val = np.nan
+
+        home_clean_sheet = int(ag == 0) if not np.isnan(ag) else np.nan
+        home_scored = int(hg > 0) if not np.isnan(hg) else np.nan
+        away_clean_sheet = int(hg == 0) if not np.isnan(hg) else np.nan
+        away_scored = int(ag > 0) if not np.isnan(ag) else np.nan
+
         append(
             {
                 "team": home,
@@ -93,6 +109,11 @@ def _compute_team_stats(df: pd.DataFrame) -> pd.DataFrame:
                 "opponent": away,
                 "goals_scored": hg,
                 "goals_conceded": ag,
+                "total_goals": total_goals_val,
+                "over_2_5": over_2_5_val,
+                "btts": btts_val,
+                "clean_sheet": home_clean_sheet,
+                "scored": home_scored,
                 "is_home": 1,
                 "points": _match_points(result, True),
                 "match_id": idx,
@@ -107,6 +128,11 @@ def _compute_team_stats(df: pd.DataFrame) -> pd.DataFrame:
                 "opponent": home,
                 "goals_scored": ag,
                 "goals_conceded": hg,
+                "total_goals": total_goals_val,
+                "over_2_5": over_2_5_val,
+                "btts": btts_val,
+                "clean_sheet": away_clean_sheet,
+                "scored": away_scored,
                 "is_home": 0,
                 "points": _match_points(result, False),
                 "match_id": idx,
@@ -149,6 +175,11 @@ def _merge_team_stats(
             ("points", "mean"),
             ("goals_scored", "mean"),
             ("goals_conceded", "mean"),
+            ("total_goals", "mean"),
+            ("over_2_5", "mean"),
+            ("btts", "mean"),
+            ("clean_sheet", "mean"),
+            ("scored", "mean"),
         ]:
             for w in windows:
                 name = _rolling_col_name(col, agg_func, w)
@@ -218,12 +249,8 @@ def _merge_team_stats(
             "date",
             "season",
             "league",
-            "opponent",
-            "goals_scored",
-            "goals_conceded",
-            "is_home",
-            "points",
-            "gd",
+            "opponent",            "goals_scored", "goals_conceded", "is_home", "points", "gd",
+            "total_goals", "over_2_5", "btts", "clean_sheet", "scored",
         ]
     ]
 

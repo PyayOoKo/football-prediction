@@ -107,26 +107,28 @@ class TestFBrefScraper:
         assert "_category" in df.columns
         assert df["_competition"].iloc[0] == "Premier League"
 
-    @patch("src.data_collection.sources.fbref.scraper.FBrefClient.get")
-    def test_get_team_stats_mocked(self, mock_get) -> None:
-        """get_team_stats returns parsed tables from a mocked HTML response."""
+    def test_get_team_stats_mocked(self) -> None:
+        """get_team_stats returns parsed tables from a mocked response."""
         from src.data_collection.sources.fbref.scraper import FBrefScraper
 
-        mock_get.return_value = """\
-<html><body>
-<!--
-<table id="stats_standard">
-<thead><tr><th data-stat="player">Player</th><th data-stat="goals">Goals</th></tr></thead>
-<tbody><tr><td>Test Player</td><td>5</td></tr></tbody>
-</table>
--->
-</body></html>"""
+        # Mock both the HTTP client AND parser to avoid real HTTP requests
+        mock_tables = [
+            FBrefTable(
+                category=StatCategory.STANDARD,
+                competition="Premier League",
+                season="2024-2025",
+                columns=["player_name", "goals"],
+                rows=[{"player_name": "Test Player", "goals": 5}],
+            ),
+        ]
 
         scraper = FBrefScraper()
-        tables = scraper.get_team_stats_sync("9", "2024-2025", "standard")
+        with patch.object(scraper.parser, "parse_page", return_value=mock_tables):
+            with patch.object(scraper.client, "get", new_callable=AsyncMock, return_value="<html></html>"):
+                tables = scraper.get_team_stats_sync("9", "2024-2025", "standard")
 
-        assert len(tables) == 1
-        assert tables[0].category == StatCategory.STANDARD
-        assert len(tables[0].rows) == 1
-        assert tables[0].rows[0]["player_name"] == "Test Player"
-        assert tables[0].rows[0]["goals"] == 5
+                assert len(tables) == 1
+                assert tables[0].category == StatCategory.STANDARD
+                assert len(tables[0].rows) == 1
+                assert tables[0].rows[0]["player_name"] == "Test Player"
+                assert tables[0].rows[0]["goals"] == 5

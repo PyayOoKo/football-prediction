@@ -152,9 +152,11 @@ class PoissonModel:
         self,
         min_matches: int = 0,
         max_goals: int = _MAX_GOALS,
+        decay_halflife_days: float = 0.0,
     ) -> None:
         self.min_matches = min_matches
         self.max_goals = max_goals
+        self.decay_halflife_days = decay_halflife_days
 
         # ── Data computed by ``fit()`` ──
         self._league_avg_home: float = 0.0
@@ -364,25 +366,50 @@ class PoissonModel:
         """
         self._df = df.copy()
 
-        # ── League averages ───────────────────────────────
-        all_home_goals = df[home_goals_col].values.astype(float)
-        all_away_goals = df[away_goals_col].values.astype(float)
+        df_sorted = df.sort_values("date") if "date" in df.columns else df
 
-        n_matches = len(df)
-        self._league_avg_home = float(np.nanmean(all_home_goals)) if n_matches > 0 else 0.0
-        self._league_avg_away = float(np.nanmean(all_away_goals)) if n_matches > 0 else 0.0
+        # ── Compute recency weights if decay is enabled ───
+        use_decay = self.decay_halflife_days > 0 and "date" in df_sorted.columns
+        if use_decay:
+            ref_date = pd.Timestamp(df_sorted["date"].iloc[-1]) + pd.Timedelta(days=1)
+            days_ago = (ref_date - pd.to_datetime(df_sorted["date"])).dt.days.values.astype(float)
+            days_ago = np.maximum(days_ago, 0)
+            weights = np.exp(-np.log(2) * days_ago / self.decay_halflife_days)
+        else:
+            weights = None
+
+        # ── League averages (weighted) ────────────────────
+        all_home_goals = df_sorted[home_goals_col].values.astype(float)
+        all_away_goals = df_sorted[away_goals_col].values.astype(float)
+
+        n_matches = len(df_sorted)
+        if n_matches > 0:
+            if use_decay and weights is not None:
+                w_sum = np.sum(weights)
+                w_home = np.nansum(all_home_goals * weights) / w_sum if w_sum > 0 else np.nanmean(all_home_goals)
+                w_away = np.nansum(all_away_goals * weights) / w_sum if w_sum > 0 else np.nanmean(all_away_goals)
+                self._league_avg_home = float(w_home)
+                self._league_avg_away = float(w_away)
+            else:
+                self._league_avg_home = float(np.nanmean(all_home_goals))
+                self._league_avg_away = float(np.nanmean(all_away_goals))
+        else:
+            self._league_avg_home = 0.0
+            self._league_avg_away = 0.0
         self._league_avg_overall = (self._league_avg_home + self._league_avg_away) / 2.0
 
-        # ── Per-team strengths ────────────────────────────
+        # ── Per-team strengths (weighted) ─────────────────
         self._team_strengths = self._compute_team_strengths(
-            df, home_team_col, away_team_col,
+            df_sorted, home_team_col, away_team_col,
             home_goals_col, away_goals_col,
+            weights=weights,
         )
 
         self._fitted = True
         logger.info(
-            "PoissonModel fitted — %.0f home avg, %.0f away avg, %d teams",
+            "PoissonModel fitted — μ_home=%.3f, μ_away=%.3f, %d teams (decay=%s)",
             self._league_avg_home, self._league_avg_away, len(self._team_strengths),
+            f"{self.decay_halflife_days}d" if use_decay else "off",
         )
         return self
 
@@ -393,6 +420,7 @@ class PoissonModel:
         away_team_col: str,
         home_goals_col: str,
         away_goals_col: str,
+        weights: np.ndarray | None = None,
     ) -> dict[str, tuple[float, float]]:
         """Compute (attack, defense) for every team from all available data.
 
@@ -401,41 +429,48 @@ class PoissonModel:
 
         Defense strength:
             β_team = (goals_conceded_by_team / matches) / μ_overall
+
+        Parameters
+        ----------
+        weights : np.ndarray, optional
+            Per-match recency weights (aligned with df rows). If None,
+            simple unweighted averages are used (backward compatible).
         """
         μ = self._league_avg_overall
         if μ == 0.0:
             return {}
 
-        # Build per-team aggregates
+        # Build per-team weighted aggregates
         goals_scored: dict[str, float] = {}
         goals_conceded: dict[str, float] = {}
-        matches_played: dict[str, int] = {}
+        weight_sum: dict[str, float] = {}
 
-        for _, row in df.iterrows():
+        for idx, (_, row) in enumerate(df.iterrows()):
+            w = weights[idx] if weights is not None else 1.0
             home = row[home_team_col]
             away = row[away_team_col]
             hg = float(row.get(home_goals_col, 0) or 0)
             ag = float(row.get(away_goals_col, 0) or 0)
 
-            goals_scored[home] = goals_scored.get(home, 0.0) + hg
-            goals_scored[away] = goals_scored.get(away, 0.0) + ag
-            goals_conceded[home] = goals_conceded.get(home, 0.0) + ag
-            goals_conceded[away] = goals_conceded.get(away, 0.0) + hg
-            matches_played[home] = matches_played.get(home, 0) + 1
-            matches_played[away] = matches_played.get(away, 0) + 1
+            goals_scored[home] = goals_scored.get(home, 0.0) + hg * w
+            goals_scored[away] = goals_scored.get(away, 0.0) + ag * w
+            goals_conceded[home] = goals_conceded.get(home, 0.0) + ag * w
+            goals_conceded[away] = goals_conceded.get(away, 0.0) + hg * w
+            weight_sum[home] = weight_sum.get(home, 0.0) + w
+            weight_sum[away] = weight_sum.get(away, 0.0) + w
 
         strengths: dict[str, tuple[float, float]] = {}
         all_teams = set(goals_scored.keys()) | set(goals_conceded.keys())
 
         for team in all_teams:
-            m = matches_played.get(team, 0)
-            if m < self.min_matches:
-                # Not enough data — use league average (strength = 1.0)
+            w = weight_sum.get(team, 0.0)
+            if w < float(self.min_matches):
+                # Not enough effective weight — use league average (strength = 1.0)
                 strengths[team] = (1.0, 1.0)
                 continue
 
-            α = (goals_scored.get(team, 0.0) / m) / μ
-            β = (goals_conceded.get(team, 0.0) / m) / μ
+            α = (goals_scored.get(team, 0.0) / w) / μ
+            β = (goals_conceded.get(team, 0.0) / w) / μ
             strengths[team] = (α, β)
 
         return strengths
@@ -654,7 +689,7 @@ class PoissonModel:
 
         For each match chronologically:
         1. Compute league averages and team strengths from **all previous
-           matches** (expanding window).
+           matches** using time-decayed expanding window.
         2. Compute expected goals using ONLY pre-match data.
         3. Update the running aggregates with the current match's result.
 
@@ -679,6 +714,7 @@ class PoissonModel:
             - ``Away_Defense_Strength``
         """
         df = df.copy()
+        use_decay = self.decay_halflife_days > 0 and "date" in df.columns
 
         expected_home: list[float] = []
         expected_away: list[float] = []
@@ -687,12 +723,12 @@ class PoissonModel:
         away_attack_str: list[float] = []
         away_defense_str: list[float] = []
 
-        # Running aggregates for expanding-window computation
-        # {team: [total_goals_scored, total_goals_conceded, matches]}
+        # Running exponentially-weighted aggregates for expanding-window computation
+        # {team: [scored_weighted_sum, conceded_weighted_sum, weight_sum]}
         team_stats: dict[str, list[float]] = {}
-        total_home_goals = 0.0
-        total_away_goals = 0.0
-        total_matches = 0
+        home_wsum = 0.0      # weighted sum of home goals
+        away_wsum = 0.0      # weighted sum of away goals
+        match_wsum = 0.0     # sum of weights for league averages
         n = len(df)
 
         # Pre-extract column arrays for fast access
@@ -700,6 +736,9 @@ class PoissonModel:
         away_arr = df[away_team_col].values
         hg_arr = df[home_goals_col].values.astype(float)
         ag_arr = df[away_goals_col].values.astype(float)
+        date_arr = pd.to_datetime(df["date"].values) if use_decay else None
+
+        ln2 = np.log(2)
 
         for idx in range(n):
             home = home_arr[idx]
@@ -707,15 +746,37 @@ class PoissonModel:
             hg = hg_arr[idx] if not pd.isna(hg_arr[idx]) else 0.0
             ag = ag_arr[idx] if not pd.isna(ag_arr[idx]) else 0.0
 
-            μ_home = total_home_goals / total_matches if total_matches > 0 else 0.0
-            μ_away = total_away_goals / total_matches if total_matches > 0 else 0.0
-            μ_overall = (μ_home + μ_away) / 2.0 if total_matches > 0 else 0.0
+            # Compute decay factor since last match
+            decay = 1.0
+            if use_decay and date_arr is not None and idx > 0:
+                try:
+                    prev_date = date_arr[idx - 1]
+                    cur_date = date_arr[idx]
+                    days_gap = max((cur_date - prev_date).days, 0)
+                    decay = np.exp(-ln2 * days_gap / self.decay_halflife_days)
+                except Exception:
+                    decay = 1.0
+
+            # Apply decay to all running aggregates
+            for team_key in list(team_stats.keys()):
+                s = team_stats[team_key]
+                s[0] *= decay   # decay weighted scored
+                s[1] *= decay   # decay weighted conceded
+                s[2] *= decay   # decay the weight sum
+
+            home_wsum *= decay
+            away_wsum *= decay
+            match_wsum *= decay
+
+            μ_home = home_wsum / match_wsum if match_wsum > 0 else 0.0
+            μ_away = away_wsum / match_wsum if match_wsum > 0 else 0.0
+            μ_overall = (μ_home + μ_away) / 2.0 if match_wsum > 0 else 0.0
 
             def _strength(team: str, stat_type: str) -> float:
                 if μ_overall == 0.0 or team not in team_stats:
                     return 1.0
                 s = team_stats[team]
-                if s[2] == 0:
+                if s[2] <= 0:
                     return 1.0
                 avg = s[0 if stat_type == "attack" else 1] / s[2]
                 return avg / μ_overall
@@ -735,6 +796,7 @@ class PoissonModel:
             away_attack_str.append(α_away)
             away_defense_str.append(β_away)
 
+            # Update team stats with current match
             for team_key, scored, conceded in (
                 (home, hg, ag),
                 (away, ag, hg),
@@ -747,9 +809,9 @@ class PoissonModel:
                     s[1] += conceded
                     s[2] += 1.0
 
-            total_home_goals += hg
-            total_away_goals += ag
-            total_matches += 1
+            home_wsum += hg
+            away_wsum += ag
+            match_wsum += 1.0
 
         df["Expected_Home_Goals"] = expected_home
         df["Expected_Away_Goals"] = expected_away
@@ -765,23 +827,24 @@ class PoissonModel:
         df["Away_Defense_Strength"] = away_defense_str
 
         # Also store the final state so predict() can use rolling data
-        self._league_avg_home = μ_home if total_matches > 0 else 0.0
-        self._league_avg_away = μ_away if total_matches > 0 else 0.0
+        self._league_avg_home = μ_home if match_wsum > 0 else 0.0
+        self._league_avg_away = μ_away if match_wsum > 0 else 0.0
         self._league_avg_overall = (self._league_avg_home + self._league_avg_away) / 2.0
 
-        # Recompute global strengths from final state
-        for team, (scored, conceded, matches) in team_stats.items():
-            if self._league_avg_overall > 0 and matches > 0:
-                α = (scored / matches) / self._league_avg_overall
-                β = (conceded / matches) / self._league_avg_overall
+        # Recompute global strengths from final weighted state
+        for team, s in team_stats.items():
+            if self._league_avg_overall > 0 and s[2] > 0:
+                α = (s[0] / s[2]) / self._league_avg_overall
+                β = (s[1] / s[2]) / self._league_avg_overall
                 self._team_strengths[team] = (α, β)
 
         self._df = df
         self._fitted = True
 
         logger.info(
-            "Poisson features added — μ_home=%.3f, μ_away=%.3f, %d teams",
+            "Poisson features added — μ_home=%.3f, μ_away=%.3f, %d teams (decay=%s)",
             self._league_avg_home, self._league_avg_away, len(self._team_strengths),
+            f"{self.decay_halflife_days}d" if use_decay else "off",
         )
 
         return df
@@ -809,7 +872,7 @@ class PoissonModel:
         """
         if lam == 0.0:
             return 1.0 if k == 0 else 0.0
-        return (np.exp(-lam) * (lam ** k)) / factorial(k)
+        return (np.exp(-lam) * (lam ** k)) / factorial(k)  # type: ignore[return-value, unused-ignore, no-any-return]
 
     @staticmethod
     def _poisson_cdf(k: int, lam: float) -> float:

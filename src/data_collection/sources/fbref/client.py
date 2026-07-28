@@ -78,7 +78,7 @@ class CachedResponse:
 
     @staticmethod
     def from_bytes(data: bytes) -> CachedResponse:
-        return pickle.loads(data)
+        return pickle.loads(data)  # type: ignore[no-any-return]
 
 
 class FBrefClient:
@@ -181,7 +181,7 @@ class FBrefClient:
             "total": self._total_requests,
             "hit_ratio": round(
                 self._cache_hits / max(self._total_requests, 1) * 100, 1
-            ),
+            ),  # type: ignore[dict-item]
         }
 
     # ── Async API ──────────────────────────────────────
@@ -248,8 +248,8 @@ class FBrefClient:
                 if status != 200:
                     raise httpx.HTTPStatusError(
                         f"HTTP {status} for {full_url}",
-                        request=response.request,
-                        response=response,
+                        request=response.request,  # type: ignore[arg-type]
+                        response=response,  # type: ignore[arg-type]
                     )
 
                 # Cache the result
@@ -279,7 +279,7 @@ class FBrefClient:
     ) -> dict[str, Any]:
         """Fetch a URL and parse as JSON."""
         html = await self.get(url, force_refresh)
-        return json.loads(html)
+        return json.loads(html)  # type: ignore[no-any-return]
 
     async def get_multiple(
         self,
@@ -310,7 +310,7 @@ class FBrefClient:
                 logger.error("Failed to fetch %s: %s", url, result)
                 output.append("")
             else:
-                output.append(result)
+                output.append(result)  # type: ignore[arg-type]
         return output
 
     # ── Sync API ───────────────────────────────────────

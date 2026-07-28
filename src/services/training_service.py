@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 import numpy as np
 import pandas as pd
@@ -34,7 +34,7 @@ class TrainingService:
     """
 
     def __init__(self, model_dir: Path | None = None, config: ConfigProvider | None = None) -> None:
-        self._config = config or get_container().resolve(ConfigProvider)
+        self._config = config or get_container().resolve(ConfigProvider)  # type: ignore[type-abstract]
         self._model_dir = model_dir or self._config.paths.models
         self._model_dir.mkdir(parents=True, exist_ok=True)
 
@@ -46,7 +46,7 @@ class TrainingService:
         model_type: str | None = None,
         tune_hyperparams: bool = False,
         cv_folds: int | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Train a new model end-to-end.
 
         Loads data from *data_path*, builds the feature matrix via
@@ -136,7 +136,7 @@ class TrainingService:
                 completed_sorted.reset_index(drop=True, inplace=True)
 
             # Determine training boundary using same split ratios as downstream
-            train_ratio = cfg.data.split_ratios[0]
+            train_ratio = cfg.data.split_ratios[0]  # type: ignore[attr-defined]
             train_end = int(len(completed_sorted) * train_ratio)
             train_teams = completed_sorted.iloc[:train_end][["home_team", "away_team"]]
             train_targets = completed_sorted.iloc[:train_end]["target"]
@@ -178,7 +178,7 @@ class TrainingService:
 
         # ── 3b. Feature selection (AFTER split — fit on X_train only!) ──
         _fitted_selector = None
-        if cfg.feature_selection.enabled:
+        if cfg.feature_selection.enabled:  # type: ignore[attr-defined]
             X_train_fs, selector = self._apply_feature_selection_post_split(
                 splits["X_train"], splits["y_train"],
             )
@@ -188,13 +188,13 @@ class TrainingService:
             _fitted_selector = selector
             logger.info(
                 "Feature selection (%s) fit on X_train only: %d -> %d features",
-                cfg.feature_selection.method,
+                cfg.feature_selection.method,  # type: ignore[attr-defined]
                 splits["X_train"].shape[1] + (X.shape[1] - splits["X_train"].shape[1]),
                 splits["X_train"].shape[1],
             )
 
         # ── 5. Optional hyper-parameter tuning ─────────────
-        tuning_report: dict | None = None
+        tuning_report: dict[str, Any] | None = None
         if tune_hyperparams:
             tuning_report = self._run_tuning(
                 splits["X_train"], splits["y_train"],
@@ -230,12 +230,20 @@ class TrainingService:
         y_pred = model.predict(splits["X_test"])
         y_proba = model.predict_proba(splits["X_test"])
 
+        _ALL_CLASSES = [0, 1, 2]  # Away Win=0, Draw=1, Home Win=2
         test_accuracy = float(accuracy_score(splits["y_test"], y_pred))
-        test_log_loss = float(log_loss(splits["y_test"], y_proba))
+        try:
+            test_log_loss = float(log_loss(
+                splits["y_test"], y_proba,
+                labels=_ALL_CLASSES,
+            ))
+        except (ValueError, Exception):
+            test_log_loss = float('nan')
         cm = confusion_matrix(splits["y_test"], y_pred).tolist()
         class_report = classification_report(
             splits["y_test"], y_pred,
             target_names=["Away Win", "Draw", "Home Win"],
+            labels=_ALL_CLASSES,
             output_dict=True, zero_division=0,
         )
 
@@ -292,7 +300,7 @@ class TrainingService:
 
         return report
 
-    def evaluate(self, model_path: str | Path) -> dict:
+    def evaluate(self, model_path: str | Path) -> dict[str, Any]:
         """Evaluate a trained model on held-out test data.
 
         Loads the model, finds the most relevant dataset automatically,
@@ -380,7 +388,7 @@ class TrainingService:
         logger.info("Evaluation — accuracy=%.4f, log-loss=%.4f", accuracy, ll)
         return result
 
-    def list_models(self) -> list[dict]:
+    def list_models(self) -> list[dict[str, Any]]:
         """List all trained models with metadata.
 
         Scans the ``models/`` directory for ``.joblib`` files and
@@ -396,7 +404,7 @@ class TrainingService:
             logger.warning("Model directory %s does not exist.", self._model_dir)
             return []
 
-        models: list[dict] = []
+        models: list[dict[str, Any]] = []
         for fpath in sorted(self._model_dir.glob("*.joblib")):
             stat = fpath.stat()
             models.append({
@@ -418,7 +426,7 @@ class TrainingService:
         y_train: pd.Series,
         n_folds: int | None = None,
         model_type: str | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Run hyper-parameter tuning and return a summary.
 
         Saves and restores ``config.train.model_type`` so the caller's
@@ -483,7 +491,7 @@ class TrainingService:
         tuple[pd.DataFrame, object]
             Reduced training DataFrame and the fitted sklearn selector/pipeline.
         """
-        fs = self._config.feature_selection
+        fs = self._config.feature_selection  # type: ignore[attr-defined]
 
         # ── Step 1: Drop highly-correlated redundant pairs ──
         selector = self._build_selector(X_train, y_train)
@@ -493,15 +501,15 @@ class TrainingService:
     def _build_selector(self, X: pd.DataFrame, y: pd.Series) -> Any:
         """Build a sklearn-compatible selector pipeline (unfitted)."""
         from sklearn.pipeline import Pipeline
-        fs = self._config.feature_selection
+        fs = self._config.feature_selection  # type: ignore[attr-defined]
         steps: list[tuple[str, Any]] = []
 
         if fs.drop_redundant_first and fs.correlation_threshold < 1.0:
             # DropCorrelated — custom transformer
             from sklearn.base import BaseEstimator, TransformerMixin
 
-            class DropCorrelated(BaseEstimator, TransformerMixin):
-                def fit(self, X, y=None):
+            class DropCorrelated(BaseEstimator, TransformerMixin):  # type: ignore[misc]
+                def fit(self, X: pd.DataFrame, y: Any = None) -> Self:
                     corr = X.corr().abs()
                     upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
                     to_drop = [
@@ -512,7 +520,7 @@ class TrainingService:
                     self.to_drop_ = to_drop
                     return self
 
-                def transform(self, X):
+                def transform(self, X: pd.DataFrame) -> pd.DataFrame:
                     return X.drop(columns=[c for c in self.to_drop_ if c in X.columns], errors="ignore")
 
             steps.append(("drop_corr", DropCorrelated()))
@@ -548,8 +556,8 @@ class TrainingService:
         elif method == "threshold":
             from sklearn.base import BaseEstimator, TransformerMixin
 
-            class ThresholdSelector(BaseEstimator, TransformerMixin):
-                def fit(self, X, y=None):
+            class ThresholdSelector(BaseEstimator, TransformerMixin):  # type: ignore[misc]
+                def fit(self, X: pd.DataFrame, y: Any = None) -> Self:
                     from sklearn.ensemble import RandomForestClassifier
                     rf = RandomForestClassifier(
                         n_estimators=100, max_depth=6,
@@ -565,7 +573,7 @@ class TrainingService:
                         self.selected_cols_ = [importances.idxmax()]
                     return self
 
-                def transform(self, X):
+                def transform(self, X: pd.DataFrame) -> pd.DataFrame:
                     keep = [c for c in self.selected_cols_ if c in X.columns]
                     return X[keep]
 
@@ -575,10 +583,10 @@ class TrainingService:
             # No-op passthrough
             from sklearn.base import BaseEstimator, TransformerMixin
 
-            class Passthrough(BaseEstimator, TransformerMixin):
-                def fit(self, X, y=None):
+            class Passthrough(BaseEstimator, TransformerMixin):  # type: ignore[misc]
+                def fit(self, X: pd.DataFrame, y: Any = None) -> Self:
                     return self
-                def transform(self, X):
+                def transform(self, X: pd.DataFrame) -> pd.DataFrame:
                     return X
 
             steps.append(("passthrough", Passthrough()))
@@ -698,7 +706,7 @@ class TrainingService:
         return X
 
     @staticmethod
-    def _extract_importances(model: Any, X: pd.DataFrame) -> list[dict] | None:
+    def _extract_importances(model: Any, X: pd.DataFrame) -> list[dict[str, Any]] | None:
         """Extract top-15 feature importances if the model exposes them."""
         if not hasattr(model, "feature_importances_"):
             return None

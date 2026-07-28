@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+import pandas as pd
+
 
 class StatCategory(str, Enum):
     """FBref stat category identifiers used in URLs and table IDs."""
@@ -139,7 +141,7 @@ class SquadStats:
     competition: str = ""
     stat_tables: dict[StatCategory, FBrefTable] = field(default_factory=dict)
 
-    def to_dataframe(self, category: StatCategory):
+    def to_dataframe(self, category: StatCategory) -> pd.DataFrame | None:
         """Convert a specific category's data to a DataFrame."""
         import pandas as pd
 

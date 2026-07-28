@@ -1,31 +1,20 @@
 """
-Automated Prediction Pipeline — run daily to download, train, predict, and report.
+Automated Prediction Pipeline — split into subcommands for fast, targeted runs.
 
-Uses the **3-model blend** (Poisson + Elo + XGBoost) for predictions by default,
-which also predicts Over/Under and BTTS markets alongside 1X2 match outcomes.
-Optionally falls back to the ensemble model (XGBoost + Logistic Regression +
-Poisson) with ``--ensemble``.
+Supports both subcommands and the original flag-based workflow:
 
-Usage
------
-::
+    python run_pipeline.py                    # Full daily run (same as "all")
+    python run_pipeline.py predict            # Predict only (fast)
+    python run_pipeline.py train              # Retrain ensemble only
+    python run_pipeline.py blend              # Retrain 5-model blend only
+    python run_pipeline.py download           # Download data only
+    python run_pipeline.py preprocess         # Preprocess only
+    python run_pipeline.py value-bets         # Value bets only
+    python run_pipeline.py all                # Full pipeline
 
-    python run_pipeline.py                    # Full daily run (blend default)
-    python run_pipeline.py --ensemble         # Use ensemble model instead of blend
-    python run_pipeline.py --skip-blend       # Skip blend training (ensemble only)
-    python run_pipeline.py --skip-download    # Skip data download (use existing)
-    python run_pipeline.py --skip-train       # Skip retraining (use existing model)
-    python run_pipeline.py --lightweight      # Skip download + train (predict only)
-
-Schedule (cron)
----------------
-Add to crontab to run daily at 8 AM::
-
-    0 8 * * * cd /path/to/project && python run_pipeline.py >> logs/pipeline.log 2>&1
-
-Or using Windows Task Scheduler / schtasks::
-
-    schtasks /create /tn "FootballPredictor" /tr "python run_pipeline.py" /sc daily /st 08:00
+Flags (apply to all subcommands):
+    python run_pipeline.py predict --batch-size 500
+    python run_pipeline.py train --skip-blend
 
 Pipeline steps
 --------------
@@ -33,17 +22,20 @@ Pipeline steps
 2. **Preprocess** — clean, normalise, and validate the updated dataset
 3. **Check retrain** — compare model file age vs data update time; retrain if stale
 4. **Train ensemble** — train XGBoost + Logistic Regression + Poisson, optimise weights on val set
-5. **Build 3-model blend** — combine Poisson + Elo + XGBoost for 1X2, O/U, BTTS markets
+5. **Build 5-model blend** — combine DC + Elo + XGB + LGB + Cat for 1X2, O/U, BTTS
 6. **Predict** — run the blend (or ensemble) on the most recent / upcoming matches
 7. **Save** — write predictions to CSV in ``reports/predictions/``
 8. **Report** — print / save a summary of the run
 
-Failure handling
-----------------
-- Every step is wrapped in a try/except with detailed error logging.
-- If any step fails, the pipeline continues to the next step (unless it's a
-  hard dependency — e.g. prediction requires features).
-- A final status table shows which steps succeeded or failed.
+Schedule (cron)
+---------------
+Add to crontab to run daily at 8 AM:
+
+    0 8 * * * cd /path/to/project && python run_pipeline.py all >> logs/pipeline.log 2>&1
+
+Or using Windows Task Scheduler / schtasks:
+
+    schtasks /create /tn "FootballPredictor" /tr "python run_pipeline.py all" /sc daily /st 08:00
 """
 
 from __future__ import annotations
@@ -57,6 +49,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from config import config
@@ -171,6 +164,9 @@ def step_download() -> dict[str, Any]:
 def step_preprocess() -> dict[str, Any]:
     """Run the preprocessing pipeline on the raw data.
 
+    Checks if ``results_clean.csv`` already exists and is newer than the
+    raw input file.  If so, preprocessing is skipped to save time.
+
     Returns
     -------
     dict[str, Any]
@@ -179,6 +175,26 @@ def step_preprocess() -> dict[str, Any]:
     logger.info("-" * 60)
     logger.info("STEP 2: Preprocess data")
     logger.info("-" * 60)
+
+    # Staleness check: skip if clean file exists and is newer than raw input
+    raw_path = config.paths.raw / config.data_collection.output_file
+    clean_path = config.paths.processed / "results_clean.csv"
+    if clean_path.exists() and raw_path.exists():
+        clean_mtime = clean_path.stat().st_mtime
+        raw_mtime = raw_path.stat().st_mtime
+        if clean_mtime >= raw_mtime:
+            logger.info(
+                "  Clean file is up-to-date (%s) — skipping preprocessing",
+                clean_path.name,
+            )
+            df = pd.read_csv(clean_path, low_memory=False)
+            return {
+                "success": True,
+                "rows": len(df),
+                "columns": len(df.columns),
+                "output_path": str(clean_path),
+                "skipped": True,
+            }
 
     try:
         from src.preprocessing import run_preprocessing
@@ -261,10 +277,15 @@ def _increment_run_count() -> int:
     return count
 
 
-def step_retrain() -> dict[str, Any]:
+def step_retrain(batch_size: int = 0) -> dict[str, Any]:
     """Retrain the ensemble model if needed.        Trains the full ensemble (XGBoost + Logistic Regression + Poisson),
         optimises weights on the validation set, and saves the trained
         ensemble to disk.
+
+    Parameters
+    ----------
+    batch_size : int
+        If > 0, limit data to the most recent N matches (for quick tests).
 
     Returns
     -------
@@ -290,6 +311,11 @@ def step_retrain() -> dict[str, Any]:
 
         logger.info("  Loading preprocessed data ...")
         df = pd.read_csv(data_path, low_memory=False)
+
+        # Limit to most recent N rows if batch_size is set
+        if batch_size > 0 and len(df) > batch_size:
+            df = df.iloc[-batch_size:].copy()
+            logger.info("  Limited to %d most recent rows (batch-size)", batch_size)
 
         logger.info("  Building features ...")
         X, y = build_features(df, is_training=True)
@@ -338,15 +364,19 @@ def step_retrain() -> dict[str, Any]:
 # ═══════════════════════════════════════════════════════════
 
 
-def step_retrain_blend() -> dict[str, Any]:
-    """Train and save the 3-model blend (Poisson + Elo + XGBoost).
+def step_retrain_blend(batch_size: int = 0) -> dict[str, Any]:
+    """Train and save the 5-model blend (DC + Elo + XGB + LGB + Cat).
 
-    Loads preprocessed data, fits Poisson and Elo from scratch, extracts
+    Loads preprocessed data, fits Dixon-Coles and Elo from scratch, extracts
     the XGBoost model from the saved ensemble (``ensemble_model.joblib``),
     builds the ``ThreeModelBlend``, and persists it.
 
-    Falls back to standalone ``xgboost_model.joblib`` / ``worldcup_xgboost.joblib``
-    if the ensemble model is not available.
+    Falls back to standalone model files if the ensemble model is not available.
+
+    Parameters
+    ----------
+    batch_size : int
+        If > 0, limit data to the most recent N matches (for quick tests).
 
     Returns
     -------
@@ -373,13 +403,20 @@ def step_retrain_blend() -> dict[str, Any]:
         df = pd.read_csv(data_path, low_memory=False)
         if "date" in df.columns:
             df["date"] = pd.to_datetime(df["date"])
+
+        # Limit to most recent N rows if batch_size is set
+        if batch_size > 0 and len(df) > batch_size:
+            df = df.iloc[-batch_size:].copy()
+            logger.info("  Limited to %d most recent rows (batch-size)", batch_size)
+
         logger.info("  %d rows loaded", len(df))
 
-        # Fit Poisson model
-        logger.info("  Fitting Poisson model ...")
-        from src.poisson_model import PoissonModel
-        poisson = PoissonModel()
-        poisson.fit(df)
+        # Fit Dixon-Coles model
+        logger.info("  Fitting Dixon-Coles model ...")
+        from src.dixon_coles import DixonColesModel
+        dc = DixonColesModel(decay_halflife_days=1460)
+        dc.fit(df)
+        logger.info("  DC fitted — γ=%.3f, ρ=%.3f", dc.home_advantage, dc.rho)
 
         # Fit Elo system
         logger.info("  Fitting Elo system ...")
@@ -387,53 +424,107 @@ def step_retrain_blend() -> dict[str, Any]:
         elo = EloSystem()
         elo.process_matches(df)
 
-        # ── Load XGBoost model ────────────────────────────────────
-        # Priority 1: Extract from the saved EnsembleModel (just trained by step_retrain)
-        xgb = None
-        ensemble_path = config.paths.models / _pipeline_cfg.model_file
-        if ensemble_path.exists():
-            try:
-                ensemble_payload = joblib.load(ensemble_path)
-                # EnsembleModel.save() stores models dict with "xgboost" key
-                models_dict = ensemble_payload.get("models", {})
-                if "xgboost" in models_dict:
-                    xgb = models_dict["xgboost"]
-                    logger.info("  XGBoost extracted from %s (key='xgboost')", ensemble_path.name)
-            except Exception as exc:
-                logger.warning("  Failed to extract XGBoost from ensemble: %s", exc)
+        # ── Load tree models (prefer standalone retrained, fall back to ensemble) ──
+        import joblib
 
-        # Priority 2: Standalone XGBoost model file
-        if xgb is None:
+        def _load_xgb() -> Any:
+            """Load XGBoost model: standalone first, then ensemble extraction, then legacy."""
+            # 1. Standalone retrained (best: tuned on pipeline feature set)
             for candidate in ["xgboost_model.joblib", "worldcup_xgboost.joblib", "xgboost_model"]:
                 p = config.paths.models / candidate
                 if p.exists():
-                    xgb = joblib.load(p)
-                    logger.info("  XGBoost model loaded: %s", candidate)
-                    break
+                    try:
+                        m = joblib.load(p)
+                        logger.info("  XGBoost loaded: %s (standalone)", candidate)
+                        return m
+                    except Exception as exc:
+                        logger.warning("  Failed to load %s: %s", candidate, exc)
 
-        if xgb is None:
+            # 2. Extract from ensemble
+            ensemble_path = config.paths.models / _pipeline_cfg.model_file
+            if ensemble_path.exists():
+                try:
+                    ep = joblib.load(ensemble_path)
+                    models_dict = ep.get("models", {})
+                    if "xgboost" in models_dict:
+                        logger.info("  XGBoost extracted from %s (ensemble)", ensemble_path.name)
+                        return models_dict["xgboost"]
+                except Exception as exc:
+                    logger.warning("  Failed to extract XGBoost from ensemble: %s", exc)
+
             raise FileNotFoundError(
-                "No XGBoost model found for blend training. "
-                f"Searched ensemble model ({ensemble_path}) and standalone files "
-                "(xgboost_model.joblib, worldcup_xgboost.joblib)."
+                "No XGBoost model found. Searched standalone files "
+                "(xgboost_model.joblib, worldcup_xgboost.joblib) and ensemble."
             )
 
-        # Build blend
+        def _load_lgb() -> Any | None:
+            """Load LightGBM model if available (optional for 5-model blend)."""
+            for candidate in ["lightgbm_model.joblib", "lightgbm_model", "worldcup_lightgbm.joblib"]:
+                p = config.paths.models / candidate
+                if p.exists():
+                    try:
+                        m = joblib.load(p)
+                        logger.info("  LightGBM loaded: %s", candidate)
+                        return m
+                    except Exception:
+                        pass
+            logger.info("  No LightGBM model found — will skip in blend")
+            return None
+
+        def _load_cat() -> Any | None:
+            """Load CatBoost model if available (optional for 5-model blend)."""
+            for candidate in ["catboost_model.joblib", "catboost_model"]:
+                p = config.paths.models / candidate
+                if p.exists():
+                    try:
+                        m = joblib.load(p)
+                        logger.info("  CatBoost loaded: %s", candidate)
+                        return m
+                    except Exception:
+                        pass
+            logger.info("  No CatBoost model found — will skip in blend")
+            return None
+
+        xgb = _load_xgb()
+        lgb = _load_lgb()
+        cat = _load_cat()
+
+        # Build blend (5-model capable — ThreeModelBlend handles missing models)
         from src.models.three_model_blend import ThreeModelBlend, ConditionalRates, DEFAULT_WEIGHTS
         cond_rates = ConditionalRates.from_data(df)
 
         blend = ThreeModelBlend(
-            poisson_model=poisson,
+            dc_model=dc,
             elo_model=elo,
             xgb_model=xgb,
+            lgb_model=lgb,
+            cat_model=cat,
             weights=DEFAULT_WEIGHTS,
             conditional_rates=cond_rates,
             historical_df=df,
         )
 
+        # Market-specific models are NOT loaded here because the blend pickle
+        # would embed them, making updates difficult. They are loaded on-the-fly
+        # in step_predict() where league context is available.
+
         # Persist
         blend.save(str(blend_path))
         logger.info("  ThreeModelBlend saved to %s", blend_path)
+
+        # ── Fit per-league Dixon-Coles models for O/U and BTTS ──
+        try:
+            if "league" in df.columns:
+                pl_result = fit_per_league_dc_models(df, blend)
+                logger.info(
+                    "  Per-league DC models: %d leagues fitted (%s)",
+                    pl_result["n_fitted"],
+                    ", ".join(pl_result["leagues_fitted"]) if pl_result["leagues_fitted"] else "none",
+                )
+            else:
+                logger.info("  No 'league' column in data — skipping per-league DC models")
+        except Exception as pl_exc:
+            logger.warning("  Per-league DC fitting failed: %s — continuing with global DC only", pl_exc)
 
         # ── Fit and save 1X2 probability calibrator ──────────
         try:
@@ -446,11 +537,23 @@ def step_retrain_blend() -> dict[str, Any]:
             if len(df_val) > 50:
                 ppm = blend.precompute(df_val)
                 w = blend.weights["1X2"]
-                val_probs = (
-                    w["poisson"] * ppm.pois_1x2
-                    + w["elo"] * ppm.elo_1x2
-                    + w["xgb"] * ppm.xgb_1x2
-                )
+                # Build blended probs from all available models
+                model_sources = {
+                    "dc": ppm.dc_1x2,
+                    "elo": ppm.elo_1x2,
+                    "xgb": ppm.xgb_1x2,
+                    "lgb": ppm.lgb_1x2,
+                    "cat": ppm.cat_1x2,
+                }
+                val_probs = np.zeros_like(ppm.dc_1x2)
+                total_w = 0.0
+                for key, probs in model_sources.items():
+                    weight = w.get(key, 0.0)
+                    if weight > 0:
+                        val_probs += weight * probs
+                        total_w += weight
+                if total_w > 0:
+                    val_probs /= total_w
                 row_sums = val_probs.sum(axis=1, keepdims=True)
                 row_sums[row_sums == 0] = 1.0
                 val_probs = val_probs / row_sums
@@ -567,13 +670,20 @@ def step_value_bets(calibrate: str, max_odds: float) -> dict[str, Any]:
         return {"success": False, "n_value_bets": 0, "error": str(exc)}
 
 
-def step_predict(use_blend: bool = True) -> dict[str, Any]:
+def step_predict(use_blend: bool = True, batch_size: int = 0) -> dict[str, Any]:
     """Generate predictions for upcoming / most recent matches.
 
-    By default uses the saved ``ThreeModelBlend`` (Poisson + Elo + XGBoost)
+    By default uses the saved ``ThreeModelBlend`` (DC + Elo + XGB + LGB + Cat)
     which predicts 1X2, Over/Under, and BTTS probabilities.  When
     ``use_blend=False`` loads the ``EnsembleModel`` (XGBoost + Logistic
     Regression + Poisson) for 1X2 predictions only.
+
+    Parameters
+    ----------
+    use_blend : bool
+        Whether to use the 5-model blend (default True).
+    batch_size : int
+        If > 0, limit data to the most recent N matches (for quick tests).
 
     Returns
     -------
@@ -604,6 +714,46 @@ def step_predict(use_blend: bool = True) -> dict[str, Any]:
                 raise FileNotFoundError(f"ThreeModelBlend not found at {blend_path} — run 'python run_pipeline.py' first to train the blend")
 
             blend = ThreeModelBlend.load(str(blend_path), historical_df=df)
+
+            # ── Load per-league DC models for the prediction set ──
+            per_league_dir = Path("models") / "per_league"
+            if per_league_dir.exists():
+                loaded_count = 0
+                if "league" in df.columns:
+                    leagues_in_data = set(df["league"].dropna().unique())
+                    for league_code in leagues_in_data:
+                        dc_path = per_league_dir / str(league_code) / "dc_model.joblib"
+                        if dc_path.exists():
+                            try:
+                                import joblib
+                                dc_model = joblib.load(dc_path)
+                                blend.per_league_dc[str(league_code)] = dc_model
+                                loaded_count += 1
+                            except Exception as exc:
+                                logger.warning("  Failed to load per-league DC for %s: %s", league_code, exc)
+                if loaded_count > 0:
+                    logger.info("  Loaded %d per-league DC models for prediction", loaded_count)
+
+            # ── Load market-specific models for the leagues in the prediction set ──
+            loaded_leagues: list[str] = []
+            if "league" in df.columns:
+                leagues_in_data = df["league"].dropna().unique()
+                market_models_dir = Path("models") / "per_league"
+                if market_models_dir.exists():
+                    for league in leagues_in_data:
+                        league_dir = market_models_dir / league
+                        if league_dir.is_dir():
+                            result = blend.load_market_models(models_dir=league_dir)
+                            # Only load the first matching league — market model dicts use
+                            # generic keys ("xgb", "lgb", "cat"), so subsequent leagues
+                            # would overwrite the same keys.
+                            if result["ou"] > 0 or result["btts"] > 0:
+                                loaded_leagues.append(league)
+                                break
+            if loaded_leagues:
+                logger.info("  Market models loaded for prediction: %d O/U, %d BTTS (league: %s)",
+                             len(blend.ou_models), len(blend.btts_models),
+                             loaded_leagues[0])
 
             # Predict on last N rows using the blend's predict_matches
             n_recent = min(50, len(df) // 2)
@@ -734,7 +884,7 @@ def step_report(
         # Determine which model type was used
         br = results.get("retrain_blend", {})
         if br.get("success") and br.get("retrained"):
-            model_label = "3-Model Blend (Poisson + Elo + XGBoost)"
+            model_label = "5-Model Blend (DC + Elo + XGB + LGB + Cat)"
         elif br.get("success") and br.get("skipped"):
             model_label = "Ensemble (XGBoost + Logistic Regression + Poisson)"
         else:
@@ -846,17 +996,118 @@ def _all_steps_succeeded(results: dict[str, dict[str, Any]]) -> bool:
     return all(r.get("success", False) for r in results.values())
 
 
+def fit_per_league_dc_models(df: pd.DataFrame, blend: Any, min_matches: int = 100) -> dict[str, Any]:
+    """Fit per-league Dixon-Coles models for O/U and BTTS predictions.
+
+    Groups the DataFrame by league code, fits a separate ``DixonColesModel``
+    for each league that has at least ``min_matches`` entries, and saves it to
+    ``models/per_league/{league_code}/dc_model.joblib``.  The models are also
+    attached to ``blend.per_league_dc`` for immediate use.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Historical match data with a ``league`` column.
+    blend : ThreeModelBlend
+        The blend instance to attach per-league models to.
+    min_matches : int
+        Minimum matches a league must have to fit a dedicated DC model
+        (default 100).  Leagues with fewer matches fall back to the
+        global DC model.
+
+    Returns
+    -------
+    dict[str, Any]
+        Summary: ``{"n_fitted": int, "leagues_fitted": list[str],
+                   "errors": list[str]}``
+    """
+    import joblib
+    from src.dixon_coles import DixonColesModel
+    from config import config
+
+    logger.info("  Fitting per-league Dixon-Coles models ...")
+
+    leagues_fitted: list[str] = []
+    errors: list[str] = []
+
+    if "league" not in df.columns:
+        return {"n_fitted": 0, "leagues_fitted": [], "errors": ["No league column in data"]}
+
+    # Get per-league config overrides
+    dc_config = config.dixon_coles.per_league if hasattr(config.dixon_coles, "per_league") else {}
+
+    for league_code in sorted(df["league"].dropna().unique()):
+        try:
+            league_code = str(league_code)
+            league_df = df[df["league"] == league_code].copy()
+
+            if len(league_df) < min_matches:
+                logger.info("    %s: %d matches (below min=%d) — skipping", league_code, len(league_df), min_matches)
+                continue
+
+            # League-specific config overrides
+            overrides = dc_config.get(league_code, {})
+            halflife = overrides.get("decay_halflife_days", config.dixon_coles.decay_halflife_days)
+            rho_fixed = overrides.get("rho_fixed", config.dixon_coles.rho_fixed)
+
+            logger.info(
+                "    Fitting %s: %d matches (halflife=%.0f, rho=%s)",
+                league_code, len(league_df), halflife,
+                str(rho_fixed) if rho_fixed is not None else "mle",
+            )
+
+            dc = DixonColesModel(
+                decay_halflife_days=halflife,
+                use_importance=config.dixon_coles.use_importance,
+                rho_fixed=rho_fixed,
+                regress_prior=config.dixon_coles.regress_prior,
+                prior_strength=config.dixon_coles.prior_strength,
+            )
+            dc.fit(league_df, verbose=False)
+
+            # Save to models/per_league/{league_code}/dc_model.joblib
+            league_dir = Path("models") / "per_league" / league_code
+            league_dir.mkdir(parents=True, exist_ok=True)
+            model_path = league_dir / "dc_model.joblib"
+            joblib.dump(dc, model_path)
+
+            # Attach to blend for immediate use
+            blend.per_league_dc[league_code] = dc
+
+            leagues_fitted.append(league_code)
+            logger.info("      Fitted: γ=%.3f, ρ=%.3f -> %s", dc.home_advantage, dc.rho, model_path)
+
+        except Exception as exc:
+            msg = f"{league_code}: {exc}"
+            errors.append(msg)
+            logger.warning("    Per-league DC failed for %s: %s", league_code, exc)
+
+    result = {
+        "n_fitted": len(leagues_fitted),
+        "leagues_fitted": leagues_fitted,
+        "errors": errors,
+    }
+    logger.info("  Per-league DC summary: %d fitted, %d errors", result["n_fitted"], len(errors))
+    return result
+
+
 # ═══════════════════════════════════════════════════════════
 #  Main
 # ═══════════════════════════════════════════════════════════
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    """Parse command-line arguments."""
+    """Parse command-line arguments with subcommand support."""
     parser = argparse.ArgumentParser(
         description="Football Prediction — automated pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
+    )
+    parser.add_argument(
+        "command", nargs="?", default="all",
+        choices=["all", "download", "preprocess", "train", "blend", "predict", "value-bets"],
+        help="Pipeline step to run (default: all). "
+             "'all' runs every step in order.",
     )
     parser.add_argument(
         "--skip-download", action="store_true",
@@ -894,11 +1145,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--skip-blend", action="store_true",
         help="Skip training the 3-model blend (ensemble model only)",
     )
+    parser.add_argument(
+        "--batch-size", type=int, default=0,
+        help="Limit processing to the most recent N matches (default: 0 = all). "
+             "Useful for quick tests on a subset of data.",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the full prediction pipeline.
+    """Run the prediction pipeline — full run or single step based on subcommand.
 
     Parameters
     ----------
@@ -920,57 +1176,86 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print("=" * 70)
     print(f"  FOOTBALL PREDICTION PIPELINE — Run #{run_count}")
+    print(f"  Command: {args.command}")
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 70)
     print()
 
     results: dict[str, dict[str, Any]] = {}
 
-    # ── Step 1: Download ─────────────────────────────────
-    if args.lightweight or args.skip_download:
-        logger.info("Skipping download (--skip-download or --lightweight)")
-        results["download"] = {"success": True, "skipped": True}
-    else:
+    # ── Dispatch by subcommand ────────────────────────────
+    cmd = args.command
+
+    if cmd == "download":
         results["download"] = step_download()
 
-    # ── Step 2: Preprocess ───────────────────────────────
-    if args.lightweight:
-        logger.info("Skipping preprocess (--lightweight)")
-        results["preprocess"] = {"success": True, "skipped": True}
-    else:
+    elif cmd == "preprocess":
         results["preprocess"] = step_preprocess()
 
-    # ── Step 3: Retrain ──────────────────────────────────
-    if args.lightweight or args.skip_train:
-        logger.info("Skipping retrain (--skip-train or --lightweight)")
-        results["retrain"] = {"success": True, "retrained": False, "skipped": True}
-    else:
-        results["retrain"] = step_retrain()
-
-    # ── Step 3b: Build 3-blend (default, skip if --ensemble or --skip-blend) ─
-    if args.ensemble or args.skip_blend:
-        if args.skip_blend:
-            logger.info("Skipping blend training (--skip-blend)")
+    elif cmd == "train":
+        results["retrain"] = step_retrain(batch_size=args.batch_size)
+        if not args.skip_blend and not args.ensemble:
+            results["retrain_blend"] = step_retrain_blend(batch_size=args.batch_size)
         else:
-            logger.info("Using ensemble model (--ensemble) — skipping 3-model blend")
-        results["retrain_blend"] = {"success": True, "skipped": True, "message": "not requested"}
-    elif args.lightweight or args.skip_train:
-        results["retrain_blend"] = {"success": True, "retrained": False, "skipped": True, "message": "train skipped"}
-    else:
-        results["retrain_blend"] = step_retrain_blend()
+            results["retrain_blend"] = {"success": True, "skipped": True}
 
-    # ── Step 4: Predict ──────────────────────────────────
-    results["predict"] = step_predict(use_blend=not args.ensemble)
+    elif cmd == "blend":
+        results["retrain_blend"] = step_retrain_blend(batch_size=args.batch_size)
 
-    # ── Step 4b: Value bets ──────────────────────────────
-    if args.skip_value_bets:
-        logger.info("Skipping value bets (--skip-value-bets)")
-        results["value_bets"] = {"success": True, "skipped": True}
-    else:
+    elif cmd == "predict":
+        results["predict"] = step_predict(use_blend=not args.ensemble, batch_size=args.batch_size)
+        results["report"] = step_report(results)
+
+    elif cmd == "value-bets":
         results["value_bets"] = step_value_bets(args.calibrate, args.max_odds)
+        results["report"] = step_report(results)
 
-    # ── Step 5: Report ───────────────────────────────────
-    results["report"] = step_report(results)
+    else:  # cmd == "all" — full pipeline (original workflow)
+        # ── Step 1: Download ─────────────────────────────
+        if args.lightweight or args.skip_download:
+            logger.info("Skipping download (--skip-download or --lightweight)")
+            results["download"] = {"success": True, "skipped": True}
+        else:
+            results["download"] = step_download()
+
+        # ── Step 2: Preprocess ───────────────────────────
+        if args.lightweight:
+            logger.info("Skipping preprocess (--lightweight)")
+            results["preprocess"] = {"success": True, "skipped": True}
+        else:
+            results["preprocess"] = step_preprocess()
+
+        # ── Step 3: Retrain ──────────────────────────────
+        if args.lightweight or args.skip_train:
+            logger.info("Skipping retrain (--skip-train or --lightweight)")
+            results["retrain"] = {"success": True, "retrained": False, "skipped": True}
+        else:
+            results["retrain"] = step_retrain(batch_size=args.batch_size)
+
+        # ── Step 3b: Build 5-blend ──────────────────────
+        if args.ensemble or args.skip_blend:
+            if args.skip_blend:
+                logger.info("Skipping blend training (--skip-blend)")
+            else:
+                logger.info("Using ensemble model (--ensemble) — skipping 5-model blend")
+            results["retrain_blend"] = {"success": True, "skipped": True, "message": "not requested"}
+        elif args.lightweight or args.skip_train:
+            results["retrain_blend"] = {"success": True, "retrained": False, "skipped": True, "message": "train skipped"}
+        else:
+            results["retrain_blend"] = step_retrain_blend(batch_size=args.batch_size)
+
+        # ── Step 4: Predict ──────────────────────────────
+        results["predict"] = step_predict(use_blend=not args.ensemble, batch_size=args.batch_size)
+
+        # ── Step 4b: Value bets ──────────────────────────
+        if args.skip_value_bets:
+            logger.info("Skipping value bets (--skip-value-bets)")
+            results["value_bets"] = {"success": True, "skipped": True}
+        else:
+            results["value_bets"] = step_value_bets(args.calibrate, args.max_odds)
+
+        # ── Step 5: Report ───────────────────────────────
+        results["report"] = step_report(results)
 
     # ── Final status ─────────────────────────────────────
     ok = _all_steps_succeeded(results)

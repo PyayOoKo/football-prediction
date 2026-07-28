@@ -140,12 +140,11 @@ def load_model_info() -> dict:
     models_dir = config.paths.models
     info = {"total": 0, "found": [], "latest": None}
     key_models = [
-        "three_model_blend.joblib",       # ⭐ Primary: 3-model blend (Poisson + Elo + XGBoost)
+        "three_model_blend.joblib",       # ⭐ Primary: 5-model blend (DC + Elo + XGB + LGB + Cat)
         "ensemble_model.joblib",
         "xgboost_model.joblib",
         "lightgbm_model",
-        "worldcup_lightgbm.joblib",
-        "worldcup_xgboost.joblib",
+        "catboost_model.joblib",
         "calibrated_xgboost.joblib",
         "calibrated_random_forest.joblib",
         "calibrated_lightgbm.joblib",
@@ -161,12 +160,11 @@ def load_model_info() -> dict:
         info["latest"] = max(info["found"], key=lambda x: x["mtime"])
         # Add a human-readable display name
         _display_names = {
-            "three_model_blend.joblib": "3-Model Blend (Poisson+Elo+XGB)",
-            "ensemble_model.joblib": "Ensemble (XGB+LR+Poisson)",
+            "three_model_blend.joblib": "5-Model Blend (DC+Elo+XGB+LGB+Cat)",
+            "ensemble_model.joblib": "Ensemble (XGB+LR+DC)",
             "xgboost_model.joblib": "XGBoost",
             "lightgbm_model": "LightGBM",
-            "worldcup_lightgbm.joblib": "LightGBM (World Cup)",
-            "worldcup_xgboost.joblib": "XGBoost (World Cup)",
+            "catboost_model.joblib": "CatBoost",
             "calibrated_xgboost.joblib": "XGBoost (Calibrated)",
             "calibrated_random_forest.joblib": "Random Forest (Calibrated)",
             "calibrated_lightgbm.joblib": "LightGBM (Calibrated)",

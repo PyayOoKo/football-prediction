@@ -62,7 +62,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from src.feature_store.computers import ComputerRegistry, FeatureComputer
+import pandas as pd
 
 from src.feature_store.computers import ComputerRegistry, FeatureComputer
 from src.feature_store.models import (
@@ -677,7 +677,6 @@ class FeatureComputationEngine:
 
         # ── 1. Load / preprocess data ──────────────────────
         if preprocessed_path and Path(preprocessed_path).exists():
-            import pandas as pd
             df = pd.read_csv(preprocessed_path, low_memory=False)
             data_source = preprocessed_path
         else:
@@ -827,7 +826,7 @@ class FeatureComputationEngine:
                         status=FeatureStatus.ACTIVE,
                     )
                 except ValueError:
-                    defn = self._registry.latest(safe_name)
+                    defn = self._registry.latest(safe_name)  # type: ignore[assignment]
                     if defn is None:
                         defn = self._registry.register(
                             name=safe_name,

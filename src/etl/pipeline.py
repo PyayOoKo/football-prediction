@@ -220,6 +220,7 @@ class ETLPipeline:
 
             # Checkpoint: save
             if state:
+                assert self.tracker is not None
                 if stage_result.status in (StageStatus.SUCCESS, StageStatus.WARNING):
                     self.tracker.mark_stage_done(state, stage)
                 else:
@@ -236,6 +237,7 @@ class ETLPipeline:
 
         # ── Finalise ──────────────────────────────────
         etl_result.completed_at = datetime.now(timezone.utc)
+        assert etl_result.started_at is not None
         etl_result.total_duration_seconds = (
             etl_result.completed_at - etl_result.started_at
         ).total_seconds()

@@ -147,8 +147,6 @@ class TeamXG:
     matches_played: int = 0
     xg: float = 0.0
     xga: float = 0.0
-    xg_per_match: float = 0.0
-    xga_per_match: float = 0.0
     scored: int = 0
     conceded: int = 0
     wins: int = 0
@@ -157,6 +155,20 @@ class TeamXG:
     pts: int = 0
     npxg: float = 0.0
     npxga: float = 0.0
+
+    @property
+    def xg_per_match(self) -> float:
+        """Average xG per match."""
+        if self.matches_played == 0:
+            return 0.0
+        return self.xg / self.matches_played
+
+    @property
+    def xga_per_match(self) -> float:
+        """Average xGA per match."""
+        if self.matches_played == 0:
+            return 0.0
+        return self.xga / self.matches_played
 
     def to_dict(self) -> dict[str, Any]:
         return {

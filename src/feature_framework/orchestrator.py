@@ -703,7 +703,7 @@ class FeatureOrchestrator:
             # Simple adapter for feature store
             computer_registry.add(
                 name,
-                _TransformerComputer(transformer, context),
+                _TransformerComputer(transformer, context),  # type: ignore[arg-type]
             )
 
         try:
@@ -1122,7 +1122,7 @@ class FeatureOrchestrator:
             return None
         try:
             with open(meta_path) as f:
-                return json.load(f)
+                return json.load(f)  # type: ignore[no-any-return]
         except (json.JSONDecodeError, OSError):
             return None
 
@@ -1183,7 +1183,7 @@ class FeatureOrchestrator:
             return None
         try:
             with open(path) as f:
-                return json.load(f)
+                return json.load(f)  # type: ignore[no-any-return]
         except (json.JSONDecodeError, OSError):
             return None
 
@@ -1203,7 +1203,7 @@ class FeatureOrchestrator:
                         "saved_at": data.get("saved_at", ""),
                     })
             except Exception:
-                pass
+                logger.warning("Failed to load checkpoint data from %s", f, exc_info=True)
         return checkpoints
 
     # ══════════════════════════════════════════════════════

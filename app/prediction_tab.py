@@ -45,7 +45,7 @@ DEFAULT_TEAMS = [
 ]
 
 
-class PredictionTab(ctk.CTkFrame):
+class PredictionTab(ctk.CTkFrame):  # type: ignore[misc]
     """Tab for football match prediction with team selection and results."""
 
     def __init__(self, master: Any, **kwargs: Any) -> None:

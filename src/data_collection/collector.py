@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -161,7 +161,7 @@ def collect_all(
 
     # 1. Bulk download
     raw = fdc.download_bulk(
-        leagues=cfg.data_collection.leagues,
+        leagues=cast(list[str], cfg.data_collection.leagues),
         max_seasons=cfg.data_collection.max_seasons,
     )
 

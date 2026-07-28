@@ -324,7 +324,7 @@ class ConfidenceScorer:
         h_max = np.log2(3)
         # Normalised: 0 = uniform, 1 = certain
         normalised = 1.0 - entropy / h_max
-        return normalised * 100.0
+        return normalised * 100.0  # type: ignore[no-any-return]
 
     # ══════════════════════════════════════════════════════
     #  Component 2 — Model Agreement
@@ -356,7 +356,7 @@ class ConfidenceScorer:
         # This is an approximate upper bound
         sigma_max = 0.5
         score = np.clip((1.0 - mean_std / sigma_max) * 100.0, 0, 100)
-        return score
+        return score  # type: ignore[no-any-return]
 
     # ══════════════════════════════════════════════════════
     #  Component 3 — Historical Calibration

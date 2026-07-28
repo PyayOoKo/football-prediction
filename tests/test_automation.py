@@ -340,11 +340,11 @@ class TestNotifier:
 class TestAlertEngine:
     """Test the AlertEngine."""
 
-    def test_evaluate_breach(self):
+    def test_evaluate_breach(self, tmp_path):
         from src.monitoring.alerting import AlertEngine, AlertRule
 
         rules = [AlertRule("test_high", "cpu", ">", 90.0, "warning", "CPU high")]
-        engine = AlertEngine(rules=rules)
+        engine = AlertEngine(rules=rules, alert_history_path=str(tmp_path / "alert.json"))
 
         events = engine.evaluate({"cpu": 95.0})
         assert len(events) == 1
@@ -360,11 +360,11 @@ class TestAlertEngine:
         events = engine.evaluate({"cpu": 50.0})
         assert len(events) == 0
 
-    def test_cooldown(self):
+    def test_cooldown(self, tmp_path):
         from src.monitoring.alerting import AlertEngine, AlertRule
 
         rules = [AlertRule("test_cooldown", "cpu", ">", 50.0, "warning", "", cooldown_seconds=3600)]
-        engine = AlertEngine(rules=rules)
+        engine = AlertEngine(rules=rules, alert_history_path=str(tmp_path / "alert.json"))
 
         # First breach triggers
         events = engine.evaluate({"cpu": 95.0})
@@ -383,11 +383,11 @@ class TestAlertEngine:
         events = engine.evaluate({"cpu": 95.0})
         assert len(events) == 0
 
-    def test_nested_metric(self):
+    def test_nested_metric(self, tmp_path):
         from src.monitoring.alerting import AlertEngine, AlertRule
 
         rules = [AlertRule("nested", "system.cpu_percent", ">", 90.0, "warning", "")]
-        engine = AlertEngine(rules=rules)
+        engine = AlertEngine(rules=rules, alert_history_path=str(tmp_path / "alert.json"))
 
         events = engine.evaluate({"system.cpu_percent": 95.0})
         assert len(events) == 1
@@ -399,11 +399,11 @@ class TestAlertEngine:
         results = engine.notify([])
         assert results == []
 
-    def test_evaluate_and_notify(self):
+    def test_evaluate_and_notify(self, tmp_path):
         from src.monitoring.alerting import AlertEngine, AlertRule
 
         rules = [AlertRule("test", "cpu", ">", 90, "warning", "")]
-        engine = AlertEngine(rules=rules)
+        engine = AlertEngine(rules=rules, alert_history_path=str(tmp_path / "alert.json"))
 
         events = engine.evaluate_and_notify({"cpu": 95})
         assert len(events) == 1

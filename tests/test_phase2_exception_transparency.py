@@ -162,7 +162,13 @@ class TestNoSilentPassInML:
 
     CRITICAL_FILES = [
         "src/feature_selection.py",
-        "src/prediction_engine.py",
+        "src/prediction_engine/engine.py",
+        "src/prediction_engine/loader.py",
+        "src/prediction_engine/features.py",
+        "src/live_predictions/engine.py",
+        "src/live_predictions/pipeline.py",
+        "src/hyperparameter_tuning/tuner.py",
+        "src/hyperparameter_tuning/optimisers.py",
         "src/ensemble.py",
         "src/train.py",
         "src/services/training_service.py",

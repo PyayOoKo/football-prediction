@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 HISTORY_FILE = config.paths.data / "bet_history.json"
 
 
-class HistoryTab(ctk.CTkFrame):
+class HistoryTab(ctk.CTkFrame):  # type: ignore[misc]
     """Tab for tracking betting history and performance."""
 
     def __init__(self, master: Any, **kwargs: Any) -> None:

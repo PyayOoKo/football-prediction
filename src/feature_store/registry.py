@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from collections import deque
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, List
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -68,7 +68,7 @@ class FeatureRegistry:
         description: str | None = None,
         computation_params: dict[str, Any] | None = None,
         validation_rules: dict[str, Any] | None = None,
-        dependencies: list[str] | None = None,
+        dependencies: List[str] | None = None,
         metadata: dict[str, Any] | None = None,
         version: int = 1,
         status: FeatureStatus | str = FeatureStatus.DRAFT,
@@ -126,7 +126,7 @@ class FeatureRegistry:
         # Check for existing definition with same name + version
         existing = self._get_by_name_version(name, version)
         if existing is not None:
-            raise ValueError(
+            raise ValueError(  # type: ignore[misc, unused-ignore]
                 f"Feature {name!r} version {version} already exists "
                 f"(id={existing.id}). Use ``new_version()`` to create a "
                 f"new version."
@@ -208,7 +208,7 @@ class FeatureRegistry:
             "name": current.name,
             "feature_type": current.feature_type,
             "category": current.category,
-            "entity_type": current.entity_type,
+            "entity_type": current.entity_type.value,
             "description": updates.pop("description", current.description),
             "computation_params": updates.pop(
                 "computation_params", current.computation_params,
@@ -308,7 +308,7 @@ class FeatureRegistry:
         entity_type: str | None = None,
         status: FeatureStatus | str | None = None,
         is_active: bool | None = None,
-    ) -> list[FeatureDefinition]:
+    ) -> List[FeatureDefinition]:
         """List feature definitions with optional filters.
 
         Parameters
@@ -448,7 +448,7 @@ class FeatureRegistry:
 
     def get_history(
         self, name: str,
-    ) -> list[FeatureVersion]:
+    ) -> List[FeatureVersion]:
         """Get version history for a feature definition.
 
         Parameters
@@ -513,7 +513,7 @@ class FeatureRegistry:
     def _create_dependency_edges(
         self,
         definition: FeatureDefinition,
-        dependency_names: list[str],
+        dependency_names: List[str],
     ) -> None:
         """Create dependency edges for a feature definition.
 
@@ -553,7 +553,7 @@ class FeatureRegistry:
         definition_id: str,
         *,
         hard_only: bool = False,
-    ) -> list[FeatureDefinition]:
+    ) -> List[FeatureDefinition]:
         """Get all features that *this* feature depends on (prerequisites).
 
         Parameters
@@ -582,15 +582,15 @@ class FeatureRegistry:
         if not dep_ids:
             return []
 
-        stmt = select(FeatureDefinition).where(
+        def_stmt = select(FeatureDefinition).where(
             FeatureDefinition.id.in_(dep_ids),
         )
-        return list(self._session.execute(stmt).scalars().all())
+        return list(self._session.execute(def_stmt).scalars().all())
 
     def get_dependents(
         self,
         definition_id: str,
-    ) -> list[FeatureDefinition]:
+    ) -> List[FeatureDefinition]:
         """Get all features that *depend on* this feature (reverse edge).
 
         Parameters
@@ -612,15 +612,15 @@ class FeatureRegistry:
         if not dep_ids:
             return []
 
-        stmt = select(FeatureDefinition).where(
+        def_stmt = select(FeatureDefinition).where(
             FeatureDefinition.id.in_(dep_ids),
         )
-        return list(self._session.execute(stmt).scalars().all())
+        return list(self._session.execute(def_stmt).scalars().all())
 
     def topological_sort(
         self,
-        feature_ids: list[str] | None = None,
-    ) -> list[FeatureDefinition]:
+        feature_ids: List[str] | None = None,
+    ) -> List[FeatureDefinition]:
         """Return features in topological order (dependencies first).
 
         Uses Kahn's algorithm for topological sorting of the dependency
@@ -655,7 +655,7 @@ class FeatureRegistry:
 
         # Build adjacency and in-degree maps
         in_degree: dict[str, int] = {}
-        adjacency: dict[str, list[str]] = {}
+        adjacency: dict[str, List[str]] = {}
 
         def _ensure(id_: str) -> None:
             if id_ not in in_degree:
@@ -677,7 +677,7 @@ class FeatureRegistry:
         queue = deque(
             id_ for id_, deg in in_degree.items() if deg == 0
         )
-        sorted_ids: list[str] = []
+        sorted_ids: List[str] = []
 
         while queue:
             node = queue.popleft()
@@ -698,11 +698,11 @@ class FeatureRegistry:
         if not sorted_ids:
             return []
 
-        stmt = select(FeatureDefinition).where(
+        def_stmt = select(FeatureDefinition).where(
             FeatureDefinition.id.in_(sorted_ids),
         )
         defs = {
-            d.id: d for d in self._session.execute(stmt).scalars().all()
+            d.id: d for d in self._session.execute(def_stmt).scalars().all()
         }
         return [defs[i] for i in sorted_ids if i in defs]
 
@@ -721,12 +721,12 @@ class FeatureRegistry:
 
     # ─── Convenience ──────────────────────────────────────
 
-    def to_dict(self) -> list[dict[str, Any]]:
+    def to_dict(self) -> List[dict[str, Any]]:
         """Serialize all feature definitions as a list of dicts."""
         defs = self.list()
         return [d.to_dict() for d in defs]
 
-    def search(self, query: str) -> list[FeatureDefinition]:
+    def search(self, query: str) -> List[FeatureDefinition]:
         """Search feature definitions by name (case-insensitive partial match).
 
         Parameters

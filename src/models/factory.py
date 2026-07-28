@@ -245,7 +245,7 @@ class ModelFactory:
     # ── Internal ─────────────────────────────────────
 
     @staticmethod
-    def _cache_key(model_type: str, kwargs: dict) -> str:
+    def _cache_key(model_type: str, kwargs: dict[str, Any]) -> str:
         """Generate a cache key from model type and kwargs."""
         # Only use hashable kwargs for the cache key
         key_parts = [model_type]

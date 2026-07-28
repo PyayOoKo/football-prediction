@@ -248,7 +248,7 @@ class AlertEngine:
         except Exception as exc:
             logger.warning("Failed to save alert history: %s", exc)
 
-    def _get_nested_value(self, data: dict, path: str) -> Any:
+    def _get_nested_value(self, data: dict[str, Any], path: str) -> Any:
         """Get a value from a dict using dot-separated path.
 
         First checks if the full path exists as a flat key (e.g. ``{"system.cpu": 95}``),
@@ -259,10 +259,10 @@ class AlertEngine:
             return data[path]
         # Fallback: nested access
         parts = path.split(".")
-        current = data
+        current: Any = data
         for part in parts:
             if isinstance(current, dict):
-                current = current.get(part, None)
+                current = current.get(part)
             else:
                 return None
         return current
@@ -403,7 +403,7 @@ class AlertEngine:
             self.notify(events)
         return events
 
-    def get_alert_history(self, days: int = 7) -> list[dict]:
+    def get_alert_history(self, days: int = 7) -> list[dict[str, Any]]:
         """Retrieve recent alert history from persisted file.
 
         Parameters

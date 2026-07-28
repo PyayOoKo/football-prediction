@@ -149,16 +149,15 @@ class RiskManager:
             return 0.0
         return (self._daily.daily_loss / self._daily.starting_bankroll) * 100
 
-    @property
     def drawdown_pct(self, bankroll: Bankroll | None = None) -> float:
         """Current drawdown from peak."""
         peak = bankroll.peak_balance if bankroll else self._peak_bankroll
+        if peak is None or peak <= 0:
+            return 0.0
         current = (
             bankroll.current_balance if bankroll
             else self._daily.starting_bankroll
         )
-        if peak <= 0:
-            return 0.0
         return max(0.0, (peak - (current or 0)) / peak * 100)
 
     @property
@@ -274,7 +273,7 @@ class RiskManager:
                 "PyYAML not installed — risk config file will not be loaded. "
                 "Install with: pip install pyyaml"
             )
-            file_config = {}
+            file_config: dict[str, Any] = {}
             return
 
         path = Path(config_path) if config_path else self._config_path
@@ -338,7 +337,7 @@ class RiskManager:
         return str(out)
 
     @staticmethod
-    def _deep_merge(base: dict, overrides: dict) -> None:
+    def _deep_merge(base: dict[str, Any], overrides: dict[str, Any]) -> None:
         """Recursively merge *overrides* into *base* (mutates base)."""
         for key, value in overrides.items():
             if (
@@ -581,7 +580,7 @@ class RiskManager:
 
     def _is_enabled(self) -> bool:
         """Check if risk management is enabled at all."""
-        return self._config.get("risk_manager", {}).get("enabled", True)
+        return self._config.get("risk_manager", {}).get("enabled", True)  # type: ignore[no-any-return]
 
     # ── Individual check implementations ─────────────────
 
@@ -1028,7 +1027,8 @@ class RiskManager:
         self._cooldown_until = None
         logger.debug("All risk counters reset")
 
-    # ── Internal helpers ─────────────────────────────────    def _initialise_daily_state(self, bankroll: Bankroll) -> None:
+    # ── Internal helpers ──────────────────────────────────
+    def _initialise_daily_state(self, bankroll: Bankroll) -> None:
         """Ensure daily counters are initialised for today."""
         today = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
         if self._daily.date == today:

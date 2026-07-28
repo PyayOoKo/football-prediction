@@ -248,16 +248,16 @@ def enable_auto_profiling() -> None:
     """
     import src.data_collection.collector as collector
 
-    collector.collect_all = _patch_collect_fn(  # type: ignore[assignment]
+    collector.collect_all = _patch_collect_fn(  # type: ignore[assignment, unused-ignore]
         collector.collect_all, "historical"
     )
-    collector.collect_worldcup = _patch_collect_fn(  # type: ignore[assignment]
+    collector.collect_worldcup = _patch_collect_fn(  # type: ignore[assignment, unused-ignore]
         collector.collect_worldcup, "worldcup"
     )
-    collector.collect_league = _patch_collect_fn(  # type: ignore[assignment]
+    collector.collect_league = _patch_collect_fn(  # type: ignore[assignment, unused-ignore]
         collector.collect_league, "league"
     )
-    collector.update = _patch_collect_fn(  # type: ignore[assignment]
+    collector.update = _patch_collect_fn(  # type: ignore[assignment, unused-ignore]
         collector.update, "incremental"
     )
 

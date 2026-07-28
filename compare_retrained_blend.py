@@ -85,13 +85,13 @@ def build_blend(train_df: pd.DataFrame, val_df: pd.DataFrame,
                 test_df: pd.DataFrame, weights: dict[str, dict],
                 historical_df: pd.DataFrame | None = None) -> Any:
     """Build and evaluate a ThreeModelBlend with given weights."""
-    from src.poisson_model import PoissonModel
+    from src.dixon_coles import DixonColesModel
     from src.elo import EloSystem
     from src.models.three_model_blend import ThreeModelBlend, ConditionalRates
     import joblib
 
-    poisson = PoissonModel(min_matches=0)
-    poisson.fit(train_df)
+    dc = DixonColesModel(decay_halflife_days=1460)
+    dc.fit(train_df)
 
     elo = EloSystem()
     elo.process_matches(train_df)
@@ -106,7 +106,7 @@ def build_blend(train_df: pd.DataFrame, val_df: pd.DataFrame,
             xgb = joblib.load(c)
             break
 
-    blend = ThreeModelBlend(poisson_model=poisson, elo_model=elo, xgb_model=xgb,
+    blend = ThreeModelBlend(dc_model=dc, elo_model=elo, xgb_model=xgb,
                             weights=weights, conditional_rates=cond_rates,
                             historical_df=hist)
     return blend

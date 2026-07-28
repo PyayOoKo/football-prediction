@@ -59,7 +59,7 @@ def _load_from_file(file_name: str) -> Any | None:
         from src.train import load_model as load_xgb
         return load_xgb(file_name)
     except Exception:
-        pass
+        logger.exception("Failed to load model from file via src.train.load_model")
 
     # Try as ensemble model
     try:
@@ -68,7 +68,7 @@ def _load_from_file(file_name: str) -> Any | None:
         if model_path.exists():
             return EnsembleModel.load(str(model_path))
     except Exception:
-        pass
+        logger.exception("Failed to load EnsembleModel from file")
 
     return None
 
@@ -81,7 +81,7 @@ def _try_load_ensemble(name: str) -> Any | None:
         if model_path.exists():
             return EnsembleModel.load(str(model_path))
     except Exception:
-        pass
+        logger.exception("Failed to load ensemble model from %s", name)
     return None
 
 
@@ -91,7 +91,7 @@ def _try_load_xgb(name: str) -> Any | None:
         from src.train import load_model as load_xgb
         return load_xgb(name)
     except Exception:
-        pass
+        logger.exception("Failed to load XGBoost/sklearn model from %s", name)
     return None
 
 
@@ -229,7 +229,7 @@ def run_model_diagnostic(
                         X_test[col] = 0.0
                 X_test = X_test[model_features]
             except Exception:
-                pass
+                logger.exception("Failed to align test features to model's expected feature set")
 
         y_pred = model.predict(X_test)
         y_proba = model.predict_proba(X_test)

@@ -76,6 +76,20 @@ LEAGUE_NAMES: dict[str, str] = {
     "B1": "Belgian Pro League",
     "P1": "Portuguese Primeira Liga",
     "T1": "Turkish Super Lig",
+    # Extra leagues — cover currently active competitions (UCL qualifiers, etc.)
+    "IRL": "Irish Premier Division",         # Shamrock Rovers' domestic league
+    "ARG": "Argentine Primera Division",
+    "AUT": "Austrian Bundesliga",
+    "BRA": "Brazilian Serie A",
+    "DEN": "Danish Superliga",
+    "FIN": "Finnish Veikkausliiga",
+    "JPN": "Japanese J-League",
+    "MEX": "Mexican Liga MX",
+    "NOR": "Norwegian Eliteserien",
+    "POL": "Polish Ekstraklasa",
+    "SWE": "Swedish Allsvenskan",
+    "SUI": "Swiss Super League",
+    "USA": "Major League Soccer",
 }
 
 
@@ -134,6 +148,11 @@ def download_season(
     resp.raise_for_status()
 
     df = _parse_csv(resp.text, season=season)
+    # Some football-data.co.uk CSVs (especially /new/ endpoint) lack the Div
+    # column.  Ensure the league code is always populated.
+    if "league" not in df.columns or df["league"].isna().all():
+        df["league"] = league
+        logger.info("  Inferred league column: %s", league)
     logger.info("Downloaded %d rows for season %s", len(df), season)
     return df
 
@@ -246,6 +265,11 @@ def _download_current(league: str) -> pd.DataFrame:
     current_season = _guess_current_season()
     if "season" not in df.columns:
         df["season"] = current_season
+    # The /new/ endpoint CSVs frequently lack the Div column.
+    # Since we know the league from the caller, fill it in.
+    if "league" not in df.columns or df["league"].isna().all():
+        df["league"] = league
+        logger.info("  Inferred league column: %s", league)
     logger.info("Downloaded %d rows for current season (%s)", len(df), current_season)
     return df
 

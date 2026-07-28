@@ -489,7 +489,7 @@ class DataProfiler:
             "counts": {str(k): int(v) for k, v in counts.items()},
         }
         if other > 0:
-            data["counts"]["OTHER"] = other
+            data["counts"]["OTHER"] = other  # type: ignore[index]
 
         return ProfileSection("Team Distribution", data, chart_type="bar",
                               description=f"{all_teams.nunique()} unique teams")

@@ -176,6 +176,10 @@ class UnderstatImporter:
     ) -> tuple[list[TeamXG], list[MatchXG]]:
         """Fetch league-level xG data (teams + matches).
 
+        Tries the new JSON API endpoint first (``/getLeagueData/...``),
+        which returns data in a modern JSON format. Falls back to the
+        legacy HTML extraction if the API fails.
+
         Parameters
         ----------
         league : str
@@ -188,6 +192,23 @@ class UnderstatImporter:
         tuple[list[TeamXG], list[MatchXG]]
             Team xG stats and match-level xG data.
         """
+        # Try the JSON API first (new Understat format)
+        api_data = await self.client.get_league_data_json(league, year)
+        if api_data and ("teams" in api_data or "dates" in api_data):
+            logger.info(
+                "Using JSON API for %s/%d (%d keys)",
+                league, year, len(api_data),
+            )
+            teams, matches = self.parser.parse_league_from_json(
+                api_data, league, year,
+            )
+            if teams or matches:
+                return teams, matches
+
+        # Fall back to legacy HTML extraction
+        logger.info(
+            "Falling back to HTML extraction for %s/%d", league, year,
+        )
         html = await self.client.get_league_page(league, year)
         teams, matches = self.parser.parse_league_from_html(html, league, year)
         return teams, matches
@@ -290,7 +311,7 @@ class UnderstatImporter:
                 logger.warning("Failed to fetch match %d: %s", mid, result)
                 output[mid] = []
             else:
-                output[mid] = result
+                output[mid] = result  # type: ignore[assignment]
 
         return output
 

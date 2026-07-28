@@ -842,7 +842,7 @@ class MetricsCalculator:
 
     def print_report(self, metrics: MetricsResult | None = None) -> None:
         """Print the formatted report to the console."""
-        print(self.format_report(metrics))
+        logger.info("\n%s", self.format_report(metrics))
 
     # ── Converter helpers ────────────────────────────────
 
@@ -884,7 +884,7 @@ class MetricsCalculator:
 # ═══════════════════════════════════════════════════════════
 
 
-def _raise_missing(field: str) -> None:
+def _raise_missing(field: str) -> float:
     """Raise a ValueError for a missing required field."""
     raise ValueError(
         f"Missing required field '{field}' in bet dict. "

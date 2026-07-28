@@ -194,11 +194,11 @@ def cmd_install(args: argparse.Namespace) -> int:
     elif args.platform == "cron":
         from src.scheduler.cron_scheduler import CronScheduler
 
-        scheduler = CronScheduler()
+        scheduler = CronScheduler()  # type: ignore[assignment]
         if args.dry_run:
-            print(scheduler.generate_crontab())
+            print(scheduler.generate_crontab())  # type: ignore[attr-defined]
         else:
-            success = scheduler.install_crontab()
+            success = scheduler.install_crontab()  # type: ignore[attr-defined]
             return 0 if success else 1
 
     return 0
@@ -225,9 +225,9 @@ def cmd_generate(args: argparse.Namespace) -> int:
     elif args.platform == "cron":
         from src.scheduler.cron_scheduler import CronScheduler
 
-        scheduler = CronScheduler()
+        scheduler = CronScheduler()  # type: ignore[assignment]
         output = args.output or f"crontab_{timestamp}.txt"
-        scheduler.save_crontab(output)
+        scheduler.save_crontab(output)  # type: ignore[attr-defined]
         print(f"Generated: {output}")
 
     return 0

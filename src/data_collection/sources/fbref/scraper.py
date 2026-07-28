@@ -119,7 +119,7 @@ class ScrapeJob:
             return None
         try:
             with open(path, "rb") as f:
-                return pickle.load(f)
+                return pickle.load(f)  # type: ignore[no-any-return]
         except Exception:
             return None
 
@@ -310,7 +310,7 @@ class FBrefScraper:
                 )
                 continue
             if result:
-                squad.stat_tables[cat] = result[0]
+                squad.stat_tables[cat] = result[0]  # type: ignore[index]
 
         return squad
 
@@ -409,7 +409,7 @@ class FBrefScraper:
 
         Note: call ``await scraper.close()`` after use to clean up connections.
         """
-        return self._run_async(
+        return self._run_async(  # type: ignore[no-any-return]
             self.get_team_stats(competition_id, season, category),
         )
 
@@ -427,7 +427,7 @@ class FBrefScraper:
 
         Note: call ``await scraper.close()`` after use to clean up connections.
         """
-        return self._run_async(
+        return self._run_async(  # type: ignore[no-any-return]
             self.get_squad_stats(competition_id, season, category, team_id),
         )
 
@@ -638,7 +638,7 @@ class FBrefScraper:
         # Extract date from page
         date_tag = soup.find("span", attrs={"data-date": True})
         if date_tag:
-            match.date = date_tag.get("data-date", "")
+            match.date = date_tag.get("data-date", "")  # type: ignore[assignment]
 
         # Extract match stats from the shot summary / match stats table
         # These are usually in the stats tables on the match page

@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 
 class ScraperStatus(Enum):
@@ -43,7 +44,7 @@ class ScrapeResult:
     """
 
     status: ScraperStatus = ScraperStatus.FAILED
-    data: list[dict] = field(default_factory=list)
+    data: list[dict[str, Any]] = field(default_factory=list)
     source: str = ""
     records_fetched: int = 0
     errors: list[str] = field(default_factory=list)

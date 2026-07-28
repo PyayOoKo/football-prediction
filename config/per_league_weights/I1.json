@@ -1,0 +1,65 @@
+{
+  "league": "I1",
+  "generated": "2026-07-21 22:16:06",
+  "n_train": 3420,
+  "n_val": 1425,
+  "n_test": 855,
+  "models_available": {
+    "dc": true,
+    "elo": true,
+    "xgb": true,
+    "lgb": true
+  },
+  "weights": {
+    "1X2": {
+      "dc": 0.5,
+      "elo": 0.4,
+      "lgb": 0.1,
+      "xgb": 0.0
+    },
+    "Over2.5": {
+      "dc": 0.6,
+      "elo": 0.0,
+      "lgb": 0.3,
+      "xgb": 0.1
+    },
+    "BTTS": {
+      "dc": 0.4,
+      "elo": 0.0,
+      "lgb": 0.3,
+      "xgb": 0.3
+    },
+    "Over3.5": {
+      "dc": 0.5,
+      "elo": 0.0,
+      "lgb": 0.1,
+      "xgb": 0.4
+    }
+  },
+  "results": [
+    {
+      "market": "1X2",
+      "best_brier": 0.6043,
+      "default_brier": 0.6122,
+      "improvement_pct": 1.29
+    },
+    {
+      "market": "Over2.5",
+      "best_brier": 0.8337,
+      "default_brier": 0.8466,
+      "improvement_pct": 1.53
+    },
+    {
+      "market": "BTTS",
+      "best_brier": 0.8468,
+      "default_brier": 0.8706,
+      "improvement_pct": 2.73
+    },
+    {
+      "market": "Over3.5",
+      "best_brier": 0.7959,
+      "default_brier": 0.8026,
+      "improvement_pct": 0.83
+    }
+  ]
+}

@@ -337,7 +337,7 @@ class EloEngine:
         -------
         E_home = 1 / (1 + 10 ^ ((R_away − R_home − H) / 400))
         """
-        return 1.0 / (
+        return 1.0 / (  # type: ignore[no-any-return]
             1.0 + 10.0 ** ((rating_away - rating_home - self.home_advantage) / 400.0)
         )
 
@@ -431,16 +431,19 @@ class EloEngine:
 
             # Each tier lists keywords that indicate that division level
             if any(kw in name for kw in ["premier league", "la liga", "serie a",
-                                          "bundesliga", "ligue 1", "primera division",
-                                          "eredivisie", "primeira liga", "super lig",
-                                          "mls", "jupiler", "premiership",
-                                          "first division a"]):
+                                           "bundesliga", "ligue 1", "primera division",
+                                           "eredivisie", "primeira liga", "super lig",
+                                           "mls", "jupiler", "premiership",
+                                           "first division a",
+                                           "allsvenskan"]):
                 return _LEAGUE_STRENGTH.get(1, 1.0)
             if any(kw in name for kw in ["championship", "segunda division", "serie b",
-                                          "2. bundesliga", "ligue 2", "league one",
-                                          "second division"]):
+                                           "2. bundesliga", "ligue 2", "league one",
+                                           "second division",
+                                           "superettan", "obos ligaen"]):
                 return _LEAGUE_STRENGTH.get(2, 1.1)
-            if any(kw in name for kw in ["league two", "third division", "1. division"]):
+            if any(kw in name for kw in ["league two", "third division", "1. division",
+                                           "ykkösliiga", "ykkonen"]):
                 return _LEAGUE_STRENGTH.get(3, 1.2)
 
         return 1.0
@@ -687,9 +690,10 @@ class EloEngine:
             axg: float | None = float(row[away_xg_col]) if has_xg else None
 
             is_host = False
-            if has_hosts and has_season:
+            if has_hosts and has_season and host_nations is not None:
+                season_val: str = season if season else ""
                 host_team = host_nations.get(
-                    int(season) if season and season.isdigit() else season
+                    int(season_val) if season_val.isdigit() else season_val
                 )
                 if host_team and home == host_team:
                     is_host = True
@@ -944,15 +948,15 @@ class EloEngine:
             return
 
         sorted_teams = sorted(self._ratings.items(), key=lambda x: -x[1])
-        print(f"\n  ELO RATINGS — TOP {min(top_n, len(sorted_teams))}")
-        print(f"  {'=' * 45}")
-        print(f"  {'Rank':<6} {'Team':<25} {'Rating':>8}")
-        print(f"  {'─' * 45}")
+        print("\n  ELO RATINGS — TOP %d" % min(top_n, len(sorted_teams)))
+        print("  " + '=' * 45)
+        print("  %-6s %-25s %8s" % ('Rank', 'Team', 'Rating'))
+        print("  " + '-' * 45)
         for i, (team, rating) in enumerate(sorted_teams[:top_n], 1):
-            arrow = "▲" if rating > self.initial_rating else "▼" if rating < self.initial_rating else "─"
-            print(f"  {i:<6} {team:<25} {rating:>8.1f} {arrow}")
-        print(f"  {'=' * 45}")
-        print(f"  Teams: {len(self._ratings)}  |  Matches: {self._match_count}  |  K: {self.k}")
+            arrow = "+" if rating > self.initial_rating else "-" if rating < self.initial_rating else "="
+            print("  %-6d %-25s %8.1f %s" % (i, team, rating, arrow))
+        print("  " + '=' * 45)
+        print("  Teams: %d  |  Matches: %d  |  K: %d" % (len(self._ratings), self._match_count, self.k))
 
     # ── Benchmark alignment ────────────────────────────
 
@@ -1144,7 +1148,7 @@ class EloTransformer(FeatureTransformer):
         """Return host nations map from params, or None."""
         host_nations = self.params.get("host_nations")
         if host_nations is not None:
-            return host_nations
+            return host_nations  # type: ignore[no-any-return]
         # Check for a host_nations_file param to load from JSON
         host_file = self.params.get("host_nations_file")
         if host_file:
@@ -1153,7 +1157,7 @@ class EloTransformer(FeatureTransformer):
             p = Path(host_file)
             if p.exists():
                 with open(p) as f:
-                    return json.load(f)
+                    return json.load(f)  # type: ignore[no-any-return]
         return None
 
     # ── Validation ─────────────────────────────────────

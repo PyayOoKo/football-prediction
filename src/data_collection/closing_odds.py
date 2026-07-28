@@ -107,7 +107,7 @@ def _normalise_team(name: str) -> str:
     return name
 
 
-def _match_key(row: dict[str, Any]) -> str:
+def _match_key(row: dict[str, Any]) -> tuple[str, str]:
     """Create a hashable match key from a dict with date, home_team, away_team."""
     return (
         _normalise_team(str(row.get("home_team", ""))),
@@ -186,7 +186,7 @@ def match_to_database(
                 candidates.append(m)
 
         if len(candidates) == 1:
-            rec.match_id = candidates[0].id  # type: ignore[attr-defined]
+            rec.match_id = candidates[0].id  # type: ignore[attr-defined, unused-ignore]
             matched_count += 1
         elif len(candidates) > 1:
             multiple_count += 1
@@ -319,19 +319,16 @@ class BaseClosingOddsCollector(ABC):
         own_session = session is None
         if own_session:
             from src.database.session import get_session as _get_session
-            _session = _get_session()
+            with _get_session() as _session:
+                matched = match_to_database(records, _session)
+                count = upsert_closing_odds(matched, _session)
+                return count
         else:
+            assert session is not None
             _session = session
-
-        try:
             matched = match_to_database(records, _session)
             count = upsert_closing_odds(matched, _session)
-            if own_session:
-                _session.commit()
             return count
-        finally:
-            if own_session and _session:
-                _session.close()
 
 
 # ═══════════════════════════════════════════════════════════

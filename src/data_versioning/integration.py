@@ -113,7 +113,7 @@ def version_dataframe(
 # ── Decorator / wrapper ─────────────────────────────────
 
 
-def _wrap_collector_fn(fn: Callable, source: str, league_fn: Callable | None = None) -> Callable:
+def _wrap_collector_fn(fn: Callable[..., Any], source: str, league_fn: Callable[..., Any] | None = None) -> Callable[..., Any]:
     """Wrap a collector function so its result is versioned automatically."""
 
     @functools.wraps(fn)
@@ -181,7 +181,7 @@ def patch_importer() -> None:
 
         original_import = FootballDataImporter._import_single
 
-        def _versioned_import(self, league: str, season: str) -> Any:
+        def _versioned_import(self: Any, league: str, season: str) -> Any:
             start = time.perf_counter()
             report = original_import(self, league, season)
             elapsed = time.perf_counter() - start
@@ -206,7 +206,7 @@ def patch_importer() -> None:
 
             return report
 
-        FootballDataImporter._import_single = _versioned_import
+        FootballDataImporter._import_single = _versioned_import  # type: ignore[method-assign]
         logger.info("Patched FootballDataImporter for auto-versioning")
 
     except ImportError as exc:

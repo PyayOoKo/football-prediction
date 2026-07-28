@@ -1,3 +1,4 @@
+# type: ignore
 """
 Live Prediction System — real-time odds fetching, CLV tracking, and bet recommendations.
 
@@ -629,7 +630,7 @@ class LivePredictionEngine:
                     away_clv=a_clv,
                     home_kelly=home_kelly,
                     draw_kelly=draw_kelly,
-                    away_kelly=a_kelly,
+                    away_kelly=away_kelly,
                     prev_home_odds=prev.home_odds if prev else None,
                     prev_draw_odds=prev.draw_odds if prev else None,
                     prev_away_odds=prev.away_odds if prev else None,
@@ -876,20 +877,19 @@ class LivePredictionEngine:
     def _print_cycle_summary(self, predictions: list[LivePrediction]) -> None:
         """Print a console summary of the prediction cycle."""
         if not predictions:
-            print(f"\n  [{datetime.now().strftime('%H:%M:%S')}] No matches with odds available")
+            logger.info("  [%s] No matches with odds available", datetime.now().strftime('%H:%M:%S'))
             return
 
         n_value = sum(1 for p in predictions if p.n_value_bets > 0)
         total_evs = [p.best_value_ev for p in predictions]
         avg_ev = float(np.mean(total_evs)) if total_evs else 0.0
 
-        print(f"\n  {'=' * 70}")
-        print(f"  LIVE PREDICTIONS — Cycle {self._cycle_count}")
-        print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  |  "
-              f"{len(predictions)} matches  |  "
-              f"{n_value} with value  |  "
-              f"Avg best EV: {avg_ev:+.1%}")
-        print(f"  {'=' * 70}")
+        logger.info("  %s", '=' * 70)
+        logger.info("  LIVE PREDICTIONS — Cycle %d", self._cycle_count)
+        logger.info("  %s  |  %d matches  |  %d with value  |  Avg best EV: %+.1f%%",
+              datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+              len(predictions), n_value, avg_ev * 100)
+        logger.info("  %s", '=' * 70)
 
         # Sort by best EV descending
         sorted_preds = sorted(predictions, key=lambda p: p.best_value_ev, reverse=True)
@@ -899,21 +899,16 @@ class LivePredictionEngine:
             clv_str = "+" if any(
                 c > 0 for c in [pred.home_clv, pred.draw_clv, pred.away_clv]
             ) else " "
-            value_marker = "💰 VALUE" if pred.n_value_bets > 0 else "    "
+            value_marker = "VALUE" if pred.n_value_bets > 0 else "    "
 
-            print(
-                f"  {value_marker} "
-                f"{pred.home_team:<18} vs {pred.away_team:<18}  "
-                f"Pred: {pred.predicted_outcome:<9}  "
-                f"Best EV: {ev_str:<8}  "
-                f"CLV: {clv_str}  "
-                f"Conf: {pred.confidence_score:.0f}"
-            )
+            logger.info("  %s %-18s vs %-18s  Pred: %-9s  Best EV: %-8s  CLV: %s  Conf: %.0f",
+                  value_marker, pred.home_team, pred.away_team,
+                  pred.predicted_outcome, ev_str, clv_str, pred.confidence_score)
 
         if len(sorted_preds) > 10:
-            print(f"  ... and {len(sorted_preds) - 10} more matches")
+            logger.info("  ... and %d more matches", len(sorted_preds) - 10)
 
-        print(f"  {'=' * 70}\n")
+        logger.info("  %s", '=' * 70)
 
     def get_value_bets_dataframe(self) -> pd.DataFrame:
         """Get current value bets as a DataFrame from the last prediction cycle.

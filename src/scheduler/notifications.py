@@ -221,7 +221,7 @@ class Notifier:
 
     # ── Channel implementations ────────────────────────
 
-    def _send_console(self, payload: dict) -> bool:
+    def _send_console(self, payload: dict[str, Any]) -> bool:
         """Send notification to console log."""
         emoji = {"info": "ℹ️", "warning": "⚠️", "error": "🚨"}
         e = emoji.get(payload["level"], "ℹ️")
@@ -234,7 +234,7 @@ class Notifier:
             logger.info(msg)
         return True
 
-    def _send_email(self, payload: dict) -> bool:
+    def _send_email(self, payload: dict[str, Any]) -> bool:
         """Send notification via SMTP email."""
         if not self.config.smtp_host or not self.config.email_to:
             return False
@@ -268,7 +268,7 @@ class Notifier:
             logger.error("Failed to send email notification: %s", exc)
             return False
 
-    def _send_slack(self, payload: dict) -> bool:
+    def _send_slack(self, payload: dict[str, Any]) -> bool:
         """Send notification to Slack via webhook."""
         try:
             import requests
@@ -310,7 +310,7 @@ class Notifier:
 
             response = requests.post(
                 self.config.slack_webhook_url,
-                json=data,
+                json=data,  # type: ignore[arg-type, unused-ignore]
                 timeout=10,
             )
             success = response.status_code == 200
@@ -325,7 +325,7 @@ class Notifier:
             logger.error("Failed to send Slack notification: %s", exc)
             return False
 
-    def _send_file(self, payload: dict) -> bool:
+    def _send_file(self, payload: dict[str, Any]) -> bool:
         """Write notification to a log file."""
         try:
             log_path = Path(self.config.notification_file)

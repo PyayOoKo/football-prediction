@@ -104,7 +104,7 @@ class RetryWithBackoff:
                 response = http_method(url, **kwargs)
 
                 if response.status_code == 200:
-                    return response
+                    return response  # type: ignore[return-value, unused-ignore, no-any-return]
 
                 if response.status_code not in self.retryable_statuses:
                     # Non-retryable error — raise immediately
@@ -155,7 +155,8 @@ class RetryWithBackoff:
 
         delay = self.base_delay * (2 ** (attempt - 1))
         jittered = delay * random.uniform(0.75, 1.25)
-        return min(jittered, self.max_delay)
+        return min(jittered, self.max_delay)  # type: ignore[return-value, unused-ignore, no-any-return]
+
 
 
 # ── Extractors ─────────────────────────────────────────
@@ -272,7 +273,8 @@ class CSVExtractor(BaseExtractor):
             raise FileNotFoundError(f"CSV not found: {self.filepath}")
 
         df = pd.read_csv(self.filepath, encoding=self.encoding, low_memory=False)
-        return df.to_dict(orient="records")
+        return df.to_dict(orient="records")  # type: ignore[return-value, unused-ignore, no-any-return]
+
 
 
 class APIExtractor(BaseExtractor):

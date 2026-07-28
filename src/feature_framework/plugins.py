@@ -130,7 +130,7 @@ class FeaturePluginRegistry:
                 except Exception as exc:
                     logger.debug("Entry point '%s' failed: %s", ep.name, exc)
         except Exception:
-            pass
+            logger.warning("Entry point discovery for feature_transformers failed", exc_info=True)
         return count
 
     def _discover_package(self) -> int:

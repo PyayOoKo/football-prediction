@@ -30,6 +30,58 @@ from src.time_series_cv import create_time_series_folds
 logger = logging.getLogger(__name__)
 
 
+# ═══════════════════════════════════════════════════════════
+#  Time-decay sample weight computation
+# ═══════════════════════════════════════════════════════════
+
+
+def compute_sample_weights(
+    df: pd.DataFrame,
+    date_col: str = "date",
+    halflife_days: float | None = None,
+    config: Any | None = None,
+) -> np.ndarray | None:
+    """Compute exponential time-decay sample weights for training.
+
+    Each row's weight is ``exp(-ln(2) × days_ago / halflife)`` where
+    ``days_ago`` is how far back that match is from the most recent match.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Training data containing a date column.
+    date_col : str
+        Name of the date column (default ``"date"``).
+    halflife_days : float, optional
+        Halflife in days. If ``None``, reads from ``config.train.sample_weight_halflife_days``.
+        Set to 0 to disable weighting.
+    config : Any, optional
+        Injected config object.  Falls back to global ``config`` when
+        ``None`` (default).
+
+    Returns
+    -------
+    np.ndarray | None
+        Array of sample weights (same length as df), or ``None`` if
+        weighting is disabled or no date column is available.
+    """
+    if date_col not in df.columns:
+        return None
+
+    cfg = config or _global_config
+    hf = halflife_days if halflife_days is not None else cfg.train.sample_weight_halflife_days
+
+    if hf <= 0:
+        return None
+
+    dates = pd.to_datetime(df[date_col])
+    ref_date = dates.max() + pd.Timedelta(days=1)
+    days_ago = (ref_date - dates).dt.days.values.astype(float)
+    days_ago = np.maximum(days_ago, 0)
+    weights = np.exp(-np.log(2) * days_ago / hf)
+    return weights
+
+
 # ── Public API ──────────────────────────────────────────
 
 
@@ -38,9 +90,14 @@ def train_model(
     y_train: pd.Series,
     X_val: pd.DataFrame | None = None,
     y_val: pd.Series | None = None,
+    sample_weight: np.ndarray | None = None,
     config: Any | None = None,
 ) -> tuple[Any, dict[str, list[float]]]:
     """Train a model on the provided data.
+
+    If ``sample_weight`` is not provided and ``X_train`` has a ``"date"``
+    column, sample weights are auto-computed using
+    ``config.train.sample_weight_halflife_days``.
 
     Parameters
     ----------
@@ -52,6 +109,10 @@ def train_model(
         Validation feature matrix.
     y_val : pd.Series, optional
         Validation target vector.
+    sample_weight : np.ndarray, optional
+        Per-sample weight array (same length as X_train). Passed through
+        to the underlying model's ``.fit()`` method. If not given, auto-
+        computed from a ``"date"`` column in ``X_train``.
     config : Config, optional
         Config instance for dependency injection.  Defaults to the
         global singleton ``config``.
@@ -64,19 +125,33 @@ def train_model(
         Training history (loss, metrics).
     """
     cfg = config or _global_config
-    logger.info("Starting training with model_type='%s'", cfg.train.model_type)
+
+    # Auto-compute sample weights if a date column exists
+    if sample_weight is None and "date" in X_train.columns:
+        auto_sw = compute_sample_weights(X_train, config=cfg)
+        if auto_sw is not None:
+            sample_weight = auto_sw
+            logger.info("Auto-computed sample weights (halflife=%.0f days, mean=%.3f, min=%.3f, max=%.3f)",
+                         cfg.train.sample_weight_halflife_days,
+                         float(np.mean(auto_sw)), float(np.min(auto_sw)), float(np.max(auto_sw)))
+        # Drop the date column from features — sklearn can't handle datetime64
+        X_train = X_train.drop(columns=["date"])
+        if X_val is not None and "date" in X_val.columns:
+            X_val = X_val.drop(columns=["date"])
 
     model = _build_model(config=cfg)
     history: dict[str, list[float]] = {}
 
     if cfg.train.model_type in {"logistic_regression", "random_forest"}:
-        model, history = _train_sklearn(model, X_train, y_train, X_val, y_val)
+        model, history = _train_sklearn(model, X_train, y_train, X_val, y_val,
+                                         sample_weight=sample_weight)
     elif cfg.train.model_type in {"xgboost", "lightgbm"}:
-        model, history = _train_gbdt(model, X_train, y_train, X_val, y_val, config=cfg)
+        model, history = _train_gbdt(model, X_train, y_train, X_val, y_val,
+                                      config=cfg, sample_weight=sample_weight)
     elif cfg.train.model_type == "neural_network":
         model, history = _train_neural_net(model, X_train, y_train, X_val, y_val, config=cfg)
     else:
-        raise ValueError(f"Unknown model_type: {cfg.train.model_type}")
+        raise ValueError(f"Unknown model_type: {cfg.train.model_type}")  # type: ignore[misc, unused-ignore]
 
     logger.info("Training complete.")
     return model, history
@@ -88,6 +163,7 @@ def tune_hyperparameters(
     n_folds: int | None = None,
     n_iter: int = 80,
     verbose: bool = True,
+    sample_weight: np.ndarray | None = None,
     config: Any | None = None,
 ) -> dict[str, Any]:
     """Randomised search cross-validation to find the best hyper-parameters.
@@ -221,11 +297,16 @@ def tune_hyperparameters(
     else:
         raise NotImplementedError(f"Tuning not implemented for '{model_type}'")
 
+    # Build fit params for sample_weight support
+    fit_params: dict[str, Any] = {}
+    if sample_weight is not None:
+        fit_params["sample_weight"] = sample_weight
+
     # XGBoost/LightGBM handle NaN natively — no imputation needed
     if model_type in ("xgboost", "lightgbm"):
-        searcher.fit(X_train, y_train)
+        searcher.fit(X_train, y_train, **fit_params)
     else:
-        searcher.fit(X_train.fillna(X_train.mean().fillna(0)), y_train)
+        searcher.fit(X_train.fillna(X_train.mean().fillna(0)), y_train, **fit_params)
 
     logger.info(
         "Best CV log-loss: %.4f  with params: %s",
@@ -233,7 +314,7 @@ def tune_hyperparameters(
         searcher.best_params_,
     )
 
-    return searcher.best_params_
+    return searcher.best_params_  # type: ignore[no-any-return]
 
 
 def save_model(
@@ -417,14 +498,27 @@ def _train_sklearn(
     y_train: pd.Series,
     X_val: pd.DataFrame | None,
     y_val: pd.Series | None,
+    sample_weight: np.ndarray | None = None,
 ) -> tuple[Any, dict[str, list[float]]]:
-    """Train a scikit-learn model (LogisticRegression / RandomForest, etc.)."""
+    """Train a scikit-learn model (LogisticRegression / RandomForest, etc.).
+
+    Parameters
+    ----------
+    sample_weight : np.ndarray, optional
+        Per-sample weights passed to ``model.fit()``. Both LR and RF
+        support ``sample_weight`` natively.
+    """
     col_means = X_train.mean().fillna(0)
     X_train_c = X_train.fillna(col_means)
     X_val_c = X_val.fillna(col_means) if X_val is not None else None
 
-    model.fit(X_train_c, y_train)
-    history = {"train_loss": [log_loss(y_train, model.predict_proba(X_train_c))]}
+    fit_kwargs: dict[str, Any] = {}
+    if sample_weight is not None:
+        fit_kwargs["sample_weight"] = sample_weight
+
+    model.fit(X_train_c, y_train, **fit_kwargs)
+    history = {"train_loss": [log_loss(y_train, model.predict_proba(X_train_c),
+                                         sample_weight=sample_weight)]}
 
     if X_val_c is not None and y_val is not None:
         history["val_loss"] = [log_loss(y_val, model.predict_proba(X_val_c))]
@@ -440,6 +534,7 @@ def _train_gbdt(
     X_val: pd.DataFrame | None,
     y_val: pd.Series | None,
     config: Any | None = None,
+    sample_weight: np.ndarray | None = None,
 ) -> tuple[Any, dict[str, list[float]]]:
     """Train XGBoost / LightGBM with early stopping.
 
@@ -460,6 +555,9 @@ def _train_gbdt(
     config : Config, optional
         Config instance for dependency injection.  Defaults to the
         global singleton ``config``.
+    sample_weight : np.ndarray, optional
+        Per-sample weights passed to ``model.fit()``. Both XGBoost and
+        LightGBM accept ``sample_weight`` in their fit method.
 
     Returns
     -------
@@ -469,6 +567,10 @@ def _train_gbdt(
     eval_set = [(X_train, y_train)]
     if X_val is not None and y_val is not None:
         eval_set.append((X_val, y_val))
+
+    fit_kwargs: dict[str, Any] = {}
+    if sample_weight is not None:
+        fit_kwargs["sample_weight"] = sample_weight
 
     # Different parameter names for XGBoost vs LightGBM
     cfg = config or _global_config
@@ -481,6 +583,7 @@ def _train_gbdt(
         model.fit(
             X_train, y_train,
             eval_set=eval_set,
+            **fit_kwargs,
         )
     else:
         model.set_params(eval_metric="mlogloss", early_stopping_rounds=10)
@@ -488,6 +591,7 @@ def _train_gbdt(
             X_train, y_train,
             eval_set=eval_set,
             verbose=False,
+            **fit_kwargs,
         )
 
     # Use best_iteration if available (from early stopping)
@@ -498,7 +602,8 @@ def _train_gbdt(
         max_n = model.get_params().get("n_estimators", "?")
         logger.info("Early stopped at iteration %d / %s", best_n, max_n)
 
-    history = {"train_loss": [log_loss(y_train, model.predict_proba(X_train))]}
+    history = {"train_loss": [log_loss(y_train, model.predict_proba(X_train),
+                                         sample_weight=sample_weight)]}
 
     if X_val is not None and y_val is not None:
         history["val_loss"] = [log_loss(y_val, model.predict_proba(X_val))]
@@ -563,7 +668,7 @@ def _train_neural_net(
     X_train_clean = X_train.fillna(0).copy()
     X_val_clean = X_val.fillna(0).copy() if X_val is not None else None
 
-    def _to_tensor(X, y=None):
+    def _to_tensor(X: Any, y: Any = None) -> Any:
         X_t = torch.tensor(
             X.values if hasattr(X, "values") else X,
             dtype=torch.float32, device=device,
@@ -582,9 +687,9 @@ def _train_neural_net(
     prev = n_features
     for h in hidden:
         layers_list.append(nn.Linear(prev, h))
-        layers_list.append(nn.ReLU())
+        layers_list.append(nn.ReLU())  # type: ignore[arg-type]
         if cfg.dropout > 0:
-            layers_list.append(nn.Dropout(cfg.dropout))
+            layers_list.append(nn.Dropout(cfg.dropout))  # type: ignore[arg-type]
         prev = h
     layers_list.append(nn.Linear(prev, n_classes))
     net = nn.Sequential(*layers_list).to(device)

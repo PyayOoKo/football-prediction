@@ -20,7 +20,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Set, cast
 
 from src.cache.models import CacheEntry, CacheStats, CacheKey
 
@@ -40,7 +40,7 @@ class CacheBackend(ABC):
     """
 
     @abstractmethod
-    async def get(self, key: str) -> CacheEntry | None:
+    async def get(self, key: str) -> CacheEntry[Any] | None:
         """Retrieve a cached entry by key.
 
         Returns ``None`` if the key doesn't exist or has expired.
@@ -90,7 +90,7 @@ class CacheBackend(ABC):
         """Return current cache statistics."""
         ...
 
-    async def get_many(self, keys: list[str]) -> dict[str, CacheEntry | None]:
+    async def get_many(self, keys: list[str]) -> dict[str, CacheEntry[Any] | None]:
         """Retrieve multiple entries at once.
 
         Default implementation calls ``get()`` for each key.
@@ -102,7 +102,7 @@ class CacheBackend(ABC):
         self,
         entries: dict[str, Any],
         ttl: float = 0.0,
-        tags: set[str] | None = None,
+        tags: Set[str] | None = None,
     ) -> None:
         """Store multiple entries at once.
 
@@ -195,7 +195,7 @@ class SQLiteBackend(CacheBackend):
             conn.execute(f"PRAGMA cache_size=-8000")  # 8 MB cache
             conn.row_factory = sqlite3.Row
             self._local.conn = conn
-        return self._local.conn
+        return self._local.conn  # type: ignore[return-value, unused-ignore, no-any-return]
 
     def _init_db(self) -> None:
         """Create the cache table and indexes if they don't exist."""
@@ -223,7 +223,7 @@ class SQLiteBackend(CacheBackend):
 
     # ── Core operations ────────────────────────────────
 
-    async def get(self, key: str) -> CacheEntry | None:
+    async def get(self, key: str) -> CacheEntry[Any] | None:
         conn = self._get_conn()
         cursor = conn.execute(
             f"SELECT * FROM {self.table_name} WHERE key = ?",
@@ -253,7 +253,7 @@ class SQLiteBackend(CacheBackend):
             entry = pickle.loads(row["value"])
             with self._lock:
                 self._hits += 1
-            return entry
+            return entry  # type: ignore[return-value, unused-ignore, no-any-return]
         except (pickle.PickleError, EOFError) as exc:
             logger.warning("Cache deserialization error for %s: %s", key, exc)
             conn.execute(
@@ -328,7 +328,7 @@ class SQLiteBackend(CacheBackend):
                 size_bytes=row["total_bytes"] if row else 0,
             )
 
-    async def get_many(self, keys: list[str]) -> dict[str, CacheEntry | None]:
+    async def get_many(self, keys: list[str]) -> dict[str, CacheEntry[Any] | None]:
         """Batch get using SQL IN clause."""
         if not keys:
             return {}
@@ -342,7 +342,7 @@ class SQLiteBackend(CacheBackend):
         rows = cursor.fetchall()
         found = {row["key"]: row for row in rows}
 
-        results: dict[str, CacheEntry | None] = {}
+        results: dict[str, CacheEntry[Any] | None] = {}
         now = time.time()
 
         for key in keys:
@@ -379,7 +379,7 @@ class SQLiteBackend(CacheBackend):
         self,
         entries: dict[str, Any],
         ttl: float = 0.0,
-        tags: set[str] | None = None,
+        tags: Set[str] | None = None,
     ) -> None:
         now = time.time()
         expires_at = now + ttl if ttl > 0 else 0
@@ -531,7 +531,7 @@ class RedisBackend(CacheBackend):
     def _tag_key(self, tag: str) -> str:
         return f"{self.key_prefix}tag:{tag}"
 
-    async def get(self, key: str) -> CacheEntry | None:
+    async def get(self, key: str) -> CacheEntry[Any] | None:
         full_key = self._mk_key(key)
         data = await self._redis.get(full_key)
 
@@ -593,7 +593,7 @@ class RedisBackend(CacheBackend):
     async def delete(self, key: str) -> bool:
         full_key = self._mk_key(key)
         result = await self._redis.delete(full_key)
-        return result > 0
+        return result > 0  # type: ignore[return-value, unused-ignore, no-any-return]
 
     async def clear(self) -> int:
         # Delete all keys with our prefix
@@ -612,7 +612,7 @@ class RedisBackend(CacheBackend):
     async def has(self, key: str) -> bool:
         full_key = self._mk_key(key)
         exists = await self._redis.exists(full_key)
-        return exists > 0
+        return exists > 0  # type: ignore[return-value, unused-ignore, no-any-return]
 
     async def stats(self) -> CacheStats:
         # Count keys with our prefix (approximate)
@@ -630,7 +630,7 @@ class RedisBackend(CacheBackend):
                     try:
                         total_size += await self._redis.memory_usage(key) or 0
                     except Exception:
-                        pass
+                        logger.warning("Failed to get memory usage for key %s", key, exc_info=True)
             if cursor == 0:
                 break
 
@@ -642,14 +642,14 @@ class RedisBackend(CacheBackend):
                 size_bytes=total_size,
             )
 
-    async def get_many(self, keys: list[str]) -> dict[str, CacheEntry | None]:
+    async def get_many(self, keys: list[str]) -> dict[str, CacheEntry[Any] | None]:
         if not keys:
             return {}
 
         full_keys = [self._mk_key(k) for k in keys]
         data_list = await self._redis.mget(*full_keys)
 
-        results: dict[str, CacheEntry | None] = {}
+        results: dict[str, CacheEntry[Any] | None] = {}
         for key, data in zip(keys, data_list):
             if data is None:
                 with self._lock:
@@ -685,7 +685,7 @@ class RedisBackend(CacheBackend):
 
         deleted = await self._redis.delete(*full_keys)
         logger.info("Deleted %d cache entries with tag '%s'", deleted, tag)
-        return deleted
+        return deleted  # type: ignore[return-value, unused-ignore, no-any-return]
 
     async def cleanup(self) -> CacheStats:
         # Redis handles TTL natively — no explicit cleanup needed.

@@ -231,6 +231,7 @@ def scrape_all_tournament_lineups(
             resp = sess.get(url, timeout=REQUEST_TIMEOUT)
             resp.raise_for_status()
         except Exception:
+            logger.warning("Failed to fetch matches for %s (ID %d)", team, tm_id, exc_info=True)
             continue
 
         matches_df = _parse_team_matches_page(resp.text, team)
@@ -325,7 +326,8 @@ def _parse_match_page(
         team_name = None
 
         while parent and parent != soup:
-            parent_classes = parent.get("class", [])
+            raw_classes = parent.get("class")
+            parent_classes: list[str] = raw_classes if isinstance(raw_classes, list) else [raw_classes] if raw_classes else []
             parent_class_str = " ".join(parent_classes) if parent_classes else ""
 
             # Check if we're in the starting XI section
@@ -369,7 +371,7 @@ def _parse_match_page(
         # A starting XI section has 5-15 player links
         # A substitutes section might have more or fewer
         # Exclude sections that are clearly substitutes (contain "ersatz" in class)
-        section_classes = " ".join(section.get("class", []))
+        section_classes = " ".join(section.get("class") or [])
         if "ersatz" not in section_classes.lower() and 5 <= len(links) <= 15:
             xi_sections_with_players.append((section, links))
 
@@ -385,7 +387,7 @@ def _parse_match_page(
                     seen.add(key)
                     records.append({"team": box_team, "date": date, "player_name": pname})
         # Stop after we have enough for both teams
-        team_counts = {}
+        team_counts: dict[str, int] = {}
         for r in records:
             team_counts[r["team"]] = team_counts.get(r["team"], 0) + 1
         if len(team_counts) >= 2 and all(c >= 11 for c in team_counts.values()):

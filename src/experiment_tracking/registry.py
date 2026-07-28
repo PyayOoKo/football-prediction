@@ -278,7 +278,7 @@ class ModelRegistry:
         """
         entry = self._session.get(BestModel, entry_id)
         if entry is None:
-            raise ValueError(f"BestModel entry {entry_id!r} not found.")
+            raise ValueError(f"BestModel entry {entry_id!r} not found.")  # type: ignore[union-attr, unused-ignore]
 
         entry.is_promoted = True
         entry.promoted_at = datetime.now(timezone.utc)

@@ -481,6 +481,150 @@ def backup_database(cfg: ScheduleConfig) -> TaskResult:
 
 
 # ══════════════════════════════════════════════════════════
+#  5b. COLLECT O/U & BTTS ODDS
+# ══════════════════════════════════════════════════════════
+
+
+def collect_odds(cfg: ScheduleConfig) -> TaskResult:
+    """Backfill O/U & BTTS odds from football-data.co.uk archives.
+
+    Delegates to ``scripts/collect_odds.py``.
+    """
+    result = TaskResult(task_name="collect_odds", status=TaskStatus.RUNNING)
+    result.started_at = datetime.now(timezone.utc)
+    start = time.perf_counter()
+
+    try:
+        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "collect_odds.py"
+        if not script_path.exists():
+            result.output = "Script not found: scripts/collect_odds.py"
+            result.status = TaskStatus.SKIPPED
+            result.duration_seconds = time.perf_counter() - start
+            result.completed_at = datetime.now(timezone.utc)
+            return result
+
+        proc = subprocess.run(
+            [sys.executable, str(script_path)],
+            capture_output=True, text=True, check=False, timeout=600,
+        )
+
+        result.output = proc.stdout.strip()[:500] or "Completed"
+        result.duration_seconds = time.perf_counter() - start
+
+        if proc.returncode == 0:
+            result.status = TaskStatus.SUCCESS
+        else:
+            result.status = TaskStatus.FAILED
+            result.error = proc.stderr.strip()[:500] or f"Exit code {proc.returncode}"
+
+    except subprocess.TimeoutExpired:
+        result.status = TaskStatus.FAILED
+        result.error = "Timed out after 600s"
+    except Exception as exc:
+        result.status = TaskStatus.FAILED
+        result.error = str(exc)
+
+    result.completed_at = datetime.now(timezone.utc)
+    return result
+
+
+# ══════════════════════════════════════════════════════════
+#  5c. COLLECT XG DATA
+# ══════════════════════════════════════════════════════════
+
+
+def collect_xg_data(cfg: ScheduleConfig) -> TaskResult:
+    """Collect xG from all sources (Understat + DC-estimated).
+
+    Delegates to ``scripts/collect_xg_data.py``.
+    """
+    result = TaskResult(task_name="collect_xg_data", status=TaskStatus.RUNNING)
+    result.started_at = datetime.now(timezone.utc)
+    start = time.perf_counter()
+
+    try:
+        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "collect_xg_data.py"
+        if not script_path.exists():
+            result.output = "Script not found: scripts/collect_xg_data.py"
+            result.status = TaskStatus.SKIPPED
+            result.duration_seconds = time.perf_counter() - start
+            result.completed_at = datetime.now(timezone.utc)
+            return result
+
+        proc = subprocess.run(
+            [sys.executable, str(script_path)],
+            capture_output=True, text=True, check=False, timeout=600,
+        )
+
+        result.output = proc.stdout.strip()[:500] or "Completed"
+        result.duration_seconds = time.perf_counter() - start
+
+        if proc.returncode == 0:
+            result.status = TaskStatus.SUCCESS
+        else:
+            result.status = TaskStatus.FAILED
+            result.error = proc.stderr.strip()[:500] or f"Exit code {proc.returncode}"
+
+    except subprocess.TimeoutExpired:
+        result.status = TaskStatus.FAILED
+        result.error = "Timed out after 600s"
+    except Exception as exc:
+        result.status = TaskStatus.FAILED
+        result.error = str(exc)
+
+    result.completed_at = datetime.now(timezone.utc)
+    return result
+
+
+# ══════════════════════════════════════════════════════════
+#  5d. COLLECT TEAM STATS
+# ══════════════════════════════════════════════════════════
+
+
+def collect_team_stats(cfg: ScheduleConfig) -> TaskResult:
+    """Compute & export rolling team statistics for O/U & BTTS models.
+
+    Delegates to ``scripts/collect_team_stats.py``.
+    """
+    result = TaskResult(task_name="collect_team_stats", status=TaskStatus.RUNNING)
+    result.started_at = datetime.now(timezone.utc)
+    start = time.perf_counter()
+
+    try:
+        script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "collect_team_stats.py"
+        if not script_path.exists():
+            result.output = "Script not found: scripts/collect_team_stats.py"
+            result.status = TaskStatus.SKIPPED
+            result.duration_seconds = time.perf_counter() - start
+            result.completed_at = datetime.now(timezone.utc)
+            return result
+
+        proc = subprocess.run(
+            [sys.executable, str(script_path)],
+            capture_output=True, text=True, check=False, timeout=300,
+        )
+
+        result.output = proc.stdout.strip()[:500] or "Completed"
+        result.duration_seconds = time.perf_counter() - start
+
+        if proc.returncode == 0:
+            result.status = TaskStatus.SUCCESS
+        else:
+            result.status = TaskStatus.FAILED
+            result.error = proc.stderr.strip()[:500] or f"Exit code {proc.returncode}"
+
+    except subprocess.TimeoutExpired:
+        result.status = TaskStatus.FAILED
+        result.error = "Timed out after 300s"
+    except Exception as exc:
+        result.status = TaskStatus.FAILED
+        result.error = str(exc)
+
+    result.completed_at = datetime.now(timezone.utc)
+    return result
+
+
+# ══════════════════════════════════════════════════════════
 #  7. DAILY DATA PIPELINE
 # ══════════════════════════════════════════════════════════
 
@@ -699,12 +843,11 @@ def generate_logs(cfg: ScheduleConfig) -> TaskResult:
         cutoff = datetime.now() - timedelta(days=max_age)
         rotated = 0
 
-        for f in log_dir.glob("*.log"):
-            mtime = datetime.fromtimestamp(f.stat().st_mtime)
+        for log_file in log_dir.glob("*.log"):
+            mtime = datetime.fromtimestamp(log_file.stat().st_mtime)
             if mtime < cutoff:
-                # Compress and rename
-                archive_name = f.with_suffix(f"{f.suffix}.{mtime.strftime('%Y%m%d')}.old")
-                f.rename(archive_name)
+                archive_name = log_file.with_suffix(f"{log_file.suffix}.{mtime.strftime('%Y%m%d')}.old")
+                log_file.rename(archive_name)
                 rotated += 1
 
         if rotated:
@@ -737,8 +880,8 @@ def generate_logs(cfg: ScheduleConfig) -> TaskResult:
             "backup_dir": str(cfg.backup_dir),
         }
         summary_path = log_dir / f"run_summary_{datetime.now().strftime('%Y%m%d')}.json"
-        with open(summary_path, "w") as f:
-            json.dump(run_summary, f, indent=2)
+        with open(summary_path, "w") as fp:
+            json.dump(run_summary, fp, indent=2)
         actions.append(f"Run summary written to {summary_path.name}")
 
         result.output = "\n".join(actions) if actions else "No log maintenance needed"

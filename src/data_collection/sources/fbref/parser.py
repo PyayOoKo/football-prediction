@@ -150,9 +150,9 @@ class FBrefTableParser:
             table_id = table_tag.get("id", "")
             if table_id in seen_ids:
                 continue
-            seen_ids.add(table_id)
+            seen_ids.add(table_id)  # type: ignore[arg-type]
 
-            category = self._detect_category(table_id)
+            category = self._detect_category(table_id)  # type: ignore[arg-type]
             columns = self._extract_columns(table_tag)
             rows = self._extract_rows(table_tag, columns)
 
@@ -270,7 +270,7 @@ class FBrefTableParser:
                 text = text.strip()
                 if text:
                     cols.append(text)
-        return cols
+        return cols  # type: ignore[return-value]
 
     # ── Internal: row extraction ───────────────────────
 

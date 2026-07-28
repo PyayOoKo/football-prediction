@@ -68,7 +68,7 @@ class HealthStatus:
     data_quality_health: str = "healthy"
     alert_count: int = 0
     last_successful_run: str | None = None
-    details: dict = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
@@ -144,13 +144,13 @@ class PipelineHealth:
                 failure_penalty = min(1.0, recent_failures * 0.05)
                 score *= (0.2 * (1.0 - failure_penalty) + 0.8)
         except Exception:
-            pass
+            logger.exception("Failed to compute recent failure penalty")
 
         # System resources (20%)
         try:
             from src.monitoring.store import MonitoringStore
             store = MonitoringStore(db_path=str(self._db_path))
-            latest_system = store.get_latest_system()
+            latest_system = store.get_latest().system
             if latest_system:
                 sys_score = 1.0
                 if latest_system.cpu_percent > 90:
@@ -167,7 +167,7 @@ class PipelineHealth:
                     sys_score -= 0.1
                 score *= (0.2 * sys_score + 0.8)
         except Exception:
-            pass
+            logger.exception("Failed to compute system resource health")
 
         # Freshness (20%) — check when pipeline last ran
         try:
@@ -185,9 +185,9 @@ class PipelineHealth:
                         elif hours_since > 24:
                             score -= 0.1
                     except Exception:
-                        pass
+                        logger.warning("Failed to parse last run timestamp")
         except Exception:
-            pass
+            logger.exception("Failed to compute data pipeline freshness")
 
         return max(0.0, min(1.0, score))
 
@@ -228,7 +228,7 @@ class PipelineHealth:
         status = self.get_status(score)
 
         # Gather detailed metrics
-        details = {}
+        details: dict[str, Any] = {}
 
         # Task success rate
         try:
@@ -255,7 +255,7 @@ class PipelineHealth:
         try:
             from src.monitoring.store import MonitoringStore
             store = MonitoringStore(db_path=str(self._db_path))
-            latest_system = store.get_latest_system()
+            latest_system = store.get_latest().system
             if latest_system:
                 issues = []
                 if latest_system.cpu_percent > 90:
@@ -278,7 +278,7 @@ class PipelineHealth:
         try:
             from src.monitoring.store import MonitoringStore
             store = MonitoringStore(db_path=str(self._db_path))
-            latest_dq = store.get_latest_data_quality()
+            latest_dq = store.get_latest().data_quality
             if latest_dq:
                 issues = []
                 if latest_dq.null_pct > 20:
@@ -305,7 +305,7 @@ class PipelineHealth:
             alert_count = len(history)
             details["recent_alerts"] = alert_count
         except Exception:
-            pass
+            logger.exception("Failed to get alert history")
 
         # Recent runs summary
         try:
@@ -320,7 +320,7 @@ class PipelineHealth:
                         "failed": r.get("failed", 0),
                     })
         except Exception:
-            pass
+            logger.exception("Failed to get recent runs summary")
 
         last_run = self.get_last_successful_run()
 
@@ -338,7 +338,7 @@ class PipelineHealth:
 
     # ── Internal ───────────────────────────────────────
 
-    def _load_recent_reports(self, days: int | None = None) -> list[dict]:
+    def _load_recent_reports(self, days: int | None = None) -> list[dict[str, Any]]:
         """Load scheduler run reports from disk."""
         if not self._report_dir.exists():
             return []
@@ -357,11 +357,12 @@ class PipelineHealth:
                 data = json.loads(f.read_text())
                 reports.append(data)
             except Exception:
+                logger.warning("Failed to load report file %s", f)
                 continue
 
         return reports
 
-    def get_history(self, days: int = 30) -> list[dict]:
+    def get_history(self, days: int = 30) -> list[dict[str, Any]]:
         """Get health score history for charting.
 
         Parameters
@@ -374,7 +375,7 @@ class PipelineHealth:
         list[dict]
             List of {timestamp, health_score, status} entries.
         """
-        history = []
+        history: list[dict[str, Any]] = []
         for f in sorted(self._report_dir.glob("run_*.json"), reverse=True):
             if len(history) >= 100:
                 break
@@ -388,6 +389,7 @@ class PipelineHealth:
                 }
                 history.append(health)
             except Exception:
+                logger.warning("Failed to process report file %s", f)
                 continue
 
         return history

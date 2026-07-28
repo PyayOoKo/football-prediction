@@ -139,7 +139,7 @@ def run_eda(
 # ═══════════════════════════════════════════════════════════
 
 
-def _chart_win_distribution(df: pd.DataFrame) -> tuple[plt.Figure, str]:
+def _chart_win_distribution(df: pd.DataFrame) -> tuple[plt.Figure, str]:  # type: ignore[name-defined]
     """Bar chart showing the proportion of Home wins, Draws, and Away wins.
 
     **Why this matters:** Football is famously low-scoring, which makes draws
@@ -200,7 +200,7 @@ def _chart_win_distribution(df: pd.DataFrame) -> tuple[plt.Figure, str]:
 # ═══════════════════════════════════════════════════════════
 
 
-def _chart_goals_distribution(df: pd.DataFrame) -> tuple[plt.Figure, str]:
+def _chart_goals_distribution(df: pd.DataFrame) -> tuple[plt.Figure, str]:  # type: ignore[name-defined]
     """Overlaid histogram of home goals vs away goals.
 
     **Why this matters:** Goal distributions are heavily right-skewed (most
@@ -221,9 +221,9 @@ def _chart_goals_distribution(df: pd.DataFrame) -> tuple[plt.Figure, str]:
     max_goals = max(home.max(), away.max())
     bins = np.arange(-0.5, max_goals + 1.5, 1)
 
-    ax.hist(home, bins=bins, alpha=0.65, label="Home Goals", color="#2ecc71",
+    ax.hist(home, bins=bins.tolist(), alpha=0.65, label="Home Goals", color="#2ecc71",
             edgecolor="white", linewidth=0.8)
-    ax.hist(away, bins=bins, alpha=0.65, label="Away Goals", color="#e74c3c",
+    ax.hist(away, bins=bins.tolist(), alpha=0.65, label="Away Goals", color="#e74c3c",
             edgecolor="white", linewidth=0.8)
 
     # Add vertical lines for means
@@ -264,7 +264,7 @@ def _chart_goals_distribution(df: pd.DataFrame) -> tuple[plt.Figure, str]:
 # ═══════════════════════════════════════════════════════════
 
 
-def _chart_home_advantage(df: pd.DataFrame) -> tuple[plt.Figure, str]:
+def _chart_home_advantage(df: pd.DataFrame) -> tuple[plt.Figure, str]:  # type: ignore[name-defined]
     """Grouped bar chart comparing win/draw/loss rates for home vs away teams.
 
     **Why this matters:** Home advantage is the single most reliable finding
@@ -337,7 +337,7 @@ def _chart_home_advantage(df: pd.DataFrame) -> tuple[plt.Figure, str]:
 # ═══════════════════════════════════════════════════════════
 
 
-def _chart_team_statistics(df: pd.DataFrame) -> tuple[plt.Figure, str]:
+def _chart_team_statistics(df: pd.DataFrame) -> tuple[plt.Figure, str]:  # type: ignore[name-defined]
     """Horizontal bar chart of top-N teams by goals scored and conceded.
 
     **Why this matters:** Team-level aggregates reveal which teams are
@@ -403,7 +403,7 @@ def _chart_team_statistics(df: pd.DataFrame) -> tuple[plt.Figure, str]:
 # ═══════════════════════════════════════════════════════════
 
 
-def _chart_correlation_matrix(df: pd.DataFrame) -> tuple[plt.Figure, str]:
+def _chart_correlation_matrix(df: pd.DataFrame) -> tuple[plt.Figure, str]:  # type: ignore[name-defined]
     """Heatmap of Pearson correlations between numeric columns.
 
     **Why this matters:** High correlations between features indicate
@@ -466,7 +466,7 @@ def _chart_correlation_matrix(df: pd.DataFrame) -> tuple[plt.Figure, str]:
 # ═══════════════════════════════════════════════════════════
 
 
-def _chart_missing_values(df: pd.DataFrame) -> tuple[plt.Figure, str]:
+def _chart_missing_values(df: pd.DataFrame) -> tuple[plt.Figure, str]:  # type: ignore[name-defined]
     """Heatmap and bar chart of missing-value patterns across columns.
 
     **Why this matters:** Missing data is pervasive in football datasets —

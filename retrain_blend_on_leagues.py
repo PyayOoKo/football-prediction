@@ -231,15 +231,15 @@ def build_and_optimise_blend(
     xgb_model: Any, data_label: str = "league",
 ) -> dict[str, Any]:
     """Build ThreeModelBlend, optimise weights, evaluate, save."""
-    from src.poisson_model import PoissonModel
+    from src.dixon_coles import DixonColesModel
     from src.elo import EloSystem
     from src.models.three_model_blend import ThreeModelBlend, ConditionalRates
 
     result = {}
 
-    poisson = PoissonModel(min_matches=0)
-    poisson.fit(train_df)
-    logger.info("Poisson fitted on %d matches", len(train_df))
+    dc = DixonColesModel(decay_halflife_days=1460)
+    dc.fit(train_df)
+    logger.info("Dixon-Coles fitted on %d matches (γ=%.3f, ρ=%.3f)", len(train_df), dc.home_advantage, dc.rho)
 
     elo = EloSystem()
     elo.process_matches(train_df)
@@ -249,7 +249,7 @@ def build_and_optimise_blend(
     cond_rates = ConditionalRates.from_data(fit_df)
 
     blend = ThreeModelBlend(
-        poisson_model=poisson, elo_model=elo, xgb_model=xgb_model,
+        dc_model=dc, elo_model=elo, xgb_model=xgb_model,
         conditional_rates=cond_rates, historical_df=fit_df,
     )
 

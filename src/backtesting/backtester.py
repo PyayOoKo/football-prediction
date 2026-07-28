@@ -804,72 +804,69 @@ class Backtester:
         """Print a formatted backtest report to the console."""
         m = self._metrics or ExtendedBacktestMetrics()
 
-        print("\n" + "=" * 80)
-        print("  BACKTEST REPORT (Multi-Market)".center(78))
-        print("=" * 80)
+        logger.info("")
+        logger.info("=" * 80)
+        logger.info("  BACKTEST REPORT (Multi-Market)".center(78))
+        logger.info("=" * 80)
 
         if m.total_bets == 0:
-            print("\n  No bets were placed during the backtest period.")
-            print(f"  Final bankroll: GBP{m.final_bankroll:.2f}")
-            print("=" * 80)
+            logger.info("  No bets were placed during the backtest period.")
+            logger.info("  Final bankroll: GBP%.2f", m.final_bankroll)
+            logger.info("=" * 80)
             return
 
-        print(f"  {'Metric':<30} {'Value':>15} {'Notes':<33}")
-        print(f"  {'-' * 78}")
+        logger.info("  %-30s %15s   %-33s", 'Metric', 'Value', 'Notes')
+        logger.info("  %s", '-' * 78)
 
         # ── P&L section ──
-        print(f"  {'TOTAL BETS':<30} {m.total_bets:>10d}   {'active bets placed':>20}")
-        print(f"  {'Winning':<30} {m.winning_bets:>8d} / {m.total_bets:<8d}  {'':>20}")
-        print(f"  {'Win Rate':<30} {m.win_rate_pct:>13.1f}%   {'':>20}")
-        print(f"  {'Pushed / Void':<30} {m.pushed_bets:>10d}   {'refunded bets':>20}")
+        logger.info("  %-30s %10d   %20s", 'TOTAL BETS', m.total_bets, 'active bets placed')
+        logger.info("  %-30s %8d / %-8d  %20s", 'Winning', m.winning_bets, m.total_bets, '')
+        logger.info("  %-30s %13.1f%%   %20s", 'Win Rate', m.win_rate_pct, '')
+        logger.info("  %-30s %10d   %20s", 'Pushed / Void', m.pushed_bets, 'refunded bets')
 
         profit_marker = "+" if m.total_profit >= 0 else ""
-        print(f"  {'Total P&L':<30} {profit_marker}GBP{m.total_profit:>+9.2f}   {'':>20}")
-        print(f"  {'Total Staked':<30} GBP{m.total_staked:>10.2f}   {'':>20}")
+        logger.info("  %-30s %sGBP%+9.2f   %20s", 'Total P&L', profit_marker, m.total_profit, '')
+        logger.info("  %-30s GBP%10.2f   %20s", 'Total Staked', m.total_staked, '')
 
         roi_marker = "+" if m.roi_pct >= 0 else ""
-        print(f"  {'ROI':<30} {roi_marker}{m.roi_pct:>+11.2f}%   {'':>20}")
+        logger.info("  %-30s %s%+11.2f%%   %20s", 'ROI', roi_marker, m.roi_pct, '')
         yield_marker = "+" if m.yield_pct >= 0 else ""
-        print(f"  {'Yield':<30} {yield_marker}{m.yield_pct:>+11.2f}%   {'profit per unit staked':>20}")
+        logger.info("  %-30s %s%+11.2f%%   %20s", 'Yield', yield_marker, m.yield_pct, 'profit per unit staked')
 
         bankroll_change = m.final_bankroll - m.initial_bankroll
         change_sign = "+" if bankroll_change >= 0 else ""
-        print(f"  {'Final Bankroll':<30} GBP{m.final_bankroll:>10.2f}   "
-              f"({change_sign}GBP{bankroll_change:.2f} from GBP{m.initial_bankroll:.0f})")
+        logger.info("  %-30s GBP%10.2f   (%sGBP%.2f from GBP%.0f)", 'Final Bankroll', m.final_bankroll, change_sign, bankroll_change, m.initial_bankroll)
 
         # ── Risk section ──
-        print(f"  {'Max Drawdown':<30} {m.max_drawdown_pct:>12.2f}%   "
-              f"(GBP{m.max_drawdown_amount:.2f} peak-to-trough)")
-        print(f"  {'Sharpe Ratio':<30} {m.sharpe_ratio:>14.2f}   {'risk-adjusted return':>20}")
-        print(f"  {'Sortino Ratio':<30} {m.sortino_ratio:>14.2f}   {'downside risk-adjusted':>20}")
+        logger.info("  %-30s %12.2f%%   (GBP%.2f peak-to-trough)", 'Max Drawdown', m.max_drawdown_pct, m.max_drawdown_amount)
+        logger.info("  %-30s %14.2f   %20s", 'Sharpe Ratio', m.sharpe_ratio, 'risk-adjusted return')
+        logger.info("  %-30s %14.2f   %20s", 'Sortino Ratio', m.sortino_ratio, 'downside risk-adjusted')
 
         # ── Quality section ──
-        print(f"  {'Profit Factor':<30} {m.profit_factor:>14.2f}   {'gross profit / gross loss':>20}")
-        print(f"  {'Avg Odds':<30} {m.avg_odds:>14.4f}   {'':>20}")
-        print(f"  {'Avg EV':<30} {m.avg_ev:>+14.2%}   {'':>20}")
+        logger.info("  %-30s %14.2f   %20s", 'Profit Factor', m.profit_factor, 'gross profit / gross loss')
+        logger.info("  %-30s %14.4f   %20s", 'Avg Odds', m.avg_odds, '')
+        logger.info("  %-30s %+14.2f%%   %20s", 'Avg EV', m.avg_ev * 100, '')
 
         if m.avg_clv != 0.0:
-            print(f"  {'Avg CLV':<30} {m.avg_clv:>+14.4f}   "
-                  f"{m.positive_clv_pct:.0f}% positive bets")
+            logger.info("  %-30s %+14.4f   %.0f%% positive bets", 'Avg CLV', m.avg_clv, m.positive_clv_pct)
 
         # ── Streaks ──
-        print(f"  {'Longest Win Streak':<30} {m.longest_win_streak:>8d} bets   {'':>20}")
-        print(f"  {'Longest Lose Streak':<30} {m.longest_lose_streak:>8d} bets   {'':>20}")
+        logger.info("  %-30s %8d bets   %20s", 'Longest Win Streak', m.longest_win_streak, '')
+        logger.info("  %-30s %8d bets   %20s", 'Longest Lose Streak', m.longest_lose_streak, '')
 
         # ── Per-market breakdown ──
         if m.bets_per_market:
-            print(f"\n  {'MARKET BREAKDOWN':-^78}")
+            logger.info("  MARKET BREAKDOWN")
             for market in sorted(m.bets_per_market.keys()):
                 n = m.bets_per_market.get(market, 0)
                 pnl = m.profit_per_market.get(market, 0.0)
                 pnl_marker = "+" if pnl >= 0 else ""
-                print(f"  {market:<20s}  {n:>4d} bets  "
-                      f"{pnl_marker}GBP{pnl:>+9.2f} P&L")
+                logger.info("  %-20s  %4d bets  %sGBP%+9.2f P&L", market, n, pnl_marker, pnl)
 
         # ── Performance assessment ──
-        print(f"\n  {'ASSESSMENT':-^78}")
-        print(f"  {self._assess_performance(m)}")
-        print("=" * 80)
+        logger.info("  ASSESSMENT")
+        logger.info("  %s", self._assess_performance(m))
+        logger.info("=" * 80)
 
     def _assess_performance(self, m: ExtendedBacktestMetrics) -> str:
         """Generate a human-readable performance assessment."""

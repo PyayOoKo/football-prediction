@@ -52,8 +52,24 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════
 
 # Default column sets for football-data.co.uk format
+# Note: lowercase names ("maxh", "avgh") also supported — the resolver
+# does case-insensitive matching with fallback to known aliases.
 _DEFAULT_OPENING: tuple[str, str, str] = ("BbMxH", "BbMxD", "BbMxA")
 _DEFAULT_CLOSING: tuple[str, str, str] = ("BbAvH", "BbAvD", "BbAvA")
+
+# Column-name aliases for different data-source conventions.
+# When the primary lookup fails, the resolver tries these alternatives.
+_COLUMN_ALIASES: dict[tuple[str, str, str], list[tuple[str, str, str]]] = {
+    # Lowercase enriched format <=> standard BbMx/BbAv format
+    ("maxh", "maxd", "maxa"): [
+        ("bbmxh", "bbmxd", "bbmxa"),  # BbMxH/BbMxD/BbMxA (standard)
+        ("b365h", "b365d", "b365a"),   # Bet365 fallback
+    ],
+    ("avgh", "avgd", "avga"): [
+        ("bbavh", "bbavd", "bbava"),  # BbAvH/BbAvD/BbAvA (standard)
+        ("b365h", "b365d", "b365a"),   # Bet365 fallback
+    ],
+}
 
 # Fallback: Bet365 (very commonly available)
 _FALLBACK_CLOSING: tuple[str, str, str] = ("B365H", "B365D", "B365A")
@@ -234,7 +250,7 @@ class BettingMarketTransformer(FeatureTransformer):
         logger.debug("BettingMarket: transforming %d rows", len(df))
 
         # ── 2. Load extra data from SQL if provided ───────
-        load_fn: Callable | None = self.params.get("load_fn")
+        load_fn: Callable[..., Any] | None = self.params.get("load_fn")
         if load_fn is not None:
             try:
                 extra_odds = load_fn()
@@ -316,7 +332,7 @@ class BettingMarketTransformer(FeatureTransformer):
             df[col_name] = values
 
         # ── 8. SQL storage if provided ────────────────────
-        save_fn: Callable | None = self.params.get("save_fn")
+        save_fn: Callable[..., Any] | None = self.params.get("save_fn")
         if save_fn is not None:
             try:
                 save_fn(df)
@@ -350,14 +366,34 @@ class BettingMarketTransformer(FeatureTransformer):
         """Resolve which odds column triplet to use.
 
         Checks user-provided columns first, then defaults.
+        Uses **case-insensitive** matching so ``"maxh"`` matches
+        ``"MaxH"``, ``"MAXH"``, or ``"BbMxH"`` (via alias fallback).
         Returns None if none of the columns exist.
         """
+        # Build a lowercase lookup map: lower_name -> actual_name
+        col_lookup = {c.lower(): c for c in df.columns}
+
         candidates = [user_cols, default_cols] if user_cols else [default_cols]
 
         for cols in candidates:
-            if cols is not None and all(c in df.columns for c in cols):
-                logger.debug("Using %s odds columns: %s", label, cols)
-                return cols
+            if cols is not None:
+                # Try direct (case-insensitive) match first
+                if all(c.lower() in col_lookup for c in cols):
+                    resolved = tuple(col_lookup[c.lower()] for c in cols)
+                    logger.debug("Using %s odds columns: %s", label, resolved)
+                    return resolved
+
+                # Try known alternative naming patterns
+                key = tuple(c.lower() for c in cols)
+                if key in _COLUMN_ALIASES:
+                    for alt in _COLUMN_ALIASES[key]:
+                        if all(a in col_lookup for a in alt):
+                            resolved = tuple(col_lookup[a] for a in alt)
+                            logger.debug(
+                                "Using alternative %s odds columns: %s (aliased from %s)",
+                                label, resolved, cols,
+                            )
+                            return resolved
 
         return None
 
@@ -365,26 +401,37 @@ class BettingMarketTransformer(FeatureTransformer):
         self,
         df: pd.DataFrame,
     ) -> list[tuple[str, str, str]]:
-        """Detect which additional bookmaker column sets exist in the DataFrame."""
+        """Detect which additional bookmaker column sets exist in the DataFrame.
+
+        Uses **case-insensitive** matching so uppercase column names like
+        ``B365H`` work even when the config or data uses lowercase.
+        """
+        col_lookup = {c.lower(): c for c in df.columns}
         detected: list[tuple[str, str, str]] = []
         for h_col, d_col, a_col in _BOOKMAKER_SETS:
             if (
-                h_col in df.columns
-                and d_col in df.columns
-                and a_col in df.columns
+                h_col.lower() in col_lookup
+                and d_col.lower() in col_lookup
+                and a_col.lower() in col_lookup
             ):
+                # Resolve to actual column names (preserving original casing)
+                resolved = (
+                    col_lookup[h_col.lower()],
+                    col_lookup[d_col.lower()],
+                    col_lookup[a_col.lower()],
+                )
                 # Skip if these are the same as opening/closing columns
                 if (
                     self._closing_cols is not None
-                    and (h_col, d_col, a_col) == self._closing_cols
+                    and resolved == self._closing_cols
                 ):
                     continue
                 if (
                     self._opening_cols is not None
-                    and (h_col, d_col, a_col) == self._opening_cols
+                    and resolved == self._opening_cols
                 ):
                     continue
-                detected.append((h_col, d_col, a_col))
+                detected.append(resolved)
 
         logger.debug("Detected %d extra bookmaker sets", len(detected))
         return detected
@@ -619,6 +666,7 @@ class BettingMarketTransformer(FeatureTransformer):
                 )
                 all_fair.append(fair)
             except Exception:
+                logger.warning("Failed to compute fair probabilities for a bookmaker set", exc_info=True)
                 continue
 
         if not all_fair:
@@ -626,8 +674,7 @@ class BettingMarketTransformer(FeatureTransformer):
 
         # Mean across bookmakers
         stacked = np.stack(all_fair, axis=-1)
-        consensus = np.nanmean(stacked, axis=-1)
-        return consensus
+        return np.nanmean(stacked, axis=-1)  # type: ignore[no-any-return]
 
     def _compute_volatility(
         self,
@@ -660,6 +707,7 @@ class BettingMarketTransformer(FeatureTransformer):
                 )
                 all_fair.append(fair)
             except Exception:
+                logger.warning("Failed to compute volatility for a bookmaker set", exc_info=True)
                 continue
 
         if not all_fair:
@@ -667,8 +715,7 @@ class BettingMarketTransformer(FeatureTransformer):
 
         stacked = np.stack(all_fair, axis=-1)
         # Std across bookmakers for each outcome, then mean across outcomes
-        volatility = np.nanmean(np.nanstd(stacked, axis=-1, ddof=1), axis=1)
-        return volatility
+        return np.nanmean(np.nanstd(stacked, axis=-1, ddof=1), axis=1)  # type: ignore[no-any-return]
 
     # ── Output validation ───────────────────────────────
 

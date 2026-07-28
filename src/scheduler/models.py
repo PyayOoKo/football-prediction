@@ -245,6 +245,25 @@ class ScheduleConfig:
                     parallel_group="maintenance",
                     dependencies=["backup_database"],
                 ),
+                # ── Data collection tasks (O/U & BTTS models) ──
+                Task(
+                    name="collect_odds",
+                    description="Backfill O/U & BTTS odds from football-data.co.uk",
+                    timeout_seconds=600,
+                    retry_count=1,
+                ),
+                Task(
+                    name="collect_xg_data",
+                    description="Collect xG from all sources (Understat + DC-estimated)",
+                    timeout_seconds=600,
+                    retry_count=1,
+                ),
+                Task(
+                    name="collect_team_stats",
+                    description="Compute & export rolling team statistics",
+                    timeout_seconds=300,
+                    retry_count=1,
+                ),
                 # ── Daily pipeline tasks ─────────────────────
                 Task(
                     name="daily_data_pipeline",

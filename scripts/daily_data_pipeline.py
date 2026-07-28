@@ -211,6 +211,10 @@ def _clean_and_merge() -> dict:
         # Normalize columns
         combined.columns = [c.strip().lower().replace(" ", "_") for c in combined.columns]
 
+        # Rename 'div' -> 'league' (football-data.co.uk uses 'Div' in their CSV headers)
+        if "div" in combined.columns and "league" not in combined.columns:
+            combined.rename(columns={"div": "league"}, inplace=True)
+
         # Remove full duplicates
         before = len(combined)
         dedup_cols = [c for c in ["date", "home_team", "away_team"] if c in combined.columns]

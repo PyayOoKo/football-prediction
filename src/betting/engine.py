@@ -38,6 +38,17 @@ from src.betting.registry import BettingRegistry
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "DefaultBankrollManager",
+    "DefaultRiskManager",
+    "DefaultBetFilter",
+    "DefaultMarketFilter",
+    "DefaultPortfolioOptimizer",
+    "BettingEngine",
+    "BetFilterConfig",
+    "MarketFilterConfig",
+]
+
 
 # ═══════════════════════════════════════════════════════════
 #  Default implementations (bundled with the framework)
@@ -241,6 +252,7 @@ class DefaultPortfolioOptimizer:
         n_bets = len(slips)
         weight = 1.0 / n_bets if n_bets > 0 else 0.0
         total_expected_return = 0.0
+        allocations: list[PortfolioAllocation] = []
         for slip in slips:
             expected_return = (slip.ev or 0) * weight
             total_expected_return += expected_return
@@ -252,7 +264,7 @@ class DefaultPortfolioOptimizer:
 
         return PortfolioResult(
             allocations=allocations,
-            total_bankroll_fraction=total_weight,
+            total_bankroll_fraction=1.0,
             expected_return=total_expected_return,
             portfolio_variance=0.0,
             sharpe_ratio=0.0,
@@ -534,7 +546,7 @@ class BettingEngine:
 
     # ── Source resolution ─────────────────────────────
 
-    def _resolve_probability_source(self, match: dict) -> Any | None:
+    def _resolve_probability_source(self, match: dict[str, Any]) -> Any | None:
         """Resolve the probability source for a match.
 
         Checks the registry first, then falls back to inline
@@ -555,7 +567,7 @@ class BettingEngine:
             )
         return None
 
-    def _resolve_odds_source(self, match: dict) -> Any | None:
+    def _resolve_odds_source(self, match: dict[str, Any]) -> Any | None:
         """Resolve the odds source for a match."""
         source_name = match.get("odds_source")
         if source_name:
@@ -612,26 +624,27 @@ class BettingEngine:
         """Print a summary of the last pipeline run to the console."""
         r = self._report
         if r is None:
-            print("No pipeline run yet. Call run_pipeline() first.")
+            logger.info("No pipeline run yet. Call run_pipeline() first.")
             return
 
-        print("\n" + "=" * 70)
-        print("  BETTING ENGINE — SESSION SUMMARY")
-        print("=" * 70)
-        print(f"  Bets evaluated:   {r.total_bets}")
-        print(f"  Positive EV:      {r.positive_ev_bets}")
-        print(f"  Bets placed:      {r.bets_placed}")
-        print(f"  Total staked:     £{r.total_staked:.2f}")
-        print(f"  Total profit:     £{r.total_profit:+.2f}")
-        print(f"  ROI:              {r.roi_pct:+.2f}%")
-        print(f"  Yield:            {r.yield_pct:+.2f}%")
-        print(f"  Win rate:         {r.win_rate_pct:.1f}%")
-        print(f"  Avg odds:         {r.avg_odds:.3f}")
-        print(f"  Avg EV:           {r.avg_ev:+.4f}")
-        print(f"  Avg edge:         {r.avg_edge:+.4f}")
-        print(f"  Max drawdown:     {r.max_drawdown_pct:.2f}%")
-        print(f"  Duration:         {r.duration_seconds:.1f}s")
-        print("=" * 70)
+        logger.info("")
+        logger.info("=" * 70)
+        logger.info("  BETTING ENGINE — SESSION SUMMARY")
+        logger.info("=" * 70)
+        logger.info("  Bets evaluated:   %d", r.total_bets)
+        logger.info("  Positive EV:      %d", r.positive_ev_bets)
+        logger.info("  Bets placed:      %d", r.bets_placed)
+        logger.info("  Total staked:     £%.2f", r.total_staked)
+        logger.info("  Total profit:     £%+.2f", r.total_profit)
+        logger.info("  ROI:              %+.2f%%", r.roi_pct)
+        logger.info("  Yield:            %+.2f%%", r.yield_pct)
+        logger.info("  Win rate:         %.1f%%", r.win_rate_pct)
+        logger.info("  Avg odds:         %.3f", r.avg_odds)
+        logger.info("  Avg EV:           %+.4f", r.avg_ev)
+        logger.info("  Avg edge:         %+.4f", r.avg_edge)
+        logger.info("  Max drawdown:     %.2f%%", r.max_drawdown_pct)
+        logger.info("  Duration:         %.1fs", r.duration_seconds)
+        logger.info("=" * 70)
 
     @property
     def pending_slips(self) -> list[BetSlip]:

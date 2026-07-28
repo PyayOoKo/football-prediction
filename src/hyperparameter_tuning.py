@@ -515,11 +515,11 @@ def tune_hyperparameters(
     }
 
     if verbose:
-        print(f"  Tuning {model_type}...")
+        logger.info("  Tuning %s...", model_type)
     best_params, cv_loss = optim_fn[model_type]()
     if verbose:
-        print(f"    Best CV log-loss: {cv_loss:.4f}")
-        print(f"    Best params: {best_params}")
+        logger.info("    Best CV log-loss: %.4f", cv_loss)
+        logger.info("    Best params: %s", best_params)
 
     return {"best_params": best_params, "cv_log_loss": cv_loss}
 
@@ -599,7 +599,7 @@ class HyperTuner:
         self.report_text = report["text"]
 
         if self.cfg.verbose:
-            print(report["text"])
+            logger.info(report["text"])
 
         # Identify overall best
         best_result = min(self.results, key=lambda r: r.tuned_val_log_loss)
@@ -615,8 +615,8 @@ class HyperTuner:
         report_path: str | None = None
         if self.cfg.save_report:
             report_path = self._save_report(report["text"])
-            if self.cfg.verbose:
-                print(f"\n  Report saved to: {report_path}")
+        if self.cfg.verbose:
+            logger.info("  Report saved to: %s", report_path)
 
         self._print_footer(best_result)
 
@@ -645,13 +645,13 @@ class HyperTuner:
         cfg = self.cfg
 
         if cfg.verbose:
-            print(f"\n  ┌─ {'=' * 60}")
-            print(f"  │  MODEL: {model_type}")
-            print(f"  └─ {'=' * 60}")
+            logger.info("  ┌─ %s", '=' * 60)
+            logger.info("  │  MODEL: %s", model_type)
+            logger.info("  └─ %s", '=' * 60)
 
         # ── 1. Train baseline ─────────────────────────
         if cfg.verbose:
-            print(f"  │  Training baseline ...")
+            logger.info("  │  Training baseline ...")
         baseline = _build_baseline(model_type)
         t0 = time.time()
         if _needs_impute(model_type):
@@ -662,7 +662,7 @@ class HyperTuner:
 
         baseline_ll, baseline_acc = _evaluate(baseline, X_val, y_val, model_type)
         if cfg.verbose:
-            print(f"  │    ✓ Baseline  |  log-loss: {baseline_ll:.4f}  |  accuracy: {baseline_acc:.2%}")
+            logger.info("  │    ✓ Baseline  |  log-loss: %.4f  |  accuracy: %.2f%%", baseline_ll, baseline_acc * 100)
 
         # ── 2. Hyper-parameter search ─────────────────
         if model_type == "logistic_regression":
@@ -683,11 +683,11 @@ class HyperTuner:
             raise ValueError(f"Unknown model_type: {model_type}")
 
         if cfg.verbose:
-            print(f"  │    ✓ Best CV log-loss: {cv_loss:.4f}")
+            logger.info("  │    ✓ Best CV log-loss: %.4f", cv_loss)
 
         # ── 3. Train tuned model ──────────────────────
         if cfg.verbose:
-            print(f"  │  Training optimised ...")
+            logger.info("  │  Training optimised ...")
         tuned = _build_with_params(model_type, best_params)
         t0 = time.time()
         if _needs_impute(model_type):
@@ -698,10 +698,10 @@ class HyperTuner:
 
         tuned_ll, tuned_acc = _evaluate(tuned, X_val, y_val, model_type)
         if cfg.verbose:
-            print(f"  │    ✓ Tuned     |  log-loss: {tuned_ll:.4f}  |  accuracy: {tuned_acc:.2%}")
+            logger.info("  │    ✓ Tuned     |  log-loss: %.4f  |  accuracy: %.2f%%", tuned_ll, tuned_acc * 100)
             imp_ll = baseline_ll - tuned_ll
             imp_acc = tuned_acc - baseline_acc
-            print(f"  │    Δ log-loss: {imp_ll:+.4f}  |  Δ accuracy: {imp_acc:+.4f}")
+            logger.info("  │    Δ log-loss: %+.4f  |  Δ accuracy: %+.4f", imp_ll, imp_acc)
 
         # ── 4. Save models ────────────────────────────
         if cfg.save_models:
@@ -857,16 +857,17 @@ class HyperTuner:
             all_test[r.model_type] = {"log_loss": ll, "accuracy": acc}
 
         if self.cfg.verbose:
-            print(f"\n  {'=' * 90}")
-            print("  TEST SET EVALUATION")
-            print(f"  {'=' * 90}")
-            print(f"\n    Best model ({model_type}):")
-            print(f"      Test log-loss: {test_ll:.4f}")
-            print(f"      Test accuracy: {test_acc:.2%}")
-            print(f"\n    All tuned models on test set:")
+            logger.info("")
+            logger.info("  %s", '=' * 90)
+            logger.info("  TEST SET EVALUATION")
+            logger.info("  %s", '=' * 90)
+            logger.info("    Best model (%s):", model_type)
+            logger.info("      Test log-loss: %.4f", test_ll)
+            logger.info("      Test accuracy: %.2f%%", test_acc * 100)
+            logger.info("    All tuned models on test set:")
             for mt, m in all_test.items():
                 marker = " ★" if mt == model_type else "  "
-                print(f"      {mt:<22s}{marker}  log-loss: {m['log_loss']:.4f}  |  accuracy: {m['accuracy']:.2%}")
+                logger.info("      %-22s%s  log-loss: %.4f  |  accuracy: %.2f%%", mt, marker, m['log_loss'], m['accuracy'] * 100)
 
         return {
             "best_model_log_loss": test_ll,
@@ -879,42 +880,39 @@ class HyperTuner:
     def _print_header(self) -> None:
         if not self.cfg.verbose:
             return
-        print()
-        print("=" * 90)
-        print("  HYPER-PARAMETER TUNING".center(88))
-        print("=" * 90)
-        print(f"\n  Model types:  {', '.join(self.cfg.model_types)}")
-        print(f"  CV folds:     {self.cfg.cv_folds}")
-        print(f"  Random iters: {self.cfg.n_iter_random}")
-        print(f"  Saving models: {self.cfg.save_models}")
+        logger.info("")
+        logger.info("=" * 90)
+        logger.info("  HYPER-PARAMETER TUNING".center(88))
+        logger.info("=" * 90)
+        logger.info("  Model types:  %s", ', '.join(self.cfg.model_types))
+        logger.info("  CV folds:     %d", self.cfg.cv_folds)
+        logger.info("  Random iters: %d", self.cfg.n_iter_random)
+        logger.info("  Saving models: %s", self.cfg.save_models)
 
     def _print_result(self, result: ModelResult) -> None:
         if not self.cfg.verbose:
             return
-        print(f"\n  ── {result.model_type} complete ──")
-        print(f"     Baseline:  log-loss={result.baseline_val_log_loss:.4f}  "
-              f"accuracy={result.baseline_val_accuracy:.2%}")
-        print(f"     Tuned:     log-loss={result.tuned_val_log_loss:.4f}  "
-              f"accuracy={result.tuned_val_accuracy:.2%}")
-        print(f"     Δ log-loss: {result.improvement_log_loss:+.4f}  |  "
-              f"Δ accuracy: {result.improvement_accuracy:+.4f}")
+        logger.info("  ── %s complete ──", result.model_type)
+        logger.info("     Baseline:  log-loss=%.4f  accuracy=%.2f%%", result.baseline_val_log_loss, result.baseline_val_accuracy * 100)
+        logger.info("     Tuned:     log-loss=%.4f  accuracy=%.2f%%", result.tuned_val_log_loss, result.tuned_val_accuracy * 100)
+        logger.info("     Δ log-loss: %+.4f  |  Δ accuracy: %+.4f", result.improvement_log_loss, result.improvement_accuracy)
 
     def _print_footer(self, best: ModelResult) -> None:
         if not self.cfg.verbose:
             return
-        print()
-        print("=" * 90)
-        print("  TUNING COMPLETE".center(88))
-        print("=" * 90)
-        print(f"\n  Best model:          {best.model_type}")
-        print(f"  Validation log-loss: {best.baseline_val_log_loss:.4f} → {best.tuned_val_log_loss:.4f}")
-        print(f"  Δ log-loss:          {best.improvement_log_loss:+.4f}")
-        print(f"  Tuned params:        {best.tuned_params}")
-        print(f"\n  Models saved to:     {config.paths.models}/")
-        print(f"  Report saved to:     reports/hyperparameter_tuning_report.txt")
-        print()
-        print("=" * 90)
-        print()
+        logger.info("")
+        logger.info("=" * 90)
+        logger.info("  TUNING COMPLETE".center(88))
+        logger.info("=" * 90)
+        logger.info("  Best model:          %s", best.model_type)
+        logger.info("  Validation log-loss: %.4f -> %.4f", best.baseline_val_log_loss, best.tuned_val_log_loss)
+        logger.info("  Δ log-loss:          %+.4f", best.improvement_log_loss)
+        logger.info("  Tuned params:        %s", best.tuned_params)
+        logger.info("  Models saved to:     %s", config.paths.models)
+        logger.info("  Report saved to:     reports/hyperparameter_tuning_report.txt")
+        logger.info("")
+        logger.info("=" * 90)
+        logger.info("")
 
 
 # ═══════════════════════════════════════════════════════════
@@ -1062,8 +1060,8 @@ class OptunaTuner:
         )
 
         if verbose:
-            print(f"\n  Optuna complete — best log-loss: {study.best_value:.4f}")
-            print(f"  Best params: {study.best_params}")
+            logger.info("  Optuna complete — best log-loss: %.4f", study.best_value)
+            logger.info("  Best params: %s", study.best_params)
 
         result: dict[str, Any] = {
             "best_params": study.best_params,

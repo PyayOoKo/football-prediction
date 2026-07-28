@@ -32,6 +32,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 warnings.filterwarnings("ignore")
 
 try:
@@ -50,7 +52,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.inspection import partial_dependence, PartialDependenceDisplay
 
-logger = logging.getLogger(__name__)
 SEED = 42
 N_JOBS = -1
 
@@ -65,7 +66,7 @@ def _evaluate(
     y_train: pd.Series | np.ndarray,
     X_val: pd.DataFrame | np.ndarray,
     y_val: pd.Series | np.ndarray,
-    model=None,
+    model: Any = None,
 ) -> dict[str, Any]:
     """Train a quick model and return validation metrics.
 
@@ -110,7 +111,7 @@ def select_rfe(
     y_val: pd.Series,
     feature_names: list[str],
     n_values: tuple[int, ...] = (10, 20, 30, 50),
-    estimator=None,
+    estimator: Any = None,
 ) -> list[dict[str, Any]]:
     """Recursive Feature Elimination at multiple target sizes.
 
@@ -244,7 +245,7 @@ def select_sfs(
     feature_names: list[str],
     n_values: tuple[int, ...] = (10, 20, 30),
     direction: str = "forward",
-    estimator=None,
+    estimator: Any = None,
 ) -> list[dict[str, Any]]:
     """Sequential Feature Selection (forward or backward).
 
@@ -366,7 +367,7 @@ def drop_redundant(
 
 
 def plot_partial_dependence(
-    model,
+    model: Any,
     X: pd.DataFrame,
     feature_names: list[str],
     n_top: int = 10,

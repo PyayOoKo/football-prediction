@@ -17,7 +17,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from config import config
 from dashboard.components import (
     init_theme,
     sidebar_theme_radio,
@@ -61,17 +60,17 @@ def load_predictions() -> list[dict]:
     """Load all available prediction CSV/JSON files."""
     results = []
     pred_dirs = [
-        Path(config.worldcup.predictions_dir),
         Path("reports/predictions"),
         Path("reports"),
-        Path(config.worldcup.data_path).parent,
+        Path("data/processed"),
+        Path("data/raw"),
     ]
     for d in pred_dirs:
         if not d.exists():
             continue
         for pattern in [
-            "*prediction*.csv", "*prediction*.json", "worldcup_predictions*",
-            "fixtures*.csv", "results.csv", "predictions_*.csv",
+            "*prediction*.csv", "*prediction*.json", "*predictions_*.csv",
+            "fixtures*.csv", "results*.csv", "*forecast*.csv",
         ]:
             for f in sorted(d.glob(pattern), reverse=True):
                 try:

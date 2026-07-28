@@ -190,6 +190,6 @@ class CacheKey:
                  kwargs: dict[str, Any]) -> CacheKey:
         """Create a cache key from a function call."""
         import hashlib
-        raw = f"{func_name}:{pickle.dumps((args, sorted(kwargs.items())))}"
+        raw = f"{func_name}:{pickle.dumps((args, sorted(kwargs.items()))).decode('latin1')}"
         hash_str = hashlib.sha256(raw.encode()).hexdigest()[:16]
         return CacheKey(namespace="func", parts=[func_name, hash_str])

@@ -373,6 +373,7 @@ def _parse_transfer_rows(table: Tag) -> list[dict[str, Any]]:
                 "fee_meur": fee_meur,
             })
         except Exception:
+            logger.warning("Failed to parse transfer row for %s", player_name, exc_info=True)
             continue
 
     return transfers

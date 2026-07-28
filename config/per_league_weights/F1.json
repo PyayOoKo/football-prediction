@@ -1,0 +1,65 @@
+{
+  "league": "F1",
+  "generated": "2026-07-21 22:17:55",
+  "n_train": 3226,
+  "n_val": 1344,
+  "n_test": 807,
+  "models_available": {
+    "dc": true,
+    "elo": true,
+    "xgb": true,
+    "lgb": true
+  },
+  "weights": {
+    "1X2": {
+      "dc": 0.5,
+      "elo": 0.3,
+      "lgb": 0.1,
+      "xgb": 0.1
+    },
+    "Over2.5": {
+      "dc": 0.6,
+      "elo": 0.0,
+      "lgb": 0.3,
+      "xgb": 0.1
+    },
+    "BTTS": {
+      "dc": 0.4,
+      "elo": 0.0,
+      "lgb": 0.3,
+      "xgb": 0.3
+    },
+    "Over3.5": {
+      "dc": 0.5,
+      "elo": 0.0,
+      "lgb": 0.3,
+      "xgb": 0.2
+    }
+  },
+  "results": [
+    {
+      "market": "1X2",
+      "best_brier": 0.6322,
+      "default_brier": 0.6351,
+      "improvement_pct": 0.46
+    },
+    {
+      "market": "Over2.5",
+      "best_brier": 0.8695,
+      "default_brier": 0.8828,
+      "improvement_pct": 1.5
+    },
+    {
+      "market": "BTTS",
+      "best_brier": 0.8779,
+      "default_brier": 0.8973,
+      "improvement_pct": 2.16
+    },
+    {
+      "market": "Over3.5",
+      "best_brier": 0.8543,
+      "default_brier": 0.8628,
+      "improvement_pct": 0.99
+    }
+  ]
+}

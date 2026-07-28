@@ -46,7 +46,7 @@ MIN_WIDTH = 960
 MIN_HEIGHT = 640
 
 
-class FootballApp(ctk.CTk):
+class FootballApp(ctk.CTk):  # type: ignore[misc]
     """Main application window for the Football Prediction Desktop App."""
 
     def __init__(self) -> None:

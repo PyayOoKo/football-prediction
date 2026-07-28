@@ -20,7 +20,7 @@ from config import config
 logger = logging.getLogger(__name__)
 
 
-class ImportTab(ctk.CTkFrame):
+class ImportTab(ctk.CTkFrame):  # type: ignore[misc]
     """Tab for importing fixture data from multiple sources."""
 
     def __init__(self, master: Any, **kwargs: Any) -> None:
@@ -56,7 +56,7 @@ class ImportTab(ctk.CTkFrame):
 
         # Run the standard preprocessor
         preprocessor = DataPreprocessor(
-            normalise_teams=config.data_collection.normalise_teams,
+            normalise_teams=config.preprocessing.normalise_teams,
             add_temporal_features=True,
         )
         df = preprocessor.fit_transform(df)

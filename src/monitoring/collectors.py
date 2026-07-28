@@ -74,7 +74,7 @@ class SystemCollector:
                 disk = psutil.disk_usage(str(self.data_dir))
                 metric.disk_usage_pct = disk.percent
             except Exception:
-                pass
+                logger.warning("Failed to get disk usage", exc_info=True)
         else:
             # Stdlib fallback — mark as unknown
             metric.cpu_percent = 0.0
@@ -93,10 +93,11 @@ class SystemCollector:
             total += self.db_path.stat().st_size / (1024 * 1024)
 
         # Also check for WAL and SHM files
-        for suffix in ["-wal", "-shm"]:
-            wal_path = self.db_path.parent / f"{self.db_path.name}{suffix}"
-            if wal_path.exists():
-                total += wal_path.stat().st_size / (1024 * 1024)
+        if self.db_path is not None:
+            for suffix in ["-wal", "-shm"]:
+                wal_path = self.db_path.parent / f"{self.db_path.name}{suffix}"
+                if wal_path.exists():
+                    total += wal_path.stat().st_size / (1024 * 1024)
 
         return total
 

@@ -14,6 +14,7 @@ from typing import Any
 import pandas as pd
 
 from src.di_container import ConfigProvider, get_container
+from src.services import resolve_data_path
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class BacktestingService:
     """
 
     def __init__(self, model_dir: Path | None = None, config: ConfigProvider | None = None) -> None:
-        self._config = config or get_container().resolve(ConfigProvider)
+        self._config = config or get_container().resolve(ConfigProvider)  # type: ignore[type-abstract]
         self._model_dir = model_dir or self._config.paths.models
         self._model_dir.mkdir(parents=True, exist_ok=True)
         self._output_dir = self._config.paths.reports / "backtest"
@@ -47,7 +48,7 @@ class BacktestingService:
         initial_bankroll: float = 1000.0,
         kelly_fraction: float = 0.25,
         min_ev: float = 0.0,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Run a complete backtest simulation.
 
         Loads a trained model and historical data, runs the backtest engine,
@@ -227,22 +228,23 @@ class BacktestingService:
         logger.info(f"Loading model from {model_path}")
         return joblib.load(model_path)
 
-    def _print_summary(self, report: dict) -> None:
+    def _print_summary(self, report: dict[str, Any]) -> None:
         """Print a formatted backtest summary."""
         m = report["metrics"]
         p = report["parameters"]
 
-        print("\n" + "=" * 70)
-        print("  BACKTEST RESULTS".center(68))
-        print("=" * 70)
-        print(f"\n  Model: {p['model_name']}")
-        print(f"  Test matches: {p['test_matches']}")
-        print(f"  Total bets: {m['total_bets']}")
-        print(f"\n  Performance:")
-        print(f"    ROI:          {m['roi']:+.2f}%")
-        print(f"    Yield:        {m['yield']:+.2f}%")
-        print(f"    Profit:       {m['profit']:+.2f}")
-        print(f"    Win rate:     {m['win_rate']:.1f}%")
-        print(f"    Max drawdown: {m['max_drawdown']:.2f}%")
-        print(f"\n  Bankroll: {p['initial_bankroll']:.0f} → {m['final_bankroll']:.2f}")
-        print("=" * 70 + "\n")
+        logger.info("")
+        logger.info("=" * 70)
+        logger.info("  BACKTEST RESULTS".center(68))
+        logger.info("=" * 70)
+        logger.info("  Model: %s", p['model_name'])
+        logger.info("  Test matches: %d", p['test_matches'])
+        logger.info("  Total bets: %d", m['total_bets'])
+        logger.info("  Performance:")
+        logger.info("    ROI:          %+.2f%%", m['roi'])
+        logger.info("    Yield:        %+.2f%%", m['yield'])
+        logger.info("    Profit:       %+.2f", m['profit'])
+        logger.info("    Win rate:     %.1f%%", m['win_rate'])
+        logger.info("    Max drawdown: %.2f%%", m['max_drawdown'])
+        logger.info("  Bankroll: %.0f -> %.2f", p['initial_bankroll'], m['final_bankroll'])
+        logger.info("=" * 70)

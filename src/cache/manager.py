@@ -15,7 +15,7 @@ import asyncio
 import logging
 import threading
 import time
-from typing import Any
+from typing import Any, Set
 
 from src.cache.backend import CacheBackend
 from src.cache.models import CacheEntry, CacheStats, CacheKey
@@ -107,7 +107,7 @@ class CacheManager:
 
         return entry.value if entry is not None else None
 
-    async def get_entry(self, key: str) -> CacheEntry | None:
+    async def get_entry(self, key: str) -> CacheEntry[Any] | None:
         """Retrieve a full CacheEntry (with metadata)."""
         full_key = self._key(key)
         return await self.backend.get(full_key)
@@ -181,7 +181,7 @@ class CacheManager:
         self,
         entries: dict[str, Any],
         ttl: float | None = None,
-        tags: set[str] | None = None,
+        tags: Set[str] | None = None,
     ) -> None:
         """Store multiple values at once."""
         actual_ttl = ttl if ttl is not None else self.default_ttl
@@ -198,7 +198,7 @@ class CacheManager:
         key: str,
         compute: Any,
         ttl: float | None = None,
-        tags: set[str] | None = None,
+        tags: Set[str] | None = None,
     ) -> Any:
         """Return cached value or compute and cache it.
 

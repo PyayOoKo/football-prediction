@@ -22,7 +22,7 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 logger = logging.getLogger(__name__)
 
@@ -205,8 +205,16 @@ def main(argv: list[str] | None = None) -> int:
 
     handler = command_map.get(args.command)
     if handler:
-        return handler(args)
+        return _run_handler(handler, args)
     return 1
+
+
+def _run_handler(handler: Any, args: Any) -> int:
+    try:
+        return handler(args)  # type: ignore[no-any-return]
+    except Exception:
+        logger.exception("Unhandled exception in command handler '%s'", args.command)
+        return 1
 
 
 # ── Command handlers ─────────────────────────────────────
@@ -408,7 +416,7 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
                 logger.info("Loaded test data: %s (%d rows)", t, len(df))
 
         if df is None:
-            from src.data_loader import load_clean_data
+            from src.data_loader import load_clean_data  # type: ignore[attr-defined]
             df = load_clean_data()
             if df is None or df.empty:
                 processed = Path("data/processed/results_clean.csv")
@@ -428,7 +436,7 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
             print(f"  Model '{model_name}' has no predict or predict_proba method")
             return 1
 
-        metrics = {}
+        metrics: dict[str, Any] = {}
 
         if has_proba:
             # Try feature-based evaluation
@@ -491,9 +499,9 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
             print(f"  Brier score:   {metrics['brier_score']:.4f}")
 
         if "classification_report" in metrics:
-            report = metrics["classification_report"]
+            cls_report: dict[str, Any] = metrics["classification_report"]
             print(f"\n  Per-class performance:")
-            for cls, cls_metrics in report.items():
+            for cls, cls_metrics in cls_report.items():
                 if isinstance(cls_metrics, dict) and "precision" in cls_metrics:
                     print(f"    Class {cls}: prec={cls_metrics['precision']:.3f} "
                           f"rec={cls_metrics['recall']:.3f} "
@@ -501,9 +509,9 @@ def _handle_evaluate(args: argparse.Namespace) -> int:
                           f"support={int(cls_metrics['support'])}")
 
         if "confusion_matrix" in metrics:
-            cm = metrics["confusion_matrix"]
+            cm_data: list[list[int]] = metrics["confusion_matrix"]
             print(f"\n  Confusion matrix:")
-            for row in cm:
+            for row in cm_data:
                 print(f"    {row}")
 
         if "predictions_generated" in metrics:
@@ -638,7 +646,7 @@ def _handle_run_all(args: argparse.Namespace) -> int:
     """Handle the ``run-all`` subcommand."""
     logger.info("Running complete pipeline...")
     try:
-        from src.services import DataCollectionService, TrainingService, PredictionService
+        from src.services import DataCollectionService, TrainingService, PredictionService, ValueBettingService
         
         # Step 1: Collect data (if not skipped)
         if not args.skip_collect:
@@ -661,8 +669,10 @@ def _handle_run_all(args: argparse.Namespace) -> int:
         # Step 4: Value bets (if not skipped and not predict-only)
         if not args.skip_value_bets and not args.predict_only:
             print("\n  [Step 4/4] Finding value bets...")
-            # TODO: Implement value betting service
-            print("    Value betting analysis coming soon...")
+            vb_service = ValueBettingService()
+            vb_results = vb_service.find_value_bets(predictions)
+            n_positive = int(vb_results["positive_ev"].sum()) if "positive_ev" in vb_results.columns else 0
+            print(f"    Found {n_positive} value bets")
         
         # Launch dashboard (if not skipped)
         if not args.skip_dashboard and not args.predict_only:

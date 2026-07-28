@@ -106,9 +106,11 @@ def predict_fixtures(
 def _output_predictions(
     df: pd.DataFrame,
     output_path: str | Path | None = None,
+    config: Any | None = None,
 ) -> None:
     """Write / print predictions according to ``config.predict.output_format``."""
     path = Path(output_path) if output_path else None
+    cfg = config or _global_config
     fmt = cfg.predict.output_format
 
     if path:
@@ -131,6 +133,8 @@ def _write_csv(df: pd.DataFrame, path: Path | None) -> None:
 def _write_json(df: pd.DataFrame, path: Path | None) -> None:
     _ensure_path(path)
     data = df.to_dict(orient="records")
+    if path is None:
+        raise ValueError("path is required")
     with open(path, "w") as f:
         json.dump(data, f, indent=2, default=str)
     logger.info("Predictions saved to %s", path)
@@ -139,7 +143,7 @@ def _write_json(df: pd.DataFrame, path: Path | None) -> None:
 def _print_console(df: pd.DataFrame) -> None:
     pd.set_option("display.max_columns", 10)
     pd.set_option("display.width", 120)
-    print(df.to_string(index=False))
+    logger.info("\n%s", df.to_string(index=False))
 
 
 def _ensure_path(path: Path | None) -> None:

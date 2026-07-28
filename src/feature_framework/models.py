@@ -5,9 +5,12 @@ related structures for the feature engineering framework.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -209,32 +212,31 @@ class PipelineReport:
 
     def print_summary(self) -> None:
         """Print a human-readable summary to the console."""
-        print("\n" + "=" * 70)
+        print()
+        print("=" * 70)
         print("  FEATURE PIPELINE REPORT")
         print("=" * 70)
-        status = "✅ SUCCESS" if self.success else "❌ FAILED"
-        print(f"  Status:           {status}")
-        print(f"  Features:         {self.n_features} configured, "
-              f"{self.n_computed} computed, {self.n_skipped} skipped, "
-              f"{self.n_failed} failed")
-        print(f"  Entities:         {self.n_entities}")
-        print(f"  Duration:         {self.total_duration:.2f}s")
+        status = "SUCCESS" if self.success else "FAILED"
+        print("  Status:           %s" % status)
+        print("  Features:         %d configured, %d computed, %d skipped, %d failed" %
+              (self.n_features, self.n_computed, self.n_skipped, self.n_failed))
+        print("  Entities:         %d" % self.n_entities)
+        print("  Duration:         %.2fs" % self.total_duration)
         if self.batch_id:
-            print(f"  Batch ID:         {self.batch_id}")
-        print(f"  Trigger:          {self.trigger}")
-        print(f"  Errors:           {len(self.errors)}")
+            print("  Batch ID:         %s" % self.batch_id)
+        print("  Trigger:          %s" % self.trigger)
+        print("  Errors:           %d" % len(self.errors))
         if self.errors:
             for err in self.errors[:5]:
-                print(f"    • {err}")
+                print("    - %s" % err)
         if self.per_feature_stats:
-            print(f"\n  Per-Feature Stats:")
+            print("  Per-Feature Stats:")
             for feat, stats in sorted(self.per_feature_stats.items()):
-                status_icon = "✅" if stats.get("status") == "ok" else "⚠️"
-                print(f"    {status_icon} {feat:<35s} "
-                      f"computed={stats.get('computed', 0)} "
-                      f"skipped={stats.get('skipped', 0)} "
-                      f"failed={stats.get('failed', 0)} "
-                      f"({stats.get('duration', 0):.2f}s)")
+                status_icon = "+" if stats.get("status") == "ok" else "!"
+                print("    %s %-35s computed=%d skipped=%d failed=%d (%.2fs)" %
+                      (status_icon, feat, stats.get('computed', 0),
+                       stats.get('skipped', 0), stats.get('failed', 0),
+                       stats.get('duration', 0)))
         print("=" * 70)
 
 

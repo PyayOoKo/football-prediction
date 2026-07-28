@@ -402,27 +402,28 @@ def print_bets(df: pd.DataFrame, n: int | None = None) -> None:
         "ev", "kelly_pct", "recommendation",
     ]
 
-    print("\n" + "=" * 90)
-    print("  VALUE BETTING REPORT")
-    print("=" * 90)
+    logger.info("")
+    logger.info("=" * 90)
+    logger.info("  VALUE BETTING REPORT")
+    logger.info("=" * 90)
 
     if len(pos) > 0:
-        print(f"\n  ✅ POSITIVE EV BETS ({len(pos)} found)\n")
+        logger.info("  POSITIVE EV BETS (%d found)", len(pos))
         pd.set_option("display.max_columns", 12)
         pd.set_option("display.width", 140)
-        print(pos[display_cols].to_string(index=False))
-        print(f"\n  Total positive EV bets: {len(pos)}")
+        logger.info("\n%s", pos[display_cols].to_string(index=False))
+        logger.info("  Total positive EV bets: %d", len(pos))
 
         # Print explanation for each positive bet
-        print(f"\n  EXPLANATIONS:\n")
+        logger.info("  EXPLANATIONS:")
         for _, row in pos.iterrows():
-            print(f"    • {explain_row(row)}")
+            logger.info("    %s", explain_row(row))
     else:
-        print("\n  No positive EV bets found.")
+        logger.info("  No positive EV bets found.")
 
     if len(neg) > 0:
         n_show = min(n or 5, len(neg))
-        print(f"\n  ❌ NEGATIVE EV BETS (showing top {n_show})\n")
-        print(neg.head(n_show)[display_cols].to_string(index=False))
+        logger.info("  NEGATIVE EV BETS (showing top %d)", n_show)
+        logger.info("\n%s", neg.head(n_show)[display_cols].to_string(index=False))
 
-    print("=" * 90)
+    logger.info("=" * 90)

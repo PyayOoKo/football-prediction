@@ -91,7 +91,7 @@ def set_cache(cache: CacheManager) -> None:
 
 # ── Default key function ───────────────────────────────
 
-def _default_key_fn(func: Callable, args: tuple, kwargs: dict) -> str:
+def _default_key_fn(func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
     """Generate a cache key from a function call.
 
     Format: ``{module}.{qualname}({arg1},{arg2},...)``
@@ -170,7 +170,7 @@ class cached:
         else:
             return self._decorate_sync(func)  # type: ignore[return-value]
 
-    def _make_key(self, func: Callable, args: tuple, kwargs: dict) -> str:
+    def _make_key(self, func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
         """Generate a cache key for the given function call."""
         if self.custom_key_fn is not None:
             return self.custom_key_fn(*args, **kwargs)
@@ -198,7 +198,7 @@ class cached:
             try:
                 entry = _run_async(cache.get(key))
                 if entry is not None:
-                    return entry  # type: ignore[return-value]
+                    return entry  # type: ignore[no-any-return]
             except Exception as exc:
                 logger.debug("Cache get failed, computing: %s", exc)
 
@@ -229,7 +229,7 @@ class cached:
             try:
                 entry = await cache.get(key)
                 if entry is not None:
-                    return entry  # type: ignore[return-value]
+                    return entry  # type: ignore[no-any-return]
             except Exception as exc:
                 logger.debug("Async cache get failed, computing: %s", exc)
 

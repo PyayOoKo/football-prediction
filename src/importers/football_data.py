@@ -527,7 +527,7 @@ class FootballDataImporter:
         """
         try:
             with get_session() as session:
-                stats = self.resolver.prewarm_from_db(session)
+                stats = self.resolver.prewarm_from_db(session)  # type: ignore[attr-defined]
                 logger.info(
                     "Pre-warmed caches: %d teams, %d competitions, %d seasons",
                     stats.get("teams", 0),

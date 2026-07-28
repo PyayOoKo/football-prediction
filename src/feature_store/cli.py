@@ -82,7 +82,7 @@ logger = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════
 
 
-def _get_session(db_url: str = "sqlite:///data/feature_store.db"):
+def _get_session(db_url: str = "sqlite:///data/feature_store.db") -> Any:
     """Create a session for the CLI.
 
     Uses SQLite by default for CLI usage; can override with ``--db-url``.
@@ -254,7 +254,7 @@ def cmd_show(args: argparse.Namespace) -> None:
             for u in upstream:
                 print(f"  [{u['type']:10s}] {u['name']} (v{u['version'] or '?'})")
     except Exception:
-        pass
+        logger.warning("Failed to show lineage for feature definition", exc_info=True)
 
     session.close()
 
@@ -351,7 +351,7 @@ def cmd_get_value(args: argparse.Namespace) -> None:
     if args.league_id is not None:
         kwargs["league_id"] = args.league_id
 
-    value = store.get_value(fd.id, **kwargs)  # type: ignore[arg-type]
+    value = store.get_value(fd.id, **kwargs)  # type: ignore[arg-type, unused-ignore]
     if value is None:
         print(f"No value found for {args.name} with given entity.")
     else:
@@ -385,7 +385,7 @@ def cmd_set_value(args: argparse.Namespace) -> None:
     if args.json_val is not None:
         kwargs["json_value"] = json.loads(args.json_val)
 
-    fv = store.set(definition_id=fd.id, **kwargs)  # type: ignore[arg-type]
+    fv = store.set(definition_id=fd.id, **kwargs)  # type: ignore[arg-type, unused-ignore]
     print(f"✅ Set {args.name} = {fv.numeric_value or fv.text_value or '(json)'}")
     print(f"   Value ID: {fv.id}")
 
@@ -410,7 +410,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
     if args.team_id is not None:
         kwargs["team_id"] = args.team_id
 
-    value = store.get(fd.id, **kwargs)  # type: ignore[arg-type]
+    value = store.get(fd.id, **kwargs)  # type: ignore[arg-type, unused-ignore]
 
     validator = FeatureValidator()
     result = validator.validate_one(fd, value)
@@ -674,6 +674,7 @@ def cmd_export(args: argparse.Namespace) -> None:
     session = _get_session(args.db_url)
     registry = FeatureRegistry(session)
 
+    data: Any
     if args.data == "definitions":
         data = registry.to_dict()
         output = args.output or f"feature_definitions_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
@@ -722,8 +723,7 @@ def cmd_cache_stats(args: argparse.Namespace) -> None:
     cache_manager = CacheManager(cache_backend, namespace="feature")
     feature_cache = FeatureCache(store, cache_manager)
 
-    import asyncio
-    stats = asyncio.run(feature_cache.cache_stats())
+    stats = feature_cache.cache_stats()
 
     print(f"Cache Statistics:")
     print(f"  Namespace:    feature")
@@ -756,10 +756,7 @@ def cmd_cache_warm(args: argparse.Namespace) -> None:
     cache_manager = CacheManager(cache_backend, namespace="feature")
     feature_cache = FeatureCache(store, cache_manager)
 
-    import asyncio
-    warmed = asyncio.run(
-        feature_cache.warm(fd, entity_ids, entity_type=args.entity_type)
-    )
+    warmed = feature_cache.warm(fd, entity_ids, entity_type=args.entity_type)
 
     print(f"✅ Warmed {warmed}/{len(entity_ids)} cache entries for {args.name}")
 
@@ -777,8 +774,7 @@ def cmd_cache_clear(args: argparse.Namespace) -> None:
     cache_manager = CacheManager(cache_backend, namespace="feature")
     feature_cache = FeatureCache(store, cache_manager)
 
-    import asyncio
-    cleared = asyncio.run(feature_cache.clear_cache())
+    cleared = feature_cache.clear_cache()
 
     print(f"✅ Cleared {cleared} cache entries")
     session.close()

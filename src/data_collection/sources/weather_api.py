@@ -120,7 +120,7 @@ def collect_weather(
             "Returning placeholder data.",
             cfg.weather_collector.api_key_env,
         )
-        return _build_placeholder_df(len(matches_df), cfg=cfg)
+        return _build_placeholder_df(len(matches_df), config=cfg)
 
     if lat_lon_map is None:
         lat_lon_map = _nat_team_coords
@@ -196,7 +196,7 @@ def collect_weather(
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 401:
                 logger.error("Invalid OWM API key — returning placeholder data")
-                return _build_placeholder_df(len(matches_df), cfg=cfg)
+                return _build_placeholder_df(len(matches_df), config=cfg)
             errors += 1
             if errors >= 3:
                 logger.warning(
@@ -213,14 +213,14 @@ def collect_weather(
     # Build final DataFrame
     if not records:
         logger.warning("No weather data fetched — returning placeholders")
-        return _build_placeholder_df(len(matches_df), cfg=cfg)
+        return _build_placeholder_df(len(matches_df), config=cfg)
 
     df = pd.DataFrame(records)
 
     # Fill any missing matches with placeholders
     if len(df) < len(matches_df):
         placeholders = _build_placeholder_df(
-            len(matches_df) - len(df), cfg=cfg
+            len(matches_df) - len(df), config=cfg
         )
         df = pd.concat([df, placeholders], ignore_index=True)
 
@@ -288,11 +288,11 @@ def _normalise_date(date_val: Any) -> str:
         date_val = date_val.strip()
         if " " in date_val:
             date_val = date_val.split()[0]
-        return date_val[:10]
+        return date_val[:10]  # type: ignore[no-any-return]
     if isinstance(date_val, (int, float)):
         return datetime.fromtimestamp(date_val).strftime("%Y-%m-%d")
     try:
-        return pd.Timestamp(date_val).strftime("%Y-%m-%d")
+        return pd.Timestamp(date_val).strftime("%Y-%m-%d")  # type: ignore[no-any-return]
     except (ValueError, TypeError):
         return ""
 

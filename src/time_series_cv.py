@@ -140,11 +140,11 @@ class TimeSeriesCrossValidator:
         val_idx : np.ndarray
             Indices for the validation set (future data).
         """
-        return self._splitter.split(X, y, groups)
+        return self._splitter.split(X, y, groups)  # type: ignore[return-value, unused-ignore, no-any-return]
 
     def get_n_splits(self, X: Any = None, y: Any = None, groups: Any = None) -> int:
         """Return the number of CV folds."""
-        return self._splitter.get_n_splits(X, y, groups)
+        return self._splitter.get_n_splits(X, y, groups)  # type: ignore[return-value, unused-ignore, no-any-return]
 
     # ── Static constructors ──────────────────────────────
 

@@ -388,11 +388,33 @@
 
   J. Standard pipeline runner
   ──────────────────────────────────────────────────────────────────────
-         python run_pipeline.py [--skip-download] [--lightweight]
+         python run_pipeline.py                         # Full run (~25-40 min)
+         python run_pipeline.py --lightweight            # Predict only (~1-3 min)
+         python run_pipeline.py --skip-download --skip-value-bets  # Fast (~5-10 min)
+         python run_pipeline.py --batch-size 500         # Quick test (~1 min)
 
-     General-purpose pipeline. Use --lightweight for a quick 5-10 sec run
-     on existing data without retraining. Use --skip-download to skip
-     downloading new data.
+     General-purpose daily pipeline. Downloads data, preprocesses, retrains
+     the 5-model blend (Dixon-Coles + Elo + XGBoost + LightGBM + CatBoost),
+     predicts upcoming matches, and finds value bets.
+
+     Available flags:
+       --lightweight         Skip download + train (predict only) [fastest]
+       --skip-download       Skip data download (use existing data)
+       --skip-train          Skip model retraining (use existing model)
+       --skip-blend          Skip blend training (ensemble only)
+       --skip-value-bets     Skip the value betting step
+       --ensemble            Use ensemble (XGB+LR+Poisson) instead of 5-model blend
+       --batch-size N        Only process N most recent rows (quick testing)
+       --calibrate METHOD    Calibration method: platt | isotonic | hybrid | none
+       --max-odds N          Max decimal odds for value bets (default: 30.0)
+
+     Run time depends on flags selected:
+       | Command                                             | Est. time |
+       |-----------------------------------------------------|-----------|
+       | python run_pipeline.py --lightweight --batch-size N |  30-60 sec |
+       | python run_pipeline.py --lightweight                |   1-3 min  |
+       | python run_pipeline.py --skip-download              |  10-25 min |
+       | python run_pipeline.py                              |  25-40 min |
 
   K. Launch the dashboard
   ──────────────────────────────────────────────────────────────────────
@@ -732,19 +754,22 @@
   has been run once (as Administrator). After that, it's automatic.
 
   --- EXPECTED RUN TIMES ---
-  | Command                              | Expected time | Notes                  |
-  |--------------------------------------|---------------|------------------------|
-  | python train_worldcup.py             | 20-30 sec     | Fastest World Cup cmd  |
-  | python predict_worldcup.py           | 15-25 sec     | Lightweight, no tuning |
-  | python run_pipeline.py --lightweight | 5-10 sec      | Skips retrain          |
-  | python run_pipeline.py --skip-download| 30-60 sec    | With retrain           |
-  | python today_value_bets_live.py      | 10-20 sec     | With live odds fetch   |
-  | python run_dashboard.py              | < 5 sec       | Opens Streamlit        |
-  | python bracket_simulator.py          | 10-60 sec     | Depends on simulations |
-  | python collect_all_worldcups.py      | 10-30 sec     | Downloads all WCs      |
-  | python refresh_worldcup.py           | 30-120 sec    | Full refresh pipeline  |
-  | scripts/auto_commit.ps1              | < 5 sec       | GitHub backup          |
-  | pytest                               | 2-5 min       | Full test suite        |
+  | Command                                          | Expected time | Notes                        |
+  |--------------------------------------------------|---------------|------------------------------|
+  | python train_worldcup.py                         | 20-30 sec     | Fastest World Cup cmd        |
+  | python predict_worldcup.py                       | 15-25 sec     | Lightweight, no tuning       |
+  | python run_pipeline.py --lightweight --batch-size 500 | 30-60 sec | Quick test (uses cache)     |
+  | python run_pipeline.py --lightweight              | 1-3 min       | Predict only (uses cache)    |
+  | python run_pipeline.py --skip-download            | 10-25 min     | With retrain                 |
+  | python run_pipeline.py                            | 25-40 min     | Full pipeline (first run)    |
+  | python run_pipeline.py (2nd+ run, cache hit)      | 3-10 min      | Feature matrix cached        |
+  | python today_value_bets_live.py                   | 10-20 sec     | With live odds fetch         |
+  | python run_dashboard.py                           | < 5 sec       | Opens Streamlit              |
+  | python bracket_simulator.py                       | 10-60 sec     | Depends on simulations       |
+  | python collect_all_worldcups.py                   | 10-30 sec     | Downloads all WCs            |
+  | python refresh_worldcup.py                        | 30-120 sec    | Full refresh pipeline        |
+  | scripts/auto_commit.ps1                           | < 5 sec       | GitHub backup                |
+  | pytest                                            | 2-5 min       | Full test suite              |
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  10. QUICK REFERENCE — COMMON COMMANDS                                      ║
