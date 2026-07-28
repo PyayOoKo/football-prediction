@@ -41,6 +41,8 @@ def configure_logging(
     root_logger = logging.getLogger()
 
     # Prevent duplicate handlers on repeated calls
+    for h in root_logger.handlers:
+        h.close()
     root_logger.handlers.clear()
     root_logger.setLevel(resolved_level)
 

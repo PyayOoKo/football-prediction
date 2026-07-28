@@ -41,6 +41,7 @@ def session():
         # Enable FK enforcement for constraint testing
         sess.execute(text("PRAGMA foreign_keys = ON"))
         yield sess
+    engine.dispose()
 
 
 @pytest.fixture

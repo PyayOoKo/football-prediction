@@ -77,7 +77,7 @@ class TestScheduleConfig:
         from src.scheduler.models import ScheduleConfig
 
         cfg = ScheduleConfig.default()
-        assert len(cfg.tasks) == 10  # 6 core + 4 daily pipeline
+        assert len(cfg.tasks) == 13  # 9 core + 4 daily pipeline
 
     def test_daily_pipeline_tasks_present(self):
         from src.scheduler.models import ScheduleConfig

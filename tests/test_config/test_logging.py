@@ -33,6 +33,8 @@ class TestConfigureLogging:
                 handler_types = [type(h).__name__ for h in root.handlers]
                 assert "StreamHandler" in handler_types
         finally:
+            for h in root.handlers:
+                h.close()
             root.handlers.clear()
             root.handlers.extend(original_handlers)
 
@@ -54,6 +56,8 @@ class TestConfigureLogging:
                 handler_types = [type(h).__name__ for h in root.handlers]
                 assert "RotatingFileHandler" in handler_types
         finally:
+            for h in root.handlers:
+                h.close()
             root.handlers.clear()
             root.handlers.extend(original_handlers)
 
@@ -76,6 +80,8 @@ class TestConfigureLogging:
                 # Root level should be ERROR
                 assert root_level in (logging.ERROR, 40)
         finally:
+            for h in root.handlers:
+                h.close()
             root.handlers.clear()
             root.handlers.extend(original_handlers)
             root.setLevel(original_level)
@@ -101,6 +107,8 @@ class TestConfigureLogging:
                 # Should have the same number (cleared + re-added)
                 assert handler_count_2 == handler_count_1
         finally:
+            for h in root.handlers:
+                h.close()
             root.handlers.clear()
             root.handlers.extend(original_handlers)
 
@@ -122,6 +130,8 @@ class TestConfigureLogging:
                 assert logging.getLogger("urllib3").level == logging.WARNING
                 assert logging.getLogger("matplotlib").level == logging.WARNING
         finally:
+            for h in root.handlers:
+                h.close()
             root.handlers.clear()
             root.handlers.extend(original_handlers)
 
@@ -143,6 +153,8 @@ class TestConfigureLogging:
                 assert "FileHandler" not in handler_types
                 assert "RotatingFileHandler" not in handler_types
         finally:
+            for h in root.handlers:
+                h.close()
             root.handlers.clear()
             root.handlers.extend(original_handlers)
 
@@ -166,5 +178,7 @@ class TestConfigureLogging:
                 handler_types = [type(h).__name__ for h in root.handlers]
                 assert "RotatingFileHandler" in handler_types
         finally:
+            for h in root.handlers:
+                h.close()
             root.handlers.clear()
             root.handlers.extend(original_handlers)

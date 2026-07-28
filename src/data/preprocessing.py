@@ -243,7 +243,9 @@ class DataPreprocessor:
             logger.warning("No 'date' column found — skipping date parsing")
             return df
 
-        df["date"] = pd.to_datetime(df["date"], dayfirst=True, errors="coerce")
+        df["date"] = pd.to_datetime(
+            df["date"], dayfirst=True, errors="coerce", format="mixed"
+        )
         n_nat = df["date"].isna().sum()
         if n_nat > 0:
             logger.warning("%d date values could not be parsed (set to NaT)", n_nat)

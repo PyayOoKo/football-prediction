@@ -89,7 +89,8 @@ def db_session(in_memory_db_engine) -> Generator[Session, None, None]:
 
     yield session
 
-    session.close()
+    # Roll back before closing — session.close() would de-associate
+    # the transaction from the connection, causing SAWarning.
     transaction.rollback()
     connection.close()
 

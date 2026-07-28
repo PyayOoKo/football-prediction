@@ -30,6 +30,7 @@ def session() -> Iterator[Session]:
     s = SessionLocal()
     yield s
     s.close()
+    engine.dispose()
 
 
 @pytest.fixture
