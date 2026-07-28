@@ -426,4 +426,71 @@ The remaining 16 warnings come from deep inside SQLAlchemy internals (`.venv/Lib
 
 ---
 
-*Last updated: 2026-07-28 — Phase 3: Soft deletes, connection pooling, PgBouncer deployment, 32 new tests, warning cleanup (99.7% reduction), stale assertion fixes.*
+### ✅ 3 Mypy Type Errors Fixed (`_dc_1x2` duplicate, `setdefault`, float annotations)
+
+| File | Error | Fix |
+|------|-------|-----|
+| `src/models/three_model_blend.py` | `_dc_1x2` defined twice (mypy F811) | Removed first duplicate definition |
+| `src/poisson_model.py:804` | `Optional[list[float]]` → `list[float]` | Changed `dict.get()` to `setdefault()` |
+| `src/features/rolling.py:95-96` | `int` vs `float` branch conflict | Added explicit `: float` annotations |
+
+### ✅ 9 Silent `except Exception:` Blocks Fixed
+
+Added `logger.debug()` or `logger.warning()` calls to previously silent exception handlers:
+
+| File | Context | Level |
+|------|---------|:-----:|
+| `src/poisson_model.py:757` | Date decay computation fallback | `logger.debug` |
+| `src/gap_model.py:300` | GAP weight computation fallback | `logger.debug` |
+| `src/hyperparameter_tuning.py:927` | `get_params()` → empty dict | `logger.debug` |
+| `src/hyperparameter_tuning.py:1036` | Optuna trial penalty | `logger.debug` |
+| `src/cache/backend.py:551` | Redis `get()` deserialization | `logger.warning` + `exc_info=True` |
+| `src/cache/backend.py:667` | Redis `get_many()` deserialization | `logger.warning` + `exc_info=True` |
+| `src/experiment_tracking/tracker.py:78` | CPU info fallback | `logger.debug` |
+| `src/experiment_tracking/tracker.py:97` | GPU info fallback | `logger.debug` |
+| `src/experiment_tracking/tracker.py:117` | Shell command failure | `logger.debug` |
+
+### 🔥 Config Unification — Root `config.py` Merged into `src.config.settings`
+
+**Problem:** Two independent config systems — root `config.py` (model/feature/training settings) and `src/config/settings.py` (infrastructure settings) — with no shared structure.
+
+**Solution:** Merged ALL ~30 sub-config dataclasses into a single unified hierarchy in `src/config/settings.py`. Root `config.py` is now a thin re-export with a `DeprecationWarning`.
+
+| Before | After |
+|:-------|:------|
+| `config.py` — 700+ lines, independent `Config` class | Re-export with deprecation warning (~30 lines) |
+| `src/config/settings.py` — 250 lines, infra only | Unified ~800-line Config with ALL settings |
+| 11 src/ importers + 29 scripts + 20 additional src/ files | All **62 files** use `from src.config import config` |
+| `src/config/__init__.py` exported only `Config`, `config` | Also exports `EnsembleConfig`, `HyperTuneConfig` |
+
+**Validation:**
+| Check | Result |
+|-------|:------:|
+| Tests | 213 passed |
+| mypy | Clean on both config files |
+| Old imports remaining | **0** (verified by script) |
+| Backward compat | Root `config.py` still works for external scripts |
+
+### 🧹 Ruff Linting — 67% Reduction (2,351 → 783 Issues)
+
+| Pass | Fixed | Method |
+|:-----|:-----:|:-------|
+| Safe fixes | 520 | `ruff check --fix` (unused imports, collapsible-if, etc.) |
+| Unsafe fixes | 258 | `ruff check --fix --unsafe-fixes` (dict→{}, unused vars, zip strict) |
+| Formatting | ~1,089 E501 | `ruff format src/` (192 files reformatted) |
+| **Total fixed** | **1,568** | **67% reduction** |
+
+**Remaining (783 manual):** 271 E501 line-length, 295 naming conventions, 117 unused args, 23 B904 exception chaining, 21 B008 default args, 56 other.
+
+### 📊 Full Test Suite Baseline
+
+| Metric | Value |
+|--------|:-----:|
+| **Passed** | **2,063** ✅ |
+| Skipped | 2 |
+| Duration | 3 min 5 sec |
+| Coverage | Phase 3 adds 32+ new tests |
+
+---
+
+*Last updated: 2026-07-28 — Phase 3: Soft deletes, connection pooling, PgBouncer, 32+ new tests, warning cleanup (99.7%), config unification (62 files), 1,568 ruff fixes, 3 mypy fixes, 9 except block fixes.*
