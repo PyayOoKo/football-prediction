@@ -792,7 +792,13 @@ def step_predict(use_blend: bool = True, batch_size: int = 0) -> dict[str, Any]:
             # Load the trained ensemble model
             model_path = config.paths.models / _pipeline_cfg.model_file
             if not model_path.exists():
-                raise FileNotFoundError(f"Ensemble model not found at {model_path}")
+                logger.warning(
+                    "  Ensemble model not found at %s — no models available for prediction; "
+                    "run 'python run_pipeline.py train' first",
+                    model_path,
+                )
+                return {"success": True, "n_predictions": 0,
+                        "message": "No trained models available — run train step first"}
             ensemble = EnsembleModel.load(str(model_path))
 
             # Build features

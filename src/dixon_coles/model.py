@@ -484,6 +484,28 @@ class DixonColesModel:
         from src.dixon_coles.fit import _fill_dc_row
 
         df = df.copy()
+
+        # Guard: if goals columns are missing, return early with default DC features
+        if home_goals_col not in df.columns or away_goals_col not in df.columns:
+            logger.warning(
+                "'%s' or '%s' not in columns — returning default DC features (zeros); "
+                "available cols: %s",
+                home_goals_col, away_goals_col, list(df.columns)[:20],
+            )
+            df["DC_Expected_Home_Goals"] = 1.0
+            df["DC_Expected_Away_Goals"] = 1.0
+            df["DC_Expected_Total_Goals"] = 2.0
+            df["DC_Expected_Goal_Difference"] = 0.0
+            df["DC_Home_Attack_Strength"] = 0.0
+            df["DC_Home_Defence_Weakness"] = 0.0
+            df["DC_Away_Attack_Strength"] = 0.0
+            df["DC_Away_Defence_Weakness"] = 0.0
+            df["DC_Home_Win_Prob"] = 0.45
+            df["DC_Draw_Prob"] = 0.25
+            df["DC_Away_Win_Prob"] = 0.30
+            df["DC_Rho"] = 0.0
+            return df
+
         n = len(df)
         exp_home = np.full(n, np.nan)
         exp_away = np.full(n, np.nan)

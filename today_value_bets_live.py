@@ -150,7 +150,9 @@ def main(argv=None):
     today = pd.Timestamp.now().normalize()
     cutoff = today + pd.Timedelta(days=args.days)
     upcoming = df[df["result"].isna() & (df["date"] >= today) & (df["date"] <= cutoff)].copy()
-    upcoming = upcoming[~upcoming["home_team"].str.contains(r"^[WL]\d+|TBD", na=False)].copy()
+    upcoming = upcoming[
+        ~upcoming["home_team"].fillna("").astype(str).str.contains(r"^[WL]\d+|TBD", na=False)
+    ].copy()
 
     log(f"  Training: {len(completed)} matches  |  Predict: {len(upcoming)} matches")
     if len(upcoming) == 0:

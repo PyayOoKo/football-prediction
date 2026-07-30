@@ -90,6 +90,13 @@ def fit_dixon_coles_model(
     if n_teams < 2:
         raise ValueError(f"Need at least 2 teams, got {n_teams}")
 
+    # Guard: check goals columns exist before accessing
+    if home_goals_col not in df.columns or away_goals_col not in df.columns:
+        raise ValueError(
+            f"Cannot fit Dixon-Coles model: '{home_goals_col}' or '{away_goals_col}' "
+            f"not found in data columns. Available: {list(df.columns)}"
+        )
+
     # Prepare data arrays
     home_goals = df[home_goals_col].values.astype(float)
     away_goals = df[away_goals_col].values.astype(float)
