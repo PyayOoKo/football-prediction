@@ -1045,7 +1045,14 @@ def _create_structured_columns(
         df["target"] = -1
         details_parts.append("No 'result' column found — target set to -1")
 
-    # 3. Goal columns
+    # 3. Goal columns — handle both canonical names and football-data.co.uk abbreviations
+    if "home_goals" not in df.columns and "hg" in df.columns:
+        df["home_goals"] = pd.to_numeric(df["hg"], errors="coerce")
+        details_parts.append("Renamed hg → home_goals")
+    if "away_goals" not in df.columns and "ag" in df.columns:
+        df["away_goals"] = pd.to_numeric(df["ag"], errors="coerce")
+        details_parts.append("Renamed ag → away_goals")
+
     if "home_goals" in df.columns and "away_goals" in df.columns:
         df["goal_diff"] = df["home_goals"] - df["away_goals"]
         df["total_goals"] = df["home_goals"] + df["away_goals"]
