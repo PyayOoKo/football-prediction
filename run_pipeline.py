@@ -183,18 +183,27 @@ def step_preprocess() -> dict[str, Any]:
         clean_mtime = clean_path.stat().st_mtime
         raw_mtime = raw_path.stat().st_mtime
         if clean_mtime >= raw_mtime:
-            logger.info(
-                "  Clean file is up-to-date (%s) — skipping preprocessing",
-                clean_path.name,
-            )
-            df = pd.read_csv(clean_path, low_memory=False)
-            return {
-                "success": True,
-                "rows": len(df),
-                "columns": len(df.columns),
-                "output_path": str(clean_path),
-                "skipped": True,
-            }
+            # Check that the clean file has expected columns (not stale from old pipeline version)
+            df_check = pd.read_csv(clean_path, nrows=1, low_memory=False)
+            missing_cols = [c for c in ["home_goals", "away_goals"] if c not in df_check.columns]
+            if missing_cols:
+                logger.info(
+                    "  Clean file exists but is missing columns %s — force re-processing",
+                    missing_cols,
+                )
+            else:
+                logger.info(
+                    "  Clean file is up-to-date (%s) — skipping preprocessing",
+                    clean_path.name,
+                )
+                df = pd.read_csv(clean_path, low_memory=False)
+                return {
+                    "success": True,
+                    "rows": len(df),
+                    "columns": len(df.columns),
+                    "output_path": str(clean_path),
+                    "skipped": True,
+                }
 
     try:
         from src.preprocessing import run_preprocessing
@@ -403,6 +412,14 @@ def step_retrain_blend(batch_size: int = 0) -> dict[str, Any]:
         df = pd.read_csv(data_path, low_memory=False)
         if "date" in df.columns:
             df["date"] = pd.to_datetime(df["date"])
+
+        # Defensive: rename hg/ag to home_goals/away_goals if canonical columns are missing
+        if "home_goals" not in df.columns and "hg" in df.columns:
+            df["home_goals"] = pd.to_numeric(df["hg"], errors="coerce")
+            logger.info("  Renamed hg → home_goals (defensive fallback)")
+        if "away_goals" not in df.columns and "ag" in df.columns:
+            df["away_goals"] = pd.to_numeric(df["ag"], errors="coerce")
+            logger.info("  Renamed ag → away_goals (defensive fallback)")
 
         # Limit to most recent N rows if batch_size is set
         if batch_size > 0 and len(df) > batch_size:
