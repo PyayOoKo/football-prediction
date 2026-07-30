@@ -706,12 +706,18 @@ def step_predict(use_blend: bool = True, batch_size: int = 0) -> dict[str, Any]:
 
         # Predict using the 3-model blend or EnsembleModel
         if use_blend:
-            logger.info("  Using 3-model blend for predictions ...")
-            from src.models.three_model_blend import ThreeModelBlend
-
             blend_path = config.paths.models / "three_model_blend.joblib"
             if not blend_path.exists():
-                raise FileNotFoundError(f"ThreeModelBlend not found at {blend_path} — run 'python run_pipeline.py' first to train the blend")
+                logger.warning(
+                    "  ThreeModelBlend not found at %s — falling back to ensemble model; "
+                    "run 'python run_pipeline.py blend' to train the blend",
+                    blend_path,
+                )
+                use_blend = False
+
+        if use_blend:
+            logger.info("  Using 3-model blend for predictions ...")
+            from src.models.three_model_blend import ThreeModelBlend
 
             blend = ThreeModelBlend.load(str(blend_path), historical_df=df)
 
