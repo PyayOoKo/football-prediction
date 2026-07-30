@@ -345,6 +345,11 @@ def _compute_rolling_xg(
     **Leakage prevention:** Uses ``.shift(1)`` so the current match's
     values are excluded from its own rolling averages.
 
+    **Graceful fallback:** Rolling columns are initialised with zeros
+    *before* the groupby so they always exist.  If the groupby fails or
+    pandas behaves unexpectedly on a particular platform, zeros are
+    returned instead of a hard ``KeyError``.
+
     Parameters
     ----------
     team_stats : pd.DataFrame
@@ -361,6 +366,14 @@ def _compute_rolling_xg(
     team_stats = team_stats.copy()
     cols_to_merge = ["match_id", "is_home"]
     rolling_suffixes = [f"avg{w}" for w in windows]
+
+    # ── Pre-initialise rolling columns with zeros ──────────
+    # This ensures they always exist, even when xG data is all
+    # placeholders or the groupby doesn't create them.
+    for suffix in rolling_suffixes:
+        team_stats[f"xg_{suffix}"] = 0.0
+        team_stats[f"xga_{suffix}"] = 0.0
+        team_stats[f"xgd_{suffix}"] = 0.0
 
     def _rolling_group(grp: pd.DataFrame) -> pd.DataFrame:
         grp = grp.sort_values("date").copy()
@@ -380,13 +393,28 @@ def _compute_rolling_xg(
 
         return grp
 
-    team_stats = team_stats.groupby("team", group_keys=False).apply(_rolling_group)
+    try:
+        result = team_stats.groupby("team", group_keys=False).apply(_rolling_group)
+        if result is not None and not result.empty:
+            team_stats = result
+    except Exception as exc:
+        logger.warning(
+            "Rolling xG computation failed (%s) — keeping zero-initialised columns",
+            exc,
+        )
 
     # Collect rolling column names for merge step
     rolling_cols = []
     for suffix in rolling_suffixes:
         rolling_cols.extend([f"xg_{suffix}", f"xga_{suffix}", f"xgd_{suffix}"])
     cols_to_merge.extend(rolling_cols)
+
+    # Ensure every requested column exists (safety net for pandas version quirks)
+    missing = [c for c in cols_to_merge if c not in team_stats.columns]
+    if missing:
+        logger.warning("Rolling xG columns missing after groupby: %s — filling with zeros", missing)
+        for col in missing:
+            team_stats[col] = 0.0
 
     return team_stats[cols_to_merge]
 
