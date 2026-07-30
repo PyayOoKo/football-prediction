@@ -276,9 +276,29 @@ class PoissonModel:
         if not self._fitted:
             raise RuntimeError("Model must be fitted before evaluating.")
 
-        actual_hg = df_test[home_goals_col].values.astype(float)
-        actual_ag = df_test[away_goals_col].values.astype(float)
-        actual_result = df_test["result"].map({"A": 0, "D": 1, "H": 2}).values
+        if home_goals_col not in df_test.columns:
+            logger.warning(
+                "Column '%s' not found — using zeros for evaluation",
+                home_goals_col,
+            )
+            actual_hg = np.zeros(len(df_test))
+        else:
+            actual_hg = df_test[home_goals_col].values.astype(float)
+
+        if away_goals_col not in df_test.columns:
+            logger.warning(
+                "Column '%s' not found — using zeros for evaluation",
+                away_goals_col,
+            )
+            actual_ag = np.zeros(len(df_test))
+        else:
+            actual_ag = df_test[away_goals_col].values.astype(float)
+
+        if "result" not in df_test.columns:
+            logger.warning("Column 'result' not found — using draws for evaluation")
+            actual_result = np.ones(len(df_test), dtype=int)  # all draws
+        else:
+            actual_result = df_test["result"].map({"A": 0, "D": 1, "H": 2}).values
 
         preds_df = self.predict_matches(
             df_test,
@@ -398,8 +418,23 @@ class PoissonModel:
             weights = None
 
         # ── League averages (weighted) ────────────────────
-        all_home_goals = df_sorted[home_goals_col].values.astype(float)
-        all_away_goals = df_sorted[away_goals_col].values.astype(float)
+        if home_goals_col not in df_sorted.columns:
+            logger.warning(
+                "Column '%s' not found in data — using zeros for league averages",
+                home_goals_col,
+            )
+            all_home_goals = np.zeros(len(df_sorted))
+        else:
+            all_home_goals = df_sorted[home_goals_col].values.astype(float)
+
+        if away_goals_col not in df_sorted.columns:
+            logger.warning(
+                "Column '%s' not found in data — using zeros for league averages",
+                away_goals_col,
+            )
+            all_away_goals = np.zeros(len(df_sorted))
+        else:
+            all_away_goals = df_sorted[away_goals_col].values.astype(float)
 
         n_matches = len(df_sorted)
         if n_matches > 0:
@@ -769,8 +804,25 @@ class PoissonModel:
         # Pre-extract column arrays for fast access
         home_arr = df[home_team_col].values
         away_arr = df[away_team_col].values
-        hg_arr = df[home_goals_col].values.astype(float)
-        ag_arr = df[away_goals_col].values.astype(float)
+
+        if home_goals_col not in df.columns:
+            logger.warning(
+                "Column '%s' not found — using zeros for Poisson features",
+                home_goals_col,
+            )
+            hg_arr = np.zeros(len(df))
+        else:
+            hg_arr = df[home_goals_col].values.astype(float)
+
+        if away_goals_col not in df.columns:
+            logger.warning(
+                "Column '%s' not found — using zeros for Poisson features",
+                away_goals_col,
+            )
+            ag_arr = np.zeros(len(df))
+        else:
+            ag_arr = df[away_goals_col].values.astype(float)
+
         date_arr = pd.to_datetime(df["date"].values) if use_decay else None
 
         ln2 = np.log(2)
