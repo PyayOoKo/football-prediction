@@ -136,8 +136,16 @@ def main(argv=None):
     log(f"\n  Loaded {len(df)} matches")
 
     # -- 2. Prepare data --
-    df["target"] = df["result"].map({"H": 2, "D": 1, "A": 0})
-    completed = df[df["result"].notna()].copy()
+    if "result" not in df.columns:
+        log("  [i] 'result' column not found — treating all matches as upcoming")
+        df["result"] = np.nan  # needed for upcoming filter below
+        completed = pd.DataFrame()
+    elif df["result"].isna().all():
+        log("  [i] All 'result' values are NaN — treating all matches as upcoming")
+        completed = pd.DataFrame()
+    else:
+        df["target"] = df["result"].map({"H": 2, "D": 1, "A": 0})
+        completed = df[df["result"].notna()].copy()
 
     today = pd.Timestamp.now().normalize()
     cutoff = today + pd.Timedelta(days=args.days)
