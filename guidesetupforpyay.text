@@ -495,6 +495,31 @@
   | scripts/test_time_validation.py     | Validate time-series correctness
   | scripts/pre_phase3_checklist.py     | Pre-deployment checklist
 
+  Market-Specific Models (O/U 2.5 & BTTS)
+  ──────────────────────────────────────────────────────────────────────────
+  | Script                              | Description
+  |-------------------------------------|----------------------------------|
+  | scripts/train_market_models.py      | Train per-league OU & BTTS tree models
+
+  Train XGBoost / LightGBM / CatBoost separately for Over/Under 2.5 and
+  Both Teams to Score (BTTS) on a per-league basis. Models are saved to
+  ``models/per_league/{league}/{model}_{market}.joblib``.
+
+  Usage examples:
+      .venv\Scripts\python.exe scripts	rain_market_models.py --leagues F1
+      .venv\Scripts\python.exe scripts	rain_market_models.py --leagues E0 F1 D1 I1 SP1
+      .venv\Scripts\python.exe scripts	rain_market_models.py --leagues E0 F1 D1 I1 SP1 SE1 POL SWE NOR DN1 IRL FI NO2 FI2
+      .venv\Scripts\python.exe scripts	rain_market_models.py --leagues F1 --over-only
+      .venv\Scripts\python.exe scripts	rain_market_models.py --leagues F1 --btts-only
+
+  Output (6 models per league):
+      models/per_league/{league}/xgboost_ou.joblib
+      models/per_league/{league}/lightgbm_ou.joblib
+      models/per_league/{league}/catboost_ou.joblib
+      models/per_league/{league}/xgboost_btts.joblib
+      models/per_league/{league}/lightgbm_btts.joblib
+      models/per_league/{league}/catboost_btts.joblib
+
   Performance & Benchmarking
   ──────────────────────────────────────────────────────────────────────────
   | Script                              | Description

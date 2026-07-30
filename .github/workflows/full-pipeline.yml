@@ -1,0 +1,266 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Football Prediction — Full Pipeline
+#
+#  Runs the complete `run_pipeline.py` pipeline end-to-end:
+#    download → preprocess → train → blend → predict → value-bets
+#
+#  Triggers:
+#    - Manual via GitHub UI (`workflow_dispatch`)
+#    - Scheduled: daily at 06:00 UTC (same as lightweight automation)
+#
+#  Caching:
+#    - data/    → cached (restored before run, saved after)
+#    - models/  → cached (restored before run, saved after)
+#    - reports/ → uploaded as artifact each run
+#
+#  Requirements:
+#    - First run needs data seeded (or pipeline will try to download)
+#    - ~1-3+ hours depending on blend complexity (53k rows)
+#    - THE_ODDS_API_KEY secret optional (for live odds)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Full Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: "Limit to N most recent rows (0 = all 53k)"
+        type: number
+        default: 0
+        required: false
+      skip_download:
+        description: "Skip data download (use cached)"
+        type: boolean
+        default: false
+      skip_train:
+        description: "Skip ensemble training"
+        type: boolean
+        default: false
+      skip_blend:
+        description: "Skip 5-model blend training"
+        type: boolean
+        default: false
+      skip_value_bets:
+        description: "Skip value bets"
+        type: boolean
+        default: false
+
+  schedule:
+    # Daily at 06:00 UTC
+    - cron: "0 6 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-full-pipeline
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  PYTHONUNBUFFERED: "1"
+  PIP_CACHE_DIR: ~/.cache/pip
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  #  FULL PIPELINE
+  #
+  #  Runs run_pipeline.py with all flags, using cached data/models to speed
+  #  up subsequent runs.
+  # ═══════════════════════════════════════════════════════════════════════════
+  full_pipeline:
+    name: "🏃 Full Pipeline"
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360  # GitHub max — needed for full 53k blend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Cache hits drastically reduce run time ──
+      - name: Restore data cache
+        id: data-cache
+        uses: actions/cache@v4
+        with:
+          path: data/
+          key: football-data-${{ hashFiles('src/**', 'scripts/**', 'requirements.txt') }}
+          restore-keys: |
+            football-data-
+
+      - name: Restore models cache
+        id: models-cache
+        uses: actions/cache@v4
+        with:
+          path: models/
+          key: football-models-${{ hashFiles('src/**', 'scripts/**', 'requirements.txt') }}
+          restore-keys: |
+            football-models-
+
+      - name: Install Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          pip install -r requirements.txt
+
+      - name: Verify dependencies
+        run: |
+          python -c "
+          import sys
+          errors = []
+          for d in ['numpy', 'pandas', 'sklearn', 'xgboost', 'lightgbm', 'joblib', 'catboost']:
+              try:
+                  __import__(d)
+              except ImportError:
+                  errors.append(d)
+          if errors:
+              print(f'❌ Missing: {errors}')
+              sys.exit(1)
+          print(f'✅ All dependencies verified')
+          print(f'  Python {sys.version}')
+          "
+
+      - name: Show cache status
+        run: |
+          echo "### 📦 Cache Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Cache | Hit? | Size |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|------|------|" >> $GITHUB_STEP_SUMMARY
+          DATA_HIT="${{ steps.data-cache.outputs.cache-hit == 'true' && '✅' || '❌' }}"
+          MODELS_HIT="${{ steps.models-cache.outputs.cache-hit == 'true' && '✅' || '❌' }}"
+          DATA_SIZE=$(du -sh data/ 2>/dev/null | cut -f1 || echo "0B")
+          MODELS_SIZE=$(du -sh models/ 2>/dev/null | cut -f1 || echo "0B")
+          echo "| data/     | $DATA_HIT | $DATA_SIZE |" >> $GITHUB_STEP_SUMMARY
+          echo "| models/   | $MODELS_HIT | $MODELS_SIZE |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Build run_pipeline arguments
+        id: args
+        run: |
+          ARGS="all"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            [ "${{ github.event.inputs.batch_size }}" != "0" ] && \
+              ARGS="$ARGS --batch-size ${{ github.event.inputs.batch_size }}"
+            [ "${{ github.event.inputs.skip_download }}" = "true" ] && \
+              ARGS="$ARGS --skip-download"
+            [ "${{ github.event.inputs.skip_train }}" = "true" ] && \
+              ARGS="$ARGS --skip-train"
+            [ "${{ github.event.inputs.skip_blend }}" = "true" ] && \
+              ARGS="$ARGS --skip-blend"
+            [ "${{ github.event.inputs.skip_value_bets }}" = "true" ] && \
+              ARGS="$ARGS --skip-value-bets"
+          fi
+
+          echo "args=$ARGS" >> $GITHUB_OUTPUT
+
+      - name: Run full pipeline
+        id: pipeline
+        env:
+          THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY || '' }}
+        run: |
+          echo "::group::Pipeline execution"
+          echo "Command: python run_pipeline.py ${{ steps.args.outputs.args }}"
+          echo "Started: $(date -u)"
+          START=$(date +%s)
+
+          python run_pipeline.py ${{ steps.args.outputs.args }} 2>&1
+
+          EXIT_CODE=$?
+          END=$(date +%s)
+          DURATION=$((END - START))
+          echo "duration=$DURATION" >> $GITHUB_OUTPUT
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "Finished: $(date -u) (${DURATION}s)"
+          echo "::endgroup::"
+
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "❌ Pipeline failed (exit code: $EXIT_CODE)"
+            exit $EXIT_CODE
+          fi
+          echo "✅ Pipeline succeeded"
+
+      - name: Show pipeline summary
+        if: always()
+        run: |
+          echo "## 🏃 Full Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          STATUS="${{ steps.pipeline.outcome == 'success' && '✅ Passed' || '❌ Failed' }}"
+          echo "**Status:** $STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          DURATION="${{ steps.pipeline.outputs.duration }}"
+          if [ -n "$DURATION" ]; then
+            MIN=$((DURATION / 60))
+            SEC=$((DURATION % 60))
+            echo "**Duration:** ${MIN}m ${SEC}s" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "**Args:** \`${{ steps.args.outputs.args }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check for model files
+          echo "### Models" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -lh models/*.joblib 2>/dev/null || echo "(no .joblib models)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          # Check per-league models
+          PL_DIRS=$(ls -d models/per_league/*/ 2>/dev/null | wc -l)
+          echo "**Per-league dirs:** $PL_DIRS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check reports
+          echo "### Reports" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -lh reports/ 2>/dev/null || echo "(no reports yet)"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-reports-${{ github.run_id }}
+          path: |
+            reports/
+            logs/
+          retention-days: 30
+
+      - name: Check data exists (first run helper)
+        run: |
+          if [ ! -f "data/football_data.db" ] && [ ! -f "data/processed/results_clean.csv" ]; then
+            echo "### 🆕 First Run — No Cached Data Found" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "No cached data found. The pipeline will attempt to download data from" >> $GITHUB_STEP_SUMMARY
+            echo "external sources. This requires internet access and may take time." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "To speed this up, you can seed the cache by:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Running the pipeline locally with data already present" >> $GITHUB_STEP_SUMMARY
+            echo "2. Then pushing and triggering this workflow — the cache will populate" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "If the download fails, create a GitHub Release with your data/ and" >> $GITHUB_STEP_SUMMARY
+            echo "models/ directories, then add a download step here." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Send notification on failure
+        if: failure() && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+        uses: rtCamp/action-slack-notify@v2
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK || '' }}
+          SLACK_CHANNEL: ci-failures
+          SLACK_COLOR: danger
+          SLACK_TITLE: "🚨 Full Pipeline Failed"
+          SLACK_MESSAGE: |
+            *Repository:* ${{ github.repository }}
+            *Branch:* ${{ github.ref }}
+            *Run:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

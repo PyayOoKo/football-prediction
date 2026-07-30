@@ -244,15 +244,34 @@ def load_ou_from_1x2(league: str) -> pd.DataFrame:
 
 
 def load_league_models(league: str) -> dict[str, Any] | None:
-    """Load per-league models."""
+    """Load per-league models.
+
+    Prefers the new per-league ``dc_model.joblib`` (from blend quick-test)
+    over the older ``dixon_coles.joblib`` so backtests reflect the latest
+    Dixon-Coles fits.
+    """
     import joblib
     league_dir = MODELS_DIR / league
-    dc_path = league_dir / "dixon_coles.joblib"
+
+    # Try new per-league DC model first, fall back to old one
+    dc_new = league_dir / "dc_model.joblib"
+    dc_old = league_dir / "dixon_coles.joblib"
+    if dc_new.exists():
+        dc_path = dc_new
+        logger.info("  Using NEW per-league DC model: %s", dc_new.name)
+    elif dc_old.exists():
+        dc_path = dc_old
+        logger.info("  Using OLD per-league DC model: %s", dc_old.name)
+    else:
+        return None
+
     elo_path = league_dir / "elo.joblib"
     xgb_path = league_dir / "xgboost.joblib"
     lgb_path = league_dir / "lightgbm.joblib"
-    if not dc_path.exists() or not elo_path.exists():
+
+    if not elo_path.exists():
         return None
+
     models: dict[str, Any] = {
         "dc": joblib.load(dc_path),
         "elo": joblib.load(elo_path),
